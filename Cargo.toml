@@ -61,9 +61,14 @@ validator = { version = "0.18", features = ["derive"] }
 regex = "1.10"
 url = "2.5"
 futures = "0.3"
+fastrand = "2.0"
 
 # Development
 [dev-dependencies]
 tokio-test = "0.4"
 mockito = "1.0"
 tempfile = "3.8"
+
+[[bin]]
+name = "test_cache"
+path = "src/bin/test_cache.rs"
