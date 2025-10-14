@@ -116,7 +116,9 @@ impl AuthDatabase for MongoDatabase {
         match result {
             Ok(insert_result) => {
                 let mut created_user = user;
-                created_user.id = Some(insert_result.inserted_id.to_string());
+                if let Some(object_id) = insert_result.inserted_id.as_object_id() {
+                    created_user.id = Some(object_id);
+                }
                 Ok(created_user)
             }
             Err(e) => {

@@ -4,19 +4,19 @@ use axum::{
     Extension,
     http::StatusCode,
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::{json, Value};
 use tracing::{error, info, warn, debug};
 use validator::Validate;
 use uuid::Uuid;
-use chrono::{Utc, Duration};
+use chrono::Utc;
 
 use crate::{
     errors::{AppError, AppResult},
     models::user::{
         AuthResponse, CreateUserRequest, EmailVerificationRequest,
         PasswordChangeRequest, PasswordResetRequest, UpdateUserRequest,
-        User, UserError, UserResponse, UserRole, UserMetadata,
+        User, UserResponse,
     },
     utils::{
         jwt::{JwtClaims, generate_token, verify_token},
@@ -48,19 +48,18 @@ pub async fn register(
     debug!("Registration attempt for email: {}", payload.email);
     
     // Validate input
-    payload.validate()
-        .map_err(|e| AppError::Validation(format!("Validation error: {:?}", e)))?;
+    payload.validate()?;
 
     // Additional password strength validation
     if let Err(e) = validate_password_strength(&payload.password) {
-        return Err(AppError::Validation(e));
+        return Err(AppError::Validation { message: e });
     }
 
     // Check if user already exists
     match state.database.find_user_by_email(&payload.email).await {
         Ok(Some(_)) => {
             warn!("Registration attempt with existing email: {}", payload.email);
-            return Err(AppError::Conflict("User already exists".to_string()));
+            return Err(AppError::Conflict);
         }
         Ok(None) => {
             debug!("Email {} is available for registration", payload.email);
@@ -98,8 +97,8 @@ pub async fn register(
                 &created_user.user_id,
                 &created_user.email,
                 &created_user.role.to_string(),
-                state.config.auth.access_token_expiry_hours,
-                &state.config.auth.jwt_secret,
+                (state.config.auth.jwt.expiration_days * 24) as i64,
+                &state.config.auth.jwt.secret,
             ).map_err(|e| {
                 error!("JWT token creation failed: {:?}", e);
                 AppError::Internal
@@ -109,8 +108,8 @@ pub async fn register(
                 &created_user.user_id,
                 &created_user.email,
                 &created_user.role.to_string(),
-                state.config.auth.refresh_token_expiry_hours,
-                &state.config.auth.jwt_secret,
+                (state.config.auth.jwt.expiration_days * 24 * 7) as i64, // 7x longer
+                &state.config.auth.jwt.secret,
             ).map_err(|e| {
                 error!("Refresh token creation failed: {:?}", e);
                 AppError::Internal
@@ -120,7 +119,7 @@ pub async fn register(
                 user: created_user.to_response(),
                 access_token,
                 refresh_token,
-                expires_in: state.config.auth.access_token_expiry_hours * 3600,
+                expires_in: (state.config.auth.jwt.expiration_days * 24 * 3600) as i64,
             }))
         }
         Err(e) => {
@@ -138,15 +137,14 @@ pub async fn login(
     debug!("Login attempt for email: {}", payload.email);
     
     // Validate input
-    payload.validate()
-        .map_err(|e| AppError::Validation(format!("Validation error: {:?}", e)))?;
+    payload.validate()?;
 
     // Get user by email
     let mut user = match state.database.find_user_by_email(&payload.email).await {
         Ok(Some(user)) => user,
         Ok(None) => {
             warn!("Login attempt with non-existent email: {}", payload.email);
-            return Err(AppError::Unauthorized("Invalid email or password".to_string()));
+            return Err(AppError::Unauthorized);
         }
         Err(e) => {
             error!("Database error during login: {:?}", e);
@@ -157,13 +155,13 @@ pub async fn login(
     // Check if account is locked
     if user.is_locked() {
         warn!("Login attempt on locked account: {}", user.email);
-        return Err(AppError::Unauthorized("Account is temporarily locked".to_string()));
+        return Err(AppError::Locked);
     }
 
     // Check if account is active
     if !user.is_active {
         warn!("Login attempt on inactive account: {}", user.email);
-        return Err(AppError::Unauthorized("Account is disabled".to_string()));
+        return Err(AppError::Unauthorized);
     }
 
     // Verify password
@@ -175,20 +173,20 @@ pub async fn login(
 
     if !password_valid {
         // Record failed login attempt
-        user.record_failed_login(state.config.auth.max_login_attempts, state.config.auth.lockout_duration_hours);
+        user.record_failed_login(5, 24); // TODO: make configurable
         
         if let Err(e) = state.database.update_user(&user).await {
             error!("Failed to update user after failed login: {:?}", e);
         }
         
         warn!("Invalid password for user: {}", user.email);
-        return Err(AppError::Unauthorized("Invalid email or password".to_string()));
+        return Err(AppError::Unauthorized);
     }
 
     // Check if email is verified (if required)
-    if state.config.auth.require_email_verification && !user.email_verified {
+    if state.config.auth.verification.required && !user.email_verified {
         warn!("Login attempt with unverified email: {}", user.email);
-        return Err(AppError::Unauthorized("Email verification required".to_string()));
+        return Err(AppError::Unauthorized);
     }
 
     // Record successful login
@@ -204,8 +202,8 @@ pub async fn login(
         &user.user_id,
         &user.email,
         &user.role.to_string(),
-        state.config.auth.access_token_expiry_hours,
-        &state.config.auth.jwt_secret,
+        (state.config.auth.jwt.expiration_days * 24) as i64,
+        &state.config.auth.jwt.secret,
     ).map_err(|e| {
         error!("Failed to generate access token: {:?}", e);
         AppError::Internal
@@ -215,8 +213,8 @@ pub async fn login(
         &user.user_id,
         &user.email,
         &user.role.to_string(),
-        state.config.auth.refresh_token_expiry_hours,
-        &state.config.auth.jwt_secret,
+        (state.config.auth.jwt.expiration_days * 24 * 7) as i64,
+        &state.config.auth.jwt.secret,
     ).map_err(|e| {
         error!("Failed to generate refresh token: {:?}", e);
         AppError::Internal
@@ -228,7 +226,7 @@ pub async fn login(
         user: user.to_response(),
         access_token,
         refresh_token,
-        expires_in: state.config.auth.access_token_expiry_hours * 3600,
+        expires_in: (state.config.auth.jwt.expiration_days * 24 * 3600) as i64,
     }))
 }
 
@@ -318,7 +316,7 @@ pub async fn refresh_token(
     Json(payload): Json<RefreshTokenRequest>,
 ) -> Result<Json<AuthResponse>, StatusCode> {
     // Validate refresh token
-    let claims = match crate::utils::jwt::verify_token(&payload.refresh_token, &state.config.auth.jwt_secret) {
+    let claims = match verify_token(&payload.refresh_token, &state.config.auth.jwt.secret) {
         Ok(claims) => claims,
         Err(e) => {
             warn!("Invalid refresh token: {:?}", e);
@@ -346,12 +344,12 @@ pub async fn refresh_token(
     }
 
     // Generate new tokens
-    let access_token = match crate::utils::jwt::generate_token(
+    let access_token = match generate_token(
         &user.user_id,
         &user.email,
         &user.role.to_string(),
-        state.config.auth.access_token_expiry_hours,
-        &state.config.auth.jwt_secret,
+        (state.config.auth.jwt.expiration_days * 24) as i64,
+        &state.config.auth.jwt.secret,
     ) {
         Ok(token) => token,
         Err(e) => {
@@ -360,12 +358,12 @@ pub async fn refresh_token(
         }
     };
 
-    let new_refresh_token = match crate::utils::jwt::generate_token(
+    let new_refresh_token = match generate_token(
         &user.user_id,
         &user.email,
         &user.role.to_string(),
-        state.config.auth.refresh_token_expiry_hours,
-        &state.config.auth.jwt_secret,
+        (state.config.auth.jwt.expiration_days * 24 * 7) as i64,
+        &state.config.auth.jwt.secret,
     ) {
         Ok(token) => token,
         Err(e) => {
@@ -380,7 +378,7 @@ pub async fn refresh_token(
         user: user.to_response(),
         access_token,
         refresh_token: new_refresh_token,
-        expires_in: state.config.auth.access_token_expiry_hours * 3600,
+        expires_in: (state.config.auth.jwt.expiration_days * 24 * 3600) as i64,
     }))
 }
 
