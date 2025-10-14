@@ -1,21 +1,28 @@
 use axum::{
-    extract::{Query, State},
+    extract::State,
     response::Json,
     Extension,
+    http::StatusCode,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use tracing::{error, info, warn};
+use tracing::{error, info, warn, debug};
 use validator::Validate;
+use uuid::Uuid;
+use chrono::{Utc, Duration};
 
 use crate::{
     errors::{AppError, AppResult},
     models::user::{
         AuthResponse, CreateUserRequest, EmailVerificationRequest,
         PasswordChangeRequest, PasswordResetRequest, UpdateUserRequest,
-        User, UserError, UserResponse,
+        User, UserError, UserResponse, UserRole, UserMetadata,
     },
-    utils::{jwt::JwtClaims, password},
+    utils::{
+        jwt::{JwtClaims, generate_token, verify_token},
+        password::{hash_password, verify_password},
+        validation::validate_password_strength,
+    },
     AppState,
 };
 
@@ -37,42 +44,45 @@ pub struct RefreshTokenRequest {
 pub async fn register(
     State(state): State<AppState>,
     Json(payload): Json<CreateUserRequest>,
-) -> Result<Json<Value>, StatusCode> {
+) -> AppResult<Json<AuthResponse>> {
+    debug!("Registration attempt for email: {}", payload.email);
+    
     // Validate input
-    if let Err(validation_errors) = payload.validate() {
-        error!("Registration validation failed: {:?}", validation_errors);
-        return Err(StatusCode::BAD_REQUEST);
+    payload.validate()
+        .map_err(|e| AppError::Validation(format!("Validation error: {:?}", e)))?;
+
+    // Additional password strength validation
+    if let Err(e) = validate_password_strength(&payload.password) {
+        return Err(AppError::Validation(e));
     }
 
     // Check if user already exists
-    match state.database.get_user_by_email(&payload.email).await {
-        Ok(_) => {
+    match state.database.find_user_by_email(&payload.email).await {
+        Ok(Some(_)) => {
             warn!("Registration attempt with existing email: {}", payload.email);
-            return Err(StatusCode::CONFLICT);
+            return Err(AppError::Conflict("User already exists".to_string()));
         }
-        Err(UserError::NotFound) => {
-            // Good, user doesn't exist
+        Ok(None) => {
+            debug!("Email {} is available for registration", payload.email);
         }
         Err(e) => {
             error!("Database error during registration check: {:?}", e);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+            return Err(AppError::Database(e.to_string()));
         }
     }
 
     // Hash password
-    let password_hash = match password::hash_password(&payload.password) {
-        Ok(hash) => hash,
-        Err(e) => {
+    let password_hash = hash_password(&payload.password)
+        .map_err(|e| {
             error!("Password hashing failed: {:?}", e);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-    };
+            AppError::Internal
+        })?;
 
     // Create user
     let mut user = User::new(payload, password_hash);
     
     // Generate email verification token
-    let verification_token = uuid::Uuid::new_v4().to_string();
+    let verification_token = Uuid::new_v4().to_string();
     user.set_email_verification_token(verification_token.clone(), 24);
 
     // Save user to database
@@ -83,15 +93,39 @@ pub async fn register(
             // TODO: Send verification email
             // state.email_service.send_verification_email(&created_user, &verification_token).await;
             
-            Ok(Json(json!({
-                "message": "User registered successfully",
-                "user": created_user.to_response(),
-                "verification_required": true
-            })))
+            // Generate JWT token
+            let access_token = generate_token(
+                &created_user.user_id,
+                &created_user.email,
+                &created_user.role.to_string(),
+                state.config.auth.access_token_expiry_hours,
+                &state.config.auth.jwt_secret,
+            ).map_err(|e| {
+                error!("JWT token creation failed: {:?}", e);
+                AppError::Internal
+            })?;
+
+            let refresh_token = generate_token(
+                &created_user.user_id,
+                &created_user.email,
+                &created_user.role.to_string(),
+                state.config.auth.refresh_token_expiry_hours,
+                &state.config.auth.jwt_secret,
+            ).map_err(|e| {
+                error!("Refresh token creation failed: {:?}", e);
+                AppError::Internal
+            })?;
+            
+            Ok(Json(AuthResponse {
+                user: created_user.to_response(),
+                access_token,
+                refresh_token,
+                expires_in: state.config.auth.access_token_expiry_hours * 3600,
+            }))
         }
         Err(e) => {
             error!("Failed to create user: {:?}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            Err(AppError::Database(e.to_string()))
         }
     }
 }
@@ -100,46 +134,44 @@ pub async fn register(
 pub async fn login(
     State(state): State<AppState>,
     Json(payload): Json<LoginRequest>,
-) -> Result<Json<AuthResponse>, StatusCode> {
+) -> AppResult<Json<AuthResponse>> {
+    debug!("Login attempt for email: {}", payload.email);
+    
     // Validate input
-    if let Err(validation_errors) = payload.validate() {
-        error!("Login validation failed: {:?}", validation_errors);
-        return Err(StatusCode::BAD_REQUEST);
-    }
+    payload.validate()
+        .map_err(|e| AppError::Validation(format!("Validation error: {:?}", e)))?;
 
     // Get user by email
-    let mut user = match state.database.get_user_by_email(&payload.email).await {
-        Ok(user) => user,
-        Err(UserError::NotFound) => {
+    let mut user = match state.database.find_user_by_email(&payload.email).await {
+        Ok(Some(user)) => user,
+        Ok(None) => {
             warn!("Login attempt with non-existent email: {}", payload.email);
-            return Err(StatusCode::UNAUTHORIZED);
+            return Err(AppError::Unauthorized("Invalid email or password".to_string()));
         }
         Err(e) => {
             error!("Database error during login: {:?}", e);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+            return Err(AppError::Database(e.to_string()));
         }
     };
 
     // Check if account is locked
     if user.is_locked() {
         warn!("Login attempt on locked account: {}", user.email);
-        return Err(StatusCode::LOCKED);
+        return Err(AppError::Unauthorized("Account is temporarily locked".to_string()));
     }
 
     // Check if account is active
     if !user.is_active {
         warn!("Login attempt on inactive account: {}", user.email);
-        return Err(StatusCode::FORBIDDEN);
+        return Err(AppError::Unauthorized("Account is disabled".to_string()));
     }
 
     // Verify password
-    let password_valid = match password::verify_password(&payload.password, &user.password_hash) {
-        Ok(valid) => valid,
-        Err(e) => {
+    let password_valid = verify_password(&payload.password, &user.password_hash)
+        .map_err(|e| {
             error!("Password verification error: {:?}", e);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-    };
+            AppError::Internal
+        })?;
 
     if !password_valid {
         // Record failed login attempt
@@ -150,13 +182,13 @@ pub async fn login(
         }
         
         warn!("Invalid password for user: {}", user.email);
-        return Err(StatusCode::UNAUTHORIZED);
+        return Err(AppError::Unauthorized("Invalid email or password".to_string()));
     }
 
     // Check if email is verified (if required)
     if state.config.auth.require_email_verification && !user.email_verified {
         warn!("Login attempt with unverified email: {}", user.email);
-        return Err(StatusCode::FORBIDDEN);
+        return Err(AppError::Unauthorized("Email verification required".to_string()));
     }
 
     // Record successful login
@@ -168,33 +200,27 @@ pub async fn login(
     }
 
     // Generate JWT tokens
-    let access_token = match crate::utils::jwt::generate_token(
+    let access_token = generate_token(
         &user.user_id,
         &user.email,
         &user.role.to_string(),
         state.config.auth.access_token_expiry_hours,
         &state.config.auth.jwt_secret,
-    ) {
-        Ok(token) => token,
-        Err(e) => {
-            error!("Failed to generate access token: {:?}", e);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-    };
+    ).map_err(|e| {
+        error!("Failed to generate access token: {:?}", e);
+        AppError::Internal
+    })?;
 
-    let refresh_token = match crate::utils::jwt::generate_token(
+    let refresh_token = generate_token(
         &user.user_id,
         &user.email,
         &user.role.to_string(),
         state.config.auth.refresh_token_expiry_hours,
         &state.config.auth.jwt_secret,
-    ) {
-        Ok(token) => token,
-        Err(e) => {
-            error!("Failed to generate refresh token: {:?}", e);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-    };
+    ).map_err(|e| {
+        error!("Failed to generate refresh token: {:?}", e);
+        AppError::Internal
+    })?;
 
     info!("User logged in successfully: {}", user.email);
 
