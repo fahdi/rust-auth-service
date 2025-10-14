@@ -14,7 +14,7 @@ use database::DatabaseConfig;
 use email::EmailConfig;
 use server::ServerConfig;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
     pub server: ServerConfig,
     pub database: DatabaseConfig,
@@ -45,10 +45,9 @@ impl Config {
     pub fn from_env_and_file() -> Result<Self> {
         // Load from config.yml if it exists
         let mut config = if std::path::Path::new("config.yml").exists() {
-            let config_str = std::fs::read_to_string("config.yml")
-                .context("Failed to read config.yml")?;
-            serde_yaml::from_str::<Config>(&config_str)
-                .context("Failed to parse config.yml")?
+            let config_str =
+                std::fs::read_to_string("config.yml").context("Failed to read config.yml")?;
+            serde_yaml::from_str::<Config>(&config_str).context("Failed to parse config.yml")?
         } else {
             // Use default configuration
             Config::default()
@@ -76,7 +75,8 @@ impl Config {
             config.auth.jwt.secret = jwt_secret;
         }
         if let Ok(bcrypt_rounds) = env::var("BCRYPT_ROUNDS") {
-            config.auth.password.bcrypt_rounds = bcrypt_rounds.parse().context("Invalid BCRYPT_ROUNDS")?;
+            config.auth.password.bcrypt_rounds =
+                bcrypt_rounds.parse().context("Invalid BCRYPT_ROUNDS")?;
         }
 
         if let Ok(cache_type) = env::var("CACHE_TYPE") {
@@ -97,15 +97,4 @@ impl Config {
     }
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            server: ServerConfig::default(),
-            database: DatabaseConfig::default(),
-            auth: AuthConfig::default(),
-            cache: CacheConfig::default(),
-            email: EmailConfig::default(),
-            monitoring: MonitoringConfig::default(),
-        }
-    }
-}
+// Config Default implementation is now derived
