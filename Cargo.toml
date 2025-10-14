@@ -35,7 +35,7 @@ rand = "0.8"
 redis = { version = "0.24", features = ["tokio-comp", "connection-manager"] }
 lru = "0.12"
 
-# Email
+# Email & HTTP Client
 reqwest = { version = "0.11", features = ["json"] }
 lettre = { version = "0.11", features = ["tokio1-native-tls"] }
 
@@ -72,3 +72,7 @@ tempfile = "3.8"
 [[bin]]
 name = "test_cache"
 path = "src/bin/test_cache.rs"
+
+[[bin]]
+name = "test_endpoints"
+path = "src/bin/test_endpoints.rs"
