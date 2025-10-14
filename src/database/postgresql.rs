@@ -480,3 +480,14 @@ impl AuthDatabase for PostgresDatabase {
         Ok(())
     }
 }
+
+/// Create a PostgreSQL connection pool for migrations
+pub async fn create_pool(config: &crate::config::database::DatabaseConfig) -> Result<Pool<Postgres>> {
+    PgPoolOptions::new()
+        .max_connections(config.pool.max_connections)
+        .min_connections(config.pool.min_connections)
+        .idle_timeout(std::time::Duration::from_secs(config.pool.idle_timeout))
+        .connect(&config.url)
+        .await
+        .context("Failed to connect to PostgreSQL database")
+}

@@ -502,6 +502,19 @@ impl AuthDatabase for MySqlDatabase {
     }
 }
 
+/// Create a MySQL connection pool for migrations
+pub async fn create_pool(config: &crate::config::database::DatabaseConfig) -> Result<sqlx::MySqlPool> {
+    use sqlx::mysql::MySqlPoolOptions;
+    
+    MySqlPoolOptions::new()
+        .max_connections(config.pool.max_connections)
+        .min_connections(config.pool.min_connections)
+        .idle_timeout(std::time::Duration::from_secs(config.pool.idle_timeout))
+        .connect(&config.url)
+        .await
+        .context("Failed to connect to MySQL database")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

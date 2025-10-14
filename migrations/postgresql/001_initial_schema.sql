@@ -107,3 +107,21 @@ COMMENT ON COLUMN users.role IS 'User role for authorization (user, admin, moder
 COMMENT ON COLUMN users.metadata IS 'Additional user data stored as JSON';
 COMMENT ON COLUMN users.login_attempts IS 'Number of consecutive failed login attempts';
 COMMENT ON COLUMN users.locked_until IS 'Timestamp until which the account is locked';
+
+-- DOWN
+-- Drop all objects created by this migration in reverse order
+DROP TRIGGER IF EXISTS trg_users_updated_at ON users;
+DROP FUNCTION IF EXISTS cleanup_expired_tokens();
+DROP FUNCTION IF EXISTS update_updated_at();
+DROP INDEX IF EXISTS idx_users_metadata;
+DROP INDEX IF EXISTS idx_users_locked;
+DROP INDEX IF EXISTS idx_users_active;
+DROP INDEX IF EXISTS idx_users_role;
+DROP INDEX IF EXISTS idx_users_last_login;
+DROP INDEX IF EXISTS idx_users_created_at;
+DROP INDEX IF EXISTS idx_users_password_reset_token;
+DROP INDEX IF EXISTS idx_users_email_verification_token;
+DROP INDEX IF EXISTS idx_users_user_id;
+DROP INDEX IF EXISTS idx_users_email;
+DROP TABLE IF EXISTS users;
+DROP EXTENSION IF EXISTS "uuid-ossp";

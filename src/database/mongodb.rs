@@ -444,6 +444,19 @@ impl AuthDatabase for MongoDatabase {
     }
 }
 
+/// Create a MongoDB database connection for migrations
+pub async fn create_database(config: &crate::config::database::DatabaseConfig) -> Result<mongodb::Database> {
+    use mongodb::{Client, options::ClientOptions};
+    
+    let client_options = ClientOptions::parse(&config.url).await
+        .context("Failed to parse MongoDB connection string")?;
+    
+    let client = Client::with_options(client_options)
+        .context("Failed to create MongoDB client")?;
+        
+    Ok(client.database(DATABASE_NAME))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
