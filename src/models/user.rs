@@ -162,6 +162,16 @@ pub struct AuthResponse {
     pub expires_in: i64, // seconds until access token expires
 }
 
+/// Login attempt record for security tracking
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LoginAttempt {
+    pub user_id: String,
+    pub ip_address: Option<String>,
+    pub user_agent: Option<String>,
+    pub success: bool,
+    pub attempted_at: DateTime<Utc>,
+}
+
 /// Database error types for user operations
 #[derive(Debug, thiserror::Error)]
 pub enum UserError {

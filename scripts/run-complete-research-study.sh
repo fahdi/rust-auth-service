@@ -104,9 +104,9 @@ setup_environment() {
     
     # Start Docker containers
     echo -e "${YELLOW}🐳 Starting test database containers...${NC}"
-    docker-compose -f docker-compose.test.yml down -v 2>/dev/null || true
+    docker-compose -f docker-compose.dev.yml down -v 2>/dev/null || true
     
-    if docker-compose -f docker-compose.test.yml up -d; then
+    if docker-compose -f docker-compose.dev.yml up -d; then
         echo -e "${GREEN}✅ Containers started${NC}"
     else
         echo -e "${RED}❌ Failed to start containers${NC}"
@@ -124,7 +124,7 @@ setup_environment() {
             echo -e "${GREEN}✅ $container is running${NC}"
         else
             echo -e "${RED}❌ $container is not running${NC}"
-            docker-compose -f docker-compose.test.yml logs "$container" | tail -20
+            docker-compose -f docker-compose.dev.yml logs "$container" | tail -20
         fi
     done
     
@@ -444,7 +444,7 @@ cleanup_and_finalize() {
     echo -e "${BLUE}=========================${NC}"
     
     echo -e "${YELLOW}🔄 Stopping test containers...${NC}"
-    docker-compose -f docker-compose.test.yml down -v 2>/dev/null || true
+    docker-compose -f docker-compose.dev.yml down -v 2>/dev/null || true
     
     echo -e "${YELLOW}📦 Compressing research data...${NC}"
     tar -czf "${STUDY_DIR}.tar.gz" "$STUDY_DIR"

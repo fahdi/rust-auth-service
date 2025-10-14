@@ -8,7 +8,7 @@ use sqlx::{
 use std::time::Instant;
 
 use crate::config::database::PoolConfig;
-use crate::models::user::{User, UpdateUserRequest, UserError, UserRole, UserMetadata};
+use crate::models::user::{User, UserError, UserRole, UserMetadata, LoginAttempt};
 use super::{AuthDatabase, DatabaseHealth};
 
 pub struct MySqlDatabase {
@@ -175,24 +175,44 @@ impl AuthDatabase for MySqlDatabase {
         }
     }
 
-    async fn update_user(&self, user_id: &str, updates: UpdateUserRequest) -> Result<User, UserError> {
+    async fn update_user(&self, user: &User) -> Result<User, UserError> {
         let query = r#"
             UPDATE users SET 
-                first_name = COALESCE(?, first_name),
-                last_name = COALESCE(?, last_name),
-                role = COALESCE(?, role),
-                is_active = COALESCE(?, is_active),
+                email = ?,
+                password_hash = ?,
+                first_name = ?,
+                last_name = ?,
+                role = ?,
+                is_active = ?,
+                email_verified = ?,
+                email_verification_token = ?,
+                email_verification_expires = ?,
+                password_reset_token = ?,
+                password_reset_expires = ?,
+                last_login = ?,
+                login_attempts = ?,
+                locked_until = ?,
                 updated_at = ?
             WHERE user_id = ?
         "#;
 
         let result = sqlx::query(query)
-            .bind(&updates.first_name)
-            .bind(&updates.last_name)
-            .bind(updates.role.as_ref().map(|r| r.to_string()))
-            .bind(&updates.is_active)
-            .bind(Utc::now())
-            .bind(user_id)
+            .bind(&user.email)
+            .bind(&user.password_hash)
+            .bind(&user.first_name)
+            .bind(&user.last_name)
+            .bind(user.role.to_string())
+            .bind(user.is_active)
+            .bind(user.email_verified)
+            .bind(&user.email_verification_token)
+            .bind(user.email_verification_expires)
+            .bind(&user.password_reset_token)
+            .bind(user.password_reset_expires)
+            .bind(user.last_login)
+            .bind(user.login_attempts as i32)
+            .bind(user.locked_until)
+            .bind(user.updated_at)
+            .bind(&user.user_id)
             .execute(&self.pool)
             .await
             .map_err(|e| UserError::Database(format!("Failed to update user: {}", e)))?;
@@ -202,7 +222,7 @@ impl AuthDatabase for MySqlDatabase {
         }
 
         // Fetch the updated user
-        self.find_user_by_id(user_id).await?
+        self.find_user_by_id(&user.user_id).await?
             .ok_or(UserError::NotFound)
     }
 
@@ -495,6 +515,127 @@ impl AuthDatabase for MySqlDatabase {
                 details: Some(format!("Connection error: {}", e)),
             }),
         }
+    }
+
+    async fn get_user_by_verification_token(&self, token: &str) -> Result<Option<User>, UserError> {
+        let query = "SELECT * FROM users WHERE email_verification_token = ?";
+        
+        let row = sqlx::query(query)
+            .bind(token)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| UserError::Database(format!("Failed to find user by verification token: {}", e)))?;
+
+        match row {
+            Some(row) => Ok(Some(Self::row_to_user(&row)?)),
+            None => Ok(None),
+        }
+    }
+    
+    async fn get_user_by_reset_token(&self, token: &str) -> Result<Option<User>, UserError> {
+        let query = "SELECT * FROM users WHERE password_reset_token = ?";
+        
+        let row = sqlx::query(query)
+            .bind(token)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| UserError::Database(format!("Failed to find user by reset token: {}", e)))?;
+
+        match row {
+            Some(row) => Ok(Some(Self::row_to_user(&row)?)),
+            None => Ok(None),
+        }
+    }
+    
+    async fn verify_user_email(&self, user_id: &str) -> Result<(), UserError> {
+        let query = r#"
+            UPDATE users SET 
+                email_verified = true,
+                email_verification_token = NULL,
+                email_verification_expires = NULL,
+                updated_at = ?
+            WHERE user_id = ?
+        "#;
+
+        let result = sqlx::query(query)
+            .bind(Utc::now())
+            .bind(user_id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| UserError::Database(format!("Failed to verify email: {}", e)))?;
+
+        if result.rows_affected() == 0 {
+            Err(UserError::NotFound)
+        } else {
+            Ok(())
+        }
+    }
+    
+    async fn update_login_attempts(&self, user_id: &str, attempts: u32, locked_until: Option<chrono::DateTime<chrono::Utc>>) -> Result<(), UserError> {
+        let query = r#"
+            UPDATE users SET 
+                login_attempts = ?,
+                locked_until = ?,
+                updated_at = ?
+            WHERE user_id = ?
+        "#;
+
+        let result = sqlx::query(query)
+            .bind(attempts as i32)
+            .bind(locked_until)
+            .bind(Utc::now())
+            .bind(user_id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| UserError::Database(format!("Failed to update login attempts: {}", e)))?;
+
+        if result.rows_affected() == 0 {
+            Err(UserError::NotFound)
+        } else {
+            Ok(())
+        }
+    }
+    
+    async fn update_last_login(&self, user_id: &str) -> Result<(), UserError> {
+        let query = r#"
+            UPDATE users SET 
+                last_login = ?,
+                updated_at = ?
+            WHERE user_id = ?
+        "#;
+
+        let result = sqlx::query(query)
+            .bind(Utc::now())
+            .bind(Utc::now())
+            .bind(user_id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| UserError::Database(format!("Failed to update last login: {}", e)))?;
+
+        if result.rows_affected() == 0 {
+            Err(UserError::NotFound)
+        } else {
+            Ok(())
+        }
+    }
+    
+    async fn record_login_attempt(&self, attempt: &LoginAttempt) -> Result<(), UserError> {
+        let query = r#"
+            INSERT INTO login_attempts (user_id, ip_address, user_agent, success, attempted_at)
+            VALUES (?, ?, ?, ?, ?)
+        "#;
+
+        sqlx::query(query)
+            .bind(&attempt.user_id)
+            .bind(&attempt.ip_address)
+            .bind(&attempt.user_agent)
+            .bind(attempt.success)
+            .bind(attempt.attempted_at)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| UserError::Database(format!("Failed to record login attempt: {}", e)))?;
+
+        Ok(())
     }
 
     async fn initialize(&self) -> Result<()> {
