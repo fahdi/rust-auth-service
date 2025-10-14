@@ -1,5 +1,5 @@
-pub mod auth_simple;
+pub mod auth;
 pub mod health;
 
-pub use auth_simple::*;
+pub use auth::*;
 pub use health::*;

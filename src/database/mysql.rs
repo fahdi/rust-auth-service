@@ -43,8 +43,7 @@ impl MySqlDatabase {
             .map_err(|e| UserError::Database(format!("Invalid role: {}", e)))?;
 
         Ok(User {
-            id: Some(row.try_get::<u64, _>("id")
-                .map_err(|e| UserError::Database(format!("Failed to get id: {}", e)))?.to_string()),
+            id: None, // MySQL uses auto-increment, not ObjectId
             user_id: row.try_get("user_id")
                 .map_err(|e| UserError::Database(format!("Failed to get user_id: {}", e)))?,
             email: row.try_get("email")
