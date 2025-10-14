@@ -1,0 +1,20 @@
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CacheConfig {
+    pub r#type: String, // redis, memory, none
+    pub url: Option<String>,
+    pub ttl: u64,
+    pub lru_size: usize,
+}
+
+impl Default for CacheConfig {
+    fn default() -> Self {
+        Self {
+            r#type: "redis".to_string(),
+            url: Some("redis://localhost:6379".to_string()),
+            ttl: 3600,
+            lru_size: 1000,
+        }
+    }
+}
