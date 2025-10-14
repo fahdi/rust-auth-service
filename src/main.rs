@@ -1,29 +1,27 @@
 use anyhow::Result;
 use axum::{
     extract::State,
-    http::StatusCode,
+    middleware::from_fn_with_state,
     response::Json,
-    routing::get,
+    routing::{get, post, put},
     Router,
 };
 use serde_json::{json, Value};
 use std::sync::Arc;
 use tower::ServiceBuilder;
-use tower_http::{
-    cors::{Any, CorsLayer},
-    trace::TraceLayer,
-};
+use tower_http::trace::TraceLayer;
 use tracing::{info, error};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod config;
-// mod handlers;
+mod errors;
+mod handlers;
 mod models;
 // mod services;
 mod database;
 // mod cache;
 // mod email;
-// mod middleware;
+mod middleware;
 mod utils;
 
 use config::Config;
@@ -36,57 +34,6 @@ pub struct AppState {
     pub database: Arc<dyn AuthDatabase>,
 }
 
-// Health check handler
-async fn health_check(State(state): State<AppState>) -> Result<Json<Value>, StatusCode> {
-    let db_health = match state.database.health_check().await {
-        Ok(health) => health,
-        Err(e) => {
-            error!("Database health check failed: {}", e);
-            return Err(StatusCode::SERVICE_UNAVAILABLE);
-        }
-    };
-    
-    let response = json!({
-        "status": "ok",
-        "timestamp": chrono::Utc::now().to_rfc3339(),
-        "version": env!("CARGO_PKG_VERSION"),
-        "service": "rust-auth-service",
-        "database": {
-            "status": db_health.status,
-            "type": db_health.database_type,
-            "connected": db_health.connected,
-            "response_time_ms": db_health.response_time_ms
-        }
-    });
-    
-    if db_health.connected {
-        Ok(Json(response))
-    } else {
-        Err(StatusCode::SERVICE_UNAVAILABLE)
-    }
-}
-
-// Ready check handler (for Kubernetes readiness probes)
-async fn ready_check(State(state): State<AppState>) -> Result<Json<Value>, StatusCode> {
-    // Check if database is ready
-    match state.database.health_check().await {
-        Ok(health) if health.connected => {
-            Ok(Json(json!({
-                "status": "ready",
-                "timestamp": chrono::Utc::now().to_rfc3339()
-            })))
-        }
-        _ => Err(StatusCode::SERVICE_UNAVAILABLE)
-    }
-}
-
-// Liveness check handler (for Kubernetes liveness probes)
-async fn liveness_check() -> Json<Value> {
-    Json(json!({
-        "status": "alive",
-        "timestamp": chrono::Utc::now().to_rfc3339()
-    }))
-}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -131,24 +78,34 @@ async fn main() -> Result<()> {
         database: Arc::from(database),
     };
 
-    // Configure CORS
-    let cors = CorsLayer::new()
-        .allow_methods([
-            axum::http::Method::GET,
-            axum::http::Method::POST,
-            axum::http::Method::PUT,
-            axum::http::Method::DELETE,
-        ])
-        .allow_headers(Any)
-        .allow_origin(Any);
+    // Build public routes (no authentication required)
+    let public_routes = Router::new()
+        .route("/health", get(handlers::health_check))
+        .route("/ready", get(handlers::ready_check))
+        .route("/live", get(handlers::liveness_check))
+        .route("/auth/register", post(handlers::register))
+        .route("/auth/login", post(handlers::login))
+        .route("/auth/verify", post(handlers::verify_email))
+        .route("/auth/forgot-password", post(handlers::forgot_password))
+        .route("/auth/reset-password", post(handlers::reset_password))
+        .route("/auth/refresh", post(handlers::refresh_token));
 
-    // Build router with health check endpoints
+    // Build protected routes (authentication required)
+    let protected_routes = Router::new()
+        .route("/auth/me", get(handlers::get_profile))
+        .route("/auth/profile", put(handlers::update_profile))
+        .route("/auth/logout", post(handlers::logout))
+        .route_layer(from_fn_with_state(
+            app_state.clone(),
+            middleware::jwt_auth_middleware,
+        ));
+
+    // Combine all routes
     let app = Router::new()
-        .route("/health", get(health_check))
-        .route("/ready", get(ready_check))
-        .route("/live", get(liveness_check))
+        .merge(public_routes)
+        .merge(protected_routes)
         .with_state(app_state)
-        .layer(cors)
+        .layer(middleware::create_cors_layer())
         .layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()));
 
     // Start server

@@ -409,3 +409,14 @@ mod tests {
         assert!(entropy2 > 50.0);
     }
 }
+
+// Utility functions for simple password operations
+pub fn hash_password(password: &str) -> Result<String> {
+    let manager = PasswordManager::default();
+    manager.hash_password(password)
+}
+
+pub fn verify_password(password: &str, hash: &str) -> Result<bool> {
+    let manager = PasswordManager::default();
+    manager.verify_password(password, hash)
+}
