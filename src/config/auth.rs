@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AuthConfig {
     pub jwt: JwtConfig,
     pub password: PasswordConfig,
@@ -25,15 +25,7 @@ pub struct VerificationConfig {
     pub required: bool,
 }
 
-impl Default for AuthConfig {
-    fn default() -> Self {
-        Self {
-            jwt: JwtConfig::default(),
-            password: PasswordConfig::default(),
-            verification: VerificationConfig::default(),
-        }
-    }
-}
+// AuthConfig Default implementation is now derived
 
 impl Default for JwtConfig {
     fn default() -> Self {
