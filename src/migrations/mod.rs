@@ -84,7 +84,14 @@ impl MigrationLoader {
         while let Some(entry) = dir.next_entry().await? {
             let path = entry.path();
             
-            if path.extension().and_then(|s| s.to_str()) == Some("sql") {
+            let extension = path.extension().and_then(|s| s.to_str());
+            let is_migration_file = match extension {
+                Some("sql") => true,
+                Some("js") if self.database_type == "mongodb" => true,
+                _ => false,
+            };
+            
+            if is_migration_file {
                 if let Some(migration) = self.parse_migration_file(&path).await? {
                     migrations.push(migration);
                 }
