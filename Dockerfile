@@ -1,5 +1,5 @@
-# Production Dockerfile - Multi-stage build for minimal image size
-FROM rust:1.78-slim as builder
+# Multi-stage production Dockerfile using official Rust images
+FROM rust:1.89-bookworm as builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
@@ -8,28 +8,25 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
 WORKDIR /app
 
-# Copy Cargo files
+# Copy dependency files for caching
 COPY Cargo.toml Cargo.lock ./
 
-# Create dummy main.rs for dependency caching
+# Create dummy main for dependency caching
 RUN mkdir src && echo "fn main() {}" > src/main.rs
 
-# Build dependencies
-RUN cargo build --release
-RUN rm src/main.rs
+# Build dependencies only (cached layer)
+RUN cargo build --release && rm -rf src
 
-# Copy source code
-COPY src ./src
-COPY config.yml.example ./config.yml
+# Copy actual source code
+COPY . .
 
 # Build the application
 RUN cargo build --release
 
-# Production stage - Use minimal base image
-FROM debian:bookworm-slim
+# Runtime image using Rust slim (minimal production image)
+FROM rust:1.89-slim-bookworm
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
@@ -37,31 +34,25 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Create app user
-RUN groupadd -r appuser && useradd -r -g appuser appuser
-
-# Set working directory
 WORKDIR /app
 
-# Copy binary from builder stage
-COPY --from=builder /app/target/release/rust-auth-service ./
-COPY --from=builder /app/config.yml ./
+# Copy the binary from builder stage
+COPY --from=builder /app/target/release/rust-auth-service .
+COPY --from=builder /app/config.yml .
 
-# Create necessary directories
-RUN mkdir -p logs templates
+# Set permissions
+RUN chmod +x rust-auth-service
 
-# Fix ownership
-RUN chown -R appuser:appuser /app
-
-# Switch to app user
-USER appuser
-
-# Expose port
-EXPOSE 8080
+# Environment variables
+ENV RUST_BACKTRACE=1
+ENV RUST_LOG=info
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:8080/health || exit 1
+    CMD curl --fail http://localhost:8090/health || exit 1
 
-# Run the binary
+# Expose port
+EXPOSE 8090
+
+# Run the application
 CMD ["./rust-auth-service"]

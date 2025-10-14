@@ -5,21 +5,17 @@ services:
   auth-service:
     build:
       context: .
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
     ports:
-      - "8080:8080"
+      - "8090:8090"
     environment:
-      - RUST_LOG=debug
+      - RUST_LOG=info
       - DATABASE_URL=mongodb://admin:password123@mongodb:27017/auth_service?authSource=admin
       - REDIS_URL=redis://redis:6379
       - JWT_SECRET=super-secret-key-change-in-production-please
       - EMAIL_PROVIDER=smtp
       - SMTP_HOST=mailhog
       - SMTP_PORT=1025
-    volumes:
-      - .:/app
-      - cargo_cache:/usr/local/cargo/registry
-      - target_cache:/app/target
     depends_on:
       - mongodb
       - redis
@@ -28,7 +24,7 @@ services:
       - auth-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8090/health"]
       interval: 30s
       timeout: 10s
       retries: 3
