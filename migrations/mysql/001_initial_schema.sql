@@ -78,3 +78,21 @@ DELIMITER ;
 
 -- Enable the event scheduler (requires SUPER privilege)
 -- SET GLOBAL event_scheduler = ON;
+
+-- DOWN
+-- Drop all objects created by this migration in reverse order
+DROP EVENT IF EXISTS cleanup_expired_tokens;
+DROP INDEX IF EXISTS idx_users_reset_token_expires ON users;
+DROP INDEX IF EXISTS idx_users_verification_token_expires ON users;
+DROP INDEX IF EXISTS idx_users_role_active ON users;
+DROP INDEX IF EXISTS idx_users_email_active ON users;
+DROP INDEX IF EXISTS idx_users_locked ON users;
+DROP INDEX IF EXISTS idx_users_active ON users;
+DROP INDEX IF EXISTS idx_users_role ON users;
+DROP INDEX IF EXISTS idx_users_last_login ON users;
+DROP INDEX IF EXISTS idx_users_created_at ON users;
+DROP INDEX IF EXISTS idx_users_password_reset_token ON users;
+DROP INDEX IF EXISTS idx_users_email_verification_token ON users;
+DROP INDEX IF EXISTS idx_users_user_id ON users;
+DROP INDEX IF EXISTS idx_users_email ON users;
+DROP TABLE IF EXISTS users;

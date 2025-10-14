@@ -92,3 +92,8 @@ pub async fn create_database(config: &DatabaseConfig) -> Result<Box<dyn AuthData
         _ => Err(anyhow::anyhow!("Unsupported database type: {}", config.r#type)),
     }
 }
+
+// Re-export pool creation functions for migrations
+pub use postgresql::create_pool as create_pg_pool;
+pub use mysql::create_pool as create_mysql_pool;
+pub use mongodb::create_database as create_mongo_database;

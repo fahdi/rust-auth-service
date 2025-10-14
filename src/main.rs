@@ -22,6 +22,7 @@ mod database;
 // mod cache;
 // mod email;
 mod middleware;
+mod migrations;
 mod utils;
 
 use config::Config;
