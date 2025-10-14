@@ -15,9 +15,9 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod config;
 // mod handlers;
-// mod models;
+mod models;
 // mod services;
-// mod database;
+mod database;
 // mod cache;
 // mod email;
 // mod middleware;
@@ -43,9 +43,9 @@ async fn main() -> Result<()> {
     let config = Config::from_env_and_file()?;
     info!("Configuration loaded successfully");
 
-    // // Initialize database
-    // let database = database::create_database(&config.database).await?;
-    // info!("Database connection established");
+    // Initialize database
+    let database = database::create_database(&config.database).await?;
+    info!("Database connection established");
 
     // // Initialize cache
     // let cache = cache::create_cache(&config.cache).await?;
@@ -86,9 +86,17 @@ async fn main() -> Result<()> {
     //     .layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()))
     //     .layer(Extension(app_state));
 
+    // Create a simple health check handler
+    let db_health = database.health_check().await?;
+    
     // Temporary simple router for testing
     let app = Router::new()
-        .route("/health", get(|| async { "OK" }))
+        .route("/health", get(|| async { 
+            serde_json::json!({
+                "status": "ok",
+                "database": "connected"
+            }).to_string()
+        }))
         .layer(cors)
         .layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()));
 

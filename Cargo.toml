@@ -55,6 +55,7 @@ thiserror = "1.0"
 validator = { version = "0.18", features = ["derive"] }
 regex = "1.10"
 url = "2.5"
+async-trait = "0.1"
 
 # Development
 [dev-dependencies]
