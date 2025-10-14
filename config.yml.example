@@ -1,0 +1,59 @@
+# Rust Auth Service Configuration
+# Copy this file to config.yml and customize for your environment
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+  workers: 4
+
+database:
+  type: "mongodb"
+  url: "mongodb://admin:password123@localhost:27017/auth_service?authSource=admin"
+  pool:
+    max_size: 10
+    min_size: 5
+    acquire_timeout_ms: 30000
+    idle_timeout_ms: 600000
+
+auth:
+  jwt:
+    secret: "your-super-secret-jwt-key-change-in-production-256-bits-minimum"
+    expiration_days: 7
+  password:
+    bcrypt_rounds: 12
+    min_length: 8
+  verification:
+    token_expiry_hours: 24
+    required: false  # Set to true in production
+
+cache:
+  type: "redis"
+  url: "redis://:redis_password@localhost:6379"
+  ttl_seconds: 3600
+  max_size: 10000
+
+email:
+  provider: "smtp"
+  from_email: "noreply@yourapp.com"
+  from_name: "Your App"
+  
+  # SMTP Configuration (Development with MailHog)
+  smtp:
+    host: "localhost"
+    port: 1025
+    username: ""
+    password: ""
+    
+  # Third-party providers (Production)
+  brevo:
+    api_key: ""
+    
+  sendgrid:
+    api_key: ""
+    
+  template_dir: "templates"
+
+monitoring:
+  metrics: true
+  prometheus_port: 9090
+  health_check_interval: 30

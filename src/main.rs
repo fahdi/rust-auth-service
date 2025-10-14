@@ -1,16 +1,19 @@
 use anyhow::Result;
 use axum::{
-    extract::Extension,
-    http::Method,
-    routing::{get, post},
+    extract::State,
+    http::StatusCode,
+    response::Json,
+    routing::get,
     Router,
 };
+use serde_json::{json, Value};
+use std::sync::Arc;
 use tower::ServiceBuilder;
 use tower_http::{
     cors::{Any, CorsLayer},
     trace::TraceLayer,
 };
-use tracing::{info, Level};
+use tracing::{info, error};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod config;
@@ -24,7 +27,66 @@ mod database;
 mod utils;
 
 use config::Config;
-// use handlers::{auth, health, user};
+use database::AuthDatabase;
+
+// Application state shared across handlers
+#[derive(Clone)]
+pub struct AppState {
+    pub config: Arc<Config>,
+    pub database: Arc<dyn AuthDatabase>,
+}
+
+// Health check handler
+async fn health_check(State(state): State<AppState>) -> Result<Json<Value>, StatusCode> {
+    let db_health = match state.database.health_check().await {
+        Ok(health) => health,
+        Err(e) => {
+            error!("Database health check failed: {}", e);
+            return Err(StatusCode::SERVICE_UNAVAILABLE);
+        }
+    };
+    
+    let response = json!({
+        "status": "ok",
+        "timestamp": chrono::Utc::now().to_rfc3339(),
+        "version": env!("CARGO_PKG_VERSION"),
+        "service": "rust-auth-service",
+        "database": {
+            "status": db_health.status,
+            "type": db_health.database_type,
+            "connected": db_health.connected,
+            "response_time_ms": db_health.response_time_ms
+        }
+    });
+    
+    if db_health.connected {
+        Ok(Json(response))
+    } else {
+        Err(StatusCode::SERVICE_UNAVAILABLE)
+    }
+}
+
+// Ready check handler (for Kubernetes readiness probes)
+async fn ready_check(State(state): State<AppState>) -> Result<Json<Value>, StatusCode> {
+    // Check if database is ready
+    match state.database.health_check().await {
+        Ok(health) if health.connected => {
+            Ok(Json(json!({
+                "status": "ready",
+                "timestamp": chrono::Utc::now().to_rfc3339()
+            })))
+        }
+        _ => Err(StatusCode::SERVICE_UNAVAILABLE)
+    }
+}
+
+// Liveness check handler (for Kubernetes liveness probes)
+async fn liveness_check() -> Json<Value> {
+    Json(json!({
+        "status": "alive",
+        "timestamp": chrono::Utc::now().to_rfc3339()
+    }))
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -47,56 +109,45 @@ async fn main() -> Result<()> {
     let database = database::create_database(&config.database).await?;
     info!("Database connection established");
 
-    // // Initialize cache
-    // let cache = cache::create_cache(&config.cache).await?;
-    // info!("Cache initialized");
+    // Test database connection
+    match database.health_check().await {
+        Ok(health) => {
+            if health.connected {
+                info!("Database health check passed: {} ({}ms)", health.status, health.response_time_ms);
+            } else {
+                error!("Database health check failed: {}", health.status);
+                return Err(anyhow::anyhow!("Database not ready"));
+            }
+        }
+        Err(e) => {
+            error!("Database health check error: {}", e);
+            return Err(e);
+        }
+    }
 
-    // // Initialize email service
-    // let email_service = email::create_email_service(&config.email).await?;
-    // info!("Email service initialized");
-
-    // // Build application state
-    // let app_state = AppState {
-    //     config: config.clone(),
-    //     database,
-    //     cache,
-    //     email_service,
-    // };
+    // Build application state
+    let app_state = AppState {
+        config: Arc::new(config.clone()),
+        database: Arc::from(database),
+    };
 
     // Configure CORS
     let cors = CorsLayer::new()
-        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
+        .allow_methods([
+            axum::http::Method::GET,
+            axum::http::Method::POST,
+            axum::http::Method::PUT,
+            axum::http::Method::DELETE,
+        ])
         .allow_headers(Any)
         .allow_origin(Any);
 
-    // // Build router
-    // let app = Router::new()
-    //     .route("/health", get(health::health_check))
-    //     .route("/metrics", get(health::metrics))
-    //     .route("/auth/register", post(auth::register))
-    //     .route("/auth/login", post(auth::login))
-    //     .route("/auth/verify", post(auth::verify))
-    //     .route("/auth/forgot-password", post(auth::forgot_password))
-    //     .route("/auth/reset-password", post(auth::reset_password))
-    //     .route("/auth/refresh", post(auth::refresh))
-    //     .route("/auth/me", get(auth::me))
-    //     .route("/auth/profile", post(auth::update_profile))
-    //     .route("/auth/logout", post(auth::logout))
-    //     .layer(cors)
-    //     .layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()))
-    //     .layer(Extension(app_state));
-
-    // Create a simple health check handler
-    let db_health = database.health_check().await?;
-    
-    // Temporary simple router for testing
+    // Build router with health check endpoints
     let app = Router::new()
-        .route("/health", get(|| async { 
-            serde_json::json!({
-                "status": "ok",
-                "database": "connected"
-            }).to_string()
-        }))
+        .route("/health", get(health_check))
+        .route("/ready", get(ready_check))
+        .route("/live", get(liveness_check))
+        .with_state(app_state)
         .layer(cors)
         .layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()));
 
