@@ -1,18 +1,18 @@
 version: '3.8'
 
 services:
-  # MongoDB for testing
-  mongodb-test:
+  # MongoDB for development
+  mongodb:
     image: mongo:7
-    container_name: rust-auth-mongodb-test
+    container_name: rust-auth-mongodb-dev
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD: password123
-      MONGO_INITDB_DATABASE: auth_service_test
+      MONGO_INITDB_DATABASE: auth_service_dev
     ports:
       - "27018:27017"
     volumes:
-      - mongodb_test_data:/data/db
+      - mongodb_dev_data:/data/db
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
@@ -20,18 +20,18 @@ services:
       retries: 3
       start_period: 30s
 
-  # PostgreSQL for testing
-  postgresql-test:
+  # PostgreSQL for development
+  postgresql:
     image: postgres:15
-    container_name: rust-auth-postgresql-test
+    container_name: rust-auth-postgresql-dev
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password123
-      POSTGRES_DB: auth_service_test
+      POSTGRES_DB: auth_service_dev
     ports:
       - "5433:5432"
     volumes:
-      - postgresql_test_data:/var/lib/postgresql/data
+      - postgresql_dev_data:/var/lib/postgresql/data
       - ./migrations/postgresql:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
@@ -40,19 +40,19 @@ services:
       retries: 3
       start_period: 30s
 
-  # MySQL for testing
-  mysql-test:
+  # MySQL for development
+  mysql:
     image: mysql:8.0
-    container_name: rust-auth-mysql-test
+    container_name: rust-auth-mysql-dev
     environment:
       MYSQL_ROOT_PASSWORD: password123
-      MYSQL_DATABASE: auth_service_test
+      MYSQL_DATABASE: auth_service_dev
       MYSQL_USER: auth_user
       MYSQL_PASSWORD: password123
     ports:
       - "3307:3306"
     volumes:
-      - mysql_test_data:/var/lib/mysql
+      - mysql_dev_data:/var/lib/mysql
       - ./migrations/mysql:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
@@ -62,14 +62,14 @@ services:
       start_period: 30s
 
   # Redis for caching
-  redis-test:
+  redis:
     image: redis:7-alpine
-    container_name: rust-auth-redis-test
+    container_name: rust-auth-redis-dev
     command: redis-server --requirepass password123
     ports:
       - "6380:6379"
     volumes:
-      - redis_test_data:/data
+      - redis_dev_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "password123", "ping"]
       interval: 10s
@@ -77,9 +77,9 @@ services:
       retries: 3
 
   # MailHog for email testing
-  mailhog-test:
+  mailhog:
     image: mailhog/mailhog:latest
-    container_name: rust-auth-mailhog-test
+    container_name: rust-auth-mailhog-dev
     ports:
       - "1025:1025"  # SMTP
       - "8025:8025"  # Web UI
@@ -89,32 +89,32 @@ services:
       timeout: 5s
       retries: 3
 
-  # Test runner service
-  auth-service-test:
+  # Development service
+  auth-service:
     build:
       context: .
       dockerfile: Dockerfile.test
-    container_name: rust-auth-service-test
+    container_name: rust-auth-service-dev
     depends_on:
-      mongodb-test:
+      mongodb:
         condition: service_healthy
-      postgresql-test:
+      postgresql:
         condition: service_healthy
-      mysql-test:
+      mysql:
         condition: service_healthy
-      redis-test:
+      redis:
         condition: service_healthy
-      mailhog-test:
+      mailhog:
         condition: service_healthy
     environment:
-      # Test configurations for different databases
-      MONGODB_TEST_URL: "mongodb://admin:password123@mongodb-test:27017/auth_service_test?authSource=admin"
-      POSTGRESQL_TEST_URL: "postgresql://postgres:password123@postgresql-test:5432/auth_service_test"
-      MYSQL_TEST_URL: "mysql://root:password123@mysql-test:3306/auth_service_test"
-      REDIS_TEST_URL: "redis://:password123@redis-test:6379"
-      SMTP_TEST_HOST: "mailhog-test"
-      SMTP_TEST_PORT: "1025"
-      JWT_SECRET: "test-secret-key-for-integration-tests-only"
+      # Development configurations for different databases
+      MONGODB_DEV_URL: "mongodb://admin:password123@mongodb:27017/auth_service_dev?authSource=admin"
+      POSTGRESQL_DEV_URL: "postgresql://postgres:password123@postgresql:5432/auth_service_dev"
+      MYSQL_DEV_URL: "mysql://root:password123@mysql:3306/auth_service_dev"
+      REDIS_DEV_URL: "redis://:password123@redis:6379"
+      SMTP_DEV_HOST: "mailhog"
+      SMTP_DEV_PORT: "1025"
+      JWT_SECRET: "dev-secret-key-change-in-production"
       RUST_LOG: "info"
       RUST_BACKTRACE: "1"
     volumes:
@@ -123,36 +123,36 @@ services:
     working_dir: /app
     command: ["cargo", "test", "--", "--test-threads=1"]
     networks:
-      - auth-test-network
+      - auth-dev-network
 
   # Performance testing with different databases
   performance-test:
     build:
       context: .
       dockerfile: Dockerfile.test
-    container_name: rust-auth-performance-test
+    container_name: rust-auth-performance-dev
     depends_on:
-      - auth-service-test
+      - auth-service
     environment:
-      MONGODB_TEST_URL: "mongodb://admin:password123@mongodb-test:27017/auth_service_test?authSource=admin"
-      POSTGRESQL_TEST_URL: "postgresql://postgres:password123@postgresql-test:5432/auth_service_test"
-      MYSQL_TEST_URL: "mysql://root:password123@mysql-test:3306/auth_service_test"
-      REDIS_TEST_URL: "redis://:password123@redis-test:6379"
-      JWT_SECRET: "test-secret-key-for-performance-tests-only"
+      MONGODB_DEV_URL: "mongodb://admin:password123@mongodb:27017/auth_service_dev?authSource=admin"
+      POSTGRESQL_DEV_URL: "postgresql://postgres:password123@postgresql:5432/auth_service_dev"
+      MYSQL_DEV_URL: "mysql://root:password123@mysql:3306/auth_service_dev"
+      REDIS_DEV_URL: "redis://:password123@redis:6379"
+      JWT_SECRET: "dev-secret-key-for-performance-tests"
     volumes:
       - .:/app
       - /app/target
     working_dir: /app
     command: ["cargo", "test", "--release", "--", "--test-threads=1", "performance"]
     networks:
-      - auth-test-network
+      - auth-dev-network
 
 volumes:
-  mongodb_test_data:
-  postgresql_test_data:
-  mysql_test_data:
-  redis_test_data:
+  mongodb_dev_data:
+  postgresql_dev_data:
+  mysql_dev_data:
+  redis_dev_data:
 
 networks:
-  auth-test-network:
+  auth-dev-network:
     driver: bridge

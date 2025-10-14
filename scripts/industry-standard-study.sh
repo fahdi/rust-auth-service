@@ -25,7 +25,7 @@ echo ""
 
 # Start database containers with non-conflicting ports
 echo -e "${YELLOW}🐳 Starting database containers...${NC}"
-docker-compose -f docker-compose.test.yml up -d mongodb-test postgresql-test mysql-test redis-test
+docker-compose -f docker-compose.dev.yml up -d mongodb-test postgresql-test mysql-test redis-test
 
 # Wait for containers to be ready
 echo -e "${YELLOW}⏳ Waiting for databases to be ready...${NC}"
@@ -33,7 +33,7 @@ sleep 15
 
 # Check container health
 echo -e "${YELLOW}🔍 Checking database health...${NC}"
-docker-compose -f docker-compose.test.yml ps
+docker-compose -f docker-compose.dev.yml ps
 
 # Build optimized image using industry-standard approach
 echo -e "${YELLOW}🔨 Building optimized Rust image...${NC}"
@@ -229,5 +229,5 @@ echo ""
 echo -e "${YELLOW}Image info:${NC}"
 docker images rust-auth-optimized
 echo ""
-echo -e "${YELLOW}To stop containers:${NC} docker-compose -f docker-compose.test.yml down"
+echo -e "${YELLOW}To stop containers:${NC} docker-compose -f docker-compose.dev.yml down"
 echo -e "${YELLOW}To run optimized container:${NC} docker run -p 8090:8090 rust-auth-optimized"

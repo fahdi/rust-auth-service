@@ -7,7 +7,7 @@ pub mod postgresql;
 pub mod mysql;
 
 use crate::config::database::DatabaseConfig;
-use crate::models::user::{User, CreateUserRequest, UpdateUserRequest, UserError};
+use crate::models::user::{User, CreateUserRequest, UpdateUserRequest, UserError, LoginAttempt};
 
 /// Database health status
 #[derive(Debug, Serialize, Deserialize)]
@@ -32,7 +32,7 @@ pub trait AuthDatabase: Send + Sync {
     async fn find_user_by_id(&self, user_id: &str) -> Result<Option<User>, UserError>;
     
     /// Update user information
-    async fn update_user(&self, user_id: &str, updates: UpdateUserRequest) -> Result<User, UserError>;
+    async fn update_user(&self, user: &User) -> Result<User, UserError>;
     
     /// Update user password hash
     async fn update_password(&self, user_id: &str, password_hash: &str) -> Result<(), UserError>;
@@ -66,6 +66,24 @@ pub trait AuthDatabase: Send + Sync {
     
     /// Get database health status
     async fn health_check(&self) -> Result<DatabaseHealth>;
+    
+    /// Find user by verification token
+    async fn get_user_by_verification_token(&self, token: &str) -> Result<Option<User>, UserError>;
+    
+    /// Find user by password reset token  
+    async fn get_user_by_reset_token(&self, token: &str) -> Result<Option<User>, UserError>;
+    
+    /// Verify user email (mark as verified)
+    async fn verify_user_email(&self, user_id: &str) -> Result<(), UserError>;
+    
+    /// Update login attempts and lock status
+    async fn update_login_attempts(&self, user_id: &str, attempts: u32, locked_until: Option<chrono::DateTime<chrono::Utc>>) -> Result<(), UserError>;
+    
+    /// Update last login timestamp
+    async fn update_last_login(&self, user_id: &str) -> Result<(), UserError>;
+    
+    /// Record login attempt
+    async fn record_login_attempt(&self, attempt: &LoginAttempt) -> Result<(), UserError>;
     
     /// Initialize database (create indexes, etc.)
     async fn initialize(&self) -> Result<()>;

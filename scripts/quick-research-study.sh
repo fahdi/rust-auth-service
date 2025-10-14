@@ -33,7 +33,7 @@ echo -e "${GREEN}✅ Using pre-built binary${NC}"
 
 # Start database containers quickly
 echo -e "${YELLOW}🐳 Starting database containers...${NC}"
-docker-compose -f docker-compose.test.yml up -d mongodb-test postgresql-test mysql-test redis-test
+docker-compose -f docker-compose.dev.yml up -d mongodb-test postgresql-test mysql-test redis-test
 
 # Wait for containers to be ready
 echo -e "${YELLOW}⏳ Waiting for databases to be ready...${NC}"
@@ -41,7 +41,7 @@ sleep 10
 
 # Check container health
 echo -e "${YELLOW}🔍 Checking database health...${NC}"
-docker-compose -f docker-compose.test.yml ps
+docker-compose -f docker-compose.dev.yml ps
 
 # Build simple test image
 echo -e "${YELLOW}🔨 Building test image with pre-built binary...${NC}"
@@ -130,5 +130,5 @@ echo -e "${GREEN}✅ Quick research study completed!${NC}"
 echo -e "${BLUE}📄 Report: $STUDY_DIR/quick_study_report.md${NC}"
 echo -e "${BLUE}🐳 Database containers are still running for manual testing${NC}"
 echo ""
-echo -e "${YELLOW}To stop containers:${NC} docker-compose -f docker-compose.test.yml down"
+echo -e "${YELLOW}To stop containers:${NC} docker-compose -f docker-compose.dev.yml down"
 echo -e "${YELLOW}To run full study:${NC} ./scripts/run-complete-research-study.sh"

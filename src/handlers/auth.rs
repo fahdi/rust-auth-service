@@ -86,7 +86,7 @@ pub async fn register(
     user.set_email_verification_token(verification_token.clone(), 24);
 
     // Save user to database
-    match state.database.create_user(&user).await {
+    match state.database.create_user(user).await {
         Ok(created_user) => {
             info!("User registered successfully: {}", created_user.email);
             
@@ -258,9 +258,9 @@ pub async fn forgot_password(
     }
 
     // Get user by email
-    let mut user = match state.database.get_user_by_email(&payload.email).await {
-        Ok(user) => user,
-        Err(UserError::NotFound) => {
+    let mut user = match state.database.find_user_by_email(&payload.email).await {
+        Ok(Some(user)) => user,
+        Ok(None) => {
             // Don't reveal whether email exists or not
             info!("Password reset requested for non-existent email: {}", payload.email);
             return Ok(Json(json!({
@@ -327,9 +327,9 @@ pub async fn refresh_token(
     };
 
     // Get user by user_id from token
-    let user = match state.database.get_user_by_id(&claims.sub).await {
-        Ok(user) => user,
-        Err(UserError::NotFound) => {
+    let user = match state.database.find_user_by_id(&claims.sub).await {
+        Ok(Some(user)) => user,
+        Ok(None) => {
             warn!("Refresh token for non-existent user: {}", claims.sub);
             return Err(StatusCode::UNAUTHORIZED);
         }
@@ -390,9 +390,9 @@ pub async fn get_profile(
     Extension(claims): Extension<JwtClaims>,
 ) -> Result<Json<UserResponse>, StatusCode> {
     // Get user by ID from JWT claims
-    let user = match state.database.get_user_by_id(&claims.sub).await {
-        Ok(user) => user,
-        Err(UserError::NotFound) => {
+    let user = match state.database.find_user_by_id(&claims.sub).await {
+        Ok(Some(user)) => user,
+        Ok(None) => {
             warn!("Profile request for non-existent user: {}", claims.sub);
             return Err(StatusCode::UNAUTHORIZED);
         }
@@ -418,9 +418,9 @@ pub async fn update_profile(
     }
 
     // Get current user
-    let mut user = match state.database.get_user_by_id(&claims.sub).await {
-        Ok(user) => user,
-        Err(UserError::NotFound) => {
+    let mut user = match state.database.find_user_by_id(&claims.sub).await {
+        Ok(Some(user)) => user,
+        Ok(None) => {
             warn!("Profile update for non-existent user: {}", claims.sub);
             return Err(StatusCode::UNAUTHORIZED);
         }
@@ -433,12 +433,12 @@ pub async fn update_profile(
     // Check if email is being changed and if it already exists
     if let Some(ref new_email) = payload.email {
         if new_email != &user.email {
-            match state.database.get_user_by_email(new_email).await {
-                Ok(_) => {
+            match state.database.find_user_by_email(new_email).await {
+                Ok(Some(_)) => {
                     warn!("Profile update with existing email: {}", new_email);
                     return Err(StatusCode::CONFLICT);
                 }
-                Err(UserError::NotFound) => {
+                Ok(None) => {
                     // Good, email is available
                 }
                 Err(e) => {

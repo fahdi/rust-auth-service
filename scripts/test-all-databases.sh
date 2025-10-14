@@ -38,7 +38,7 @@ wait_for_service() {
     echo -e "${YELLOW}⏳ Waiting for $service_name to be healthy...${NC}"
     
     while [ $attempt -le $max_attempts ]; do
-        if docker-compose -f docker-compose.test.yml ps $service_name | grep -q "healthy"; then
+        if docker-compose -f docker-compose.dev.yml ps $service_name | grep -q "healthy"; then
             echo -e "${GREEN}✅ $service_name is healthy${NC}"
             return 0
         fi
@@ -55,7 +55,7 @@ wait_for_service() {
 # Cleanup function
 cleanup() {
     echo -e "${YELLOW}🧹 Cleaning up Docker containers...${NC}"
-    docker-compose -f docker-compose.test.yml down -v
+    docker-compose -f docker-compose.dev.yml down -v
 }
 
 # Set up trap for cleanup
@@ -63,7 +63,7 @@ trap cleanup EXIT
 
 # Start all test services
 echo -e "${BLUE}📦 Starting test database containers...${NC}"
-docker-compose -f docker-compose.test.yml up -d mongodb-test postgresql-test mysql-test redis-test mailhog-test
+docker-compose -f docker-compose.dev.yml up -d mongodb postgresql mysql redis mailhog
 
 # Wait for all services to be healthy
 wait_for_service "mongodb-test"

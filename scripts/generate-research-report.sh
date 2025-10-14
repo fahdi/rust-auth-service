@@ -46,7 +46,7 @@ check_containers() {
     
     if [ "$all_running" = false ]; then
         echo -e "${YELLOW}⚠️  Starting test containers...${NC}"
-        docker-compose -f docker-compose.test.yml up -d
+        docker-compose -f docker-compose.dev.yml up -d
         
         echo -e "${YELLOW}⏳ Waiting for containers to be ready...${NC}"
         sleep 30
