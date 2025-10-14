@@ -37,7 +37,7 @@ docker-compose -f docker-compose.test.yml ps
 
 # Build optimized image using industry-standard approach
 echo -e "${YELLOW}🔨 Building optimized Rust image...${NC}"
-docker build -f Dockerfile.optimized -t rust-auth-optimized .
+docker build -f Dockerfile -t rust-auth-optimized .
 
 # Set environment variables for testing with correct ports
 export MONGODB_TEST_URL="mongodb://admin:password123@localhost:27018/auth_service_test?authSource=admin"

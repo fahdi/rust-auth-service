@@ -12,6 +12,88 @@ impl MySQLMigrationProvider {
     pub fn new(pool: MySqlPool) -> Self {
         Self { pool }
     }
+
+    /// Smart SQL statement splitting that handles MySQL-specific syntax
+    fn split_sql_statements(&self, sql: &str) -> Vec<String> {
+        let mut statements = Vec::new();
+        let mut current_statement = String::new();
+        let mut in_delimiter_block = false;
+        let mut in_event_block = false;
+        let mut delimiter = ";".to_string();
+        
+        let lines: Vec<&str> = sql.lines().collect();
+        
+        for line in lines {
+            let trimmed = line.trim();
+            
+            // Skip empty lines and comments
+            if trimmed.is_empty() || trimmed.starts_with("--") {
+                continue;
+            }
+            
+            // Handle DELIMITER statements
+            if trimmed.to_uppercase().starts_with("DELIMITER") {
+                let parts: Vec<&str> = trimmed.split_whitespace().collect();
+                if parts.len() >= 2 {
+                    delimiter = parts[1].to_string();
+                    in_delimiter_block = delimiter != ";";
+                }
+                continue;
+            }
+            
+            // Detect event blocks
+            if trimmed.to_uppercase().contains("CREATE EVENT") {
+                in_event_block = true;
+            }
+            
+            current_statement.push_str(line);
+            current_statement.push('\n');
+            
+            // Check if we should end the current statement
+            let should_end = if in_delimiter_block || in_event_block {
+                // End when we see the custom delimiter
+                trimmed.ends_with(&delimiter)
+            } else {
+                // Regular statement ends with semicolon
+                trimmed.ends_with(';')
+            };
+            
+            if should_end {
+                let mut stmt = current_statement.trim().to_string();
+                
+                // Remove custom delimiter from the end of the statement
+                if in_delimiter_block && stmt.ends_with(&delimiter) && delimiter != ";" {
+                    let delimiter_len = delimiter.len();
+                    if stmt.len() >= delimiter_len {
+                        stmt = stmt[..stmt.len() - delimiter_len].trim().to_string();
+                    }
+                }
+                
+                if !stmt.is_empty() {
+                    statements.push(stmt);
+                }
+                current_statement.clear();
+                
+                // Reset delimiter block if we finished with custom delimiter
+                if in_delimiter_block && trimmed.ends_with(&delimiter) {
+                    in_delimiter_block = false;
+                    delimiter = ";".to_string();
+                }
+                
+                if in_event_block && trimmed.ends_with(&delimiter) {
+                    in_event_block = false;
+                }
+            }
+        }
+        
+        // Handle any remaining statement
+        let stmt = current_statement.trim().to_string();
+        if !stmt.is_empty() {
+            statements.push(stmt);
+        }
+        
+        statements
+    }
 }
 
 #[async_trait]
@@ -54,16 +136,15 @@ impl MigrationProvider for MySQLMigrationProvider {
 
         let mut migrations = Vec::new();
         for row in rows {
-            let applied_at: chrono::NaiveDateTime = row.get("applied_at");
-            let applied_at_utc = chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(
-                applied_at, chrono::Utc
-            );
+            // MySQL TIMESTAMP is stored as UTC but returned as local time
+            // We need to handle this conversion properly
+            let applied_at: chrono::DateTime<chrono::Utc> = row.get("applied_at");
 
             migrations.push(MigrationRecord {
                 version: row.get::<i32, _>("version") as u32,
                 name: row.get("name"),
                 checksum: row.get("checksum"),
-                applied_at: applied_at_utc,
+                applied_at,
                 execution_time_ms: row.get("execution_time_ms"),
             });
         }
@@ -114,19 +195,15 @@ impl MigrationProvider for MySQLMigrationProvider {
             .await
             .context("Failed to begin transaction")?;
 
-        // MySQL doesn't support multi-statement transactions in the same way
-        // We need to execute statements one by one
-        let statements: Vec<&str> = sql.split(';')
-            .map(|s| s.trim())
-            .filter(|s| !s.is_empty() && !s.starts_with("--"))
-            .collect();
+        // Use smart SQL parsing to handle MySQL-specific syntax
+        let statements = self.split_sql_statements(sql);
 
         for statement in statements {
             if statement.trim().is_empty() {
                 continue;
             }
 
-            sqlx::query(statement)
+            sqlx::query(&statement)
                 .execute(&mut *tx)
                 .await
                 .with_context(|| format!("Failed to execute statement: {}", statement))?;
@@ -148,18 +225,15 @@ impl MigrationProvider for MySQLMigrationProvider {
             .await
             .context("Failed to begin transaction")?;
 
-        // Split SQL by semicolons and execute each statement
-        let statements: Vec<&str> = sql.split(';')
-            .map(|s| s.trim())
-            .filter(|s| !s.is_empty() && !s.starts_with("--"))
-            .collect();
+        // Use smart SQL parsing to handle MySQL-specific syntax
+        let statements = self.split_sql_statements(sql);
 
         for statement in statements {
             if statement.trim().is_empty() {
                 continue;
             }
 
-            sqlx::query(statement)
+            sqlx::query(&statement)
                 .execute(&mut *tx)
                 .await
                 .with_context(|| format!("Failed to execute rollback statement: {}", statement))?;
