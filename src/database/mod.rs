@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 pub mod mongodb;
 pub mod postgresql;
+pub mod mysql;
 
 use crate::config::database::DatabaseConfig;
 use crate::models::user::{User, CreateUserRequest, UpdateUserRequest, UserError};
@@ -83,7 +84,11 @@ pub async fn create_database(config: &DatabaseConfig) -> Result<Box<dyn AuthData
             db.initialize().await?;
             Ok(Box::new(db))
         }
-        // "mysql" => Ok(Box::new(mysql::MySqlDatabase::new(config).await?)),
+        "mysql" => {
+            let db = mysql::MySqlDatabase::new(&config.url, &config.pool).await?;
+            db.initialize().await?;
+            Ok(Box::new(db))
+        }
         _ => Err(anyhow::anyhow!("Unsupported database type: {}", config.r#type)),
     }
 }
