@@ -16,7 +16,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 mod config;
 // mod handlers;
 mod models;
-// mod services;
+mod services;
 mod database;
 // mod cache;
 // mod email;
