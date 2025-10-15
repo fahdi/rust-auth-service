@@ -3,11 +3,10 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-// TODO: Implement MFA modules
-// pub mod totp;
-// pub mod sms;
-// pub mod backup_codes;
-// pub mod webauthn;
+pub mod totp;
+pub mod sms;
+pub mod backup_codes;
+pub mod webauthn;
 
 /// Multi-Factor Authentication types
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -189,8 +188,7 @@ impl Default for MfaConfig {
     }
 }
 
-/*
-/// MFA manager (TODO: Implement after OAuth2)
+/// MFA manager
 pub struct MfaManager<T: MfaService> {
     service: T,
     config: MfaConfig,
@@ -198,17 +196,14 @@ pub struct MfaManager<T: MfaService> {
     sms_provider: Option<sms::SmsProvider>,
     webauthn_provider: webauthn::WebAuthnProvider,
 }
-*/
 
-/*
-// TODO: Implement MFA functionality after OAuth2 is complete
 impl<T: MfaService> MfaManager<T> {
     pub fn new(
         service: T,
         config: MfaConfig,
         sms_provider: Option<sms::SmsProvider>,
     ) -> Result<Self> {
-        let totp_provider = totp::TotpProvider::new(config.totp_digits, config.totp_window)?;
+        let totp_provider = totp::TotpProvider::new(config.totp_digits as usize, config.totp_window as i64)?;
         let webauthn_provider = webauthn::WebAuthnProvider::new(
             &config.webauthn_rp_id,
             &config.webauthn_rp_name,
@@ -388,7 +383,7 @@ impl<T: MfaService> MfaManager<T> {
     // Private helper methods for each MFA type
     async fn setup_totp(&self, user_id: &str, name: &str) -> Result<MfaSetupResponse> {
         let secret = self.totp_provider.generate_secret();
-        let qr_code = self.totp_provider.generate_qr_code(user_id, &secret, "Auth Service")?;
+        let totp_setup = self.totp_provider.setup_totp(&secret, user_id, "Auth Service")?;
         
         let method_id = uuid::Uuid::new_v4().to_string();
         let config = serde_json::json!({
@@ -414,16 +409,17 @@ impl<T: MfaService> MfaManager<T> {
             method_id,
             mfa_type: MfaType::Totp,
             setup_data: serde_json::json!({
-                "secret": secret,
-                "qr_code": qr_code,
-                "manual_entry_key": secret,
+                "secret": totp_setup.secret,
+                "qr_code": totp_setup.qr_code,
+                "manual_entry_key": totp_setup.secret,
             }),
-            backup_codes: None,
+            backup_codes: Some(totp_setup.backup_codes),
         })
     }
 
     async fn setup_sms(&self, user_id: &str, name: &str, config: Option<serde_json::Value>) -> Result<MfaSetupResponse> {
         let phone_number = config
+            .as_ref()
             .and_then(|c| c.get("phone_number"))
             .and_then(|p| p.as_str())
             .ok_or_else(|| anyhow::anyhow!("Phone number required for SMS MFA"))?;
@@ -488,7 +484,12 @@ impl<T: MfaService> MfaManager<T> {
     }
 
     async fn setup_webauthn(&self, user_id: &str, name: &str) -> Result<MfaSetupResponse> {
-        let registration_challenge = self.webauthn_provider.start_registration(user_id, name)?;
+        let registration_request = crate::mfa::webauthn::WebAuthnRegistrationRequest {
+            user_id: user_id.to_string(),
+            username: user_id.to_string(),
+            display_name: name.to_string(),
+        };
+        let registration_challenge = self.webauthn_provider.start_registration(&registration_request)?;
         
         let method_id = uuid::Uuid::new_v4().to_string();
 
@@ -502,8 +503,8 @@ impl<T: MfaService> MfaManager<T> {
 
     async fn setup_backup_codes(&self, user_id: &str) -> Result<MfaSetupResponse> {
         let codes = backup_codes::generate_backup_codes(
-            self.config.backup_codes_count,
-            self.config.backup_code_length,
+            self.config.backup_codes_count as usize,
+            self.config.backup_code_length as usize,
         );
 
         self.service.create_backup_codes(user_id, codes.clone()).await?;
@@ -608,7 +609,10 @@ impl<T: MfaService> MfaManager<T> {
 
     async fn create_webauthn_challenge(&self, user_id: &str, method: &MfaMethod) -> Result<MfaChallenge> {
         let challenge_id = uuid::Uuid::new_v4().to_string();
-        let auth_challenge = self.webauthn_provider.start_authentication(user_id)?;
+        let auth_request = crate::mfa::webauthn::WebAuthnAuthenticationRequest {
+            user_id: user_id.to_string(),
+        };
+        let auth_challenge = self.webauthn_provider.start_authentication(&auth_request)?;
 
         let challenge = MfaChallenge {
             challenge_id: challenge_id.clone(),
@@ -693,4 +697,3 @@ impl<T: MfaService> MfaManager<T> {
         Ok(self.service.use_backup_code(&challenge.user_id, code).await?)
     }
 }
-*/
