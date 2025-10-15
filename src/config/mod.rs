@@ -6,12 +6,14 @@ pub mod auth;
 pub mod cache;
 pub mod database;
 pub mod email;
+pub mod rate_limit;
 pub mod server;
 
 use auth::AuthConfig;
 use cache::CacheConfig;
 use database::DatabaseConfig;
 use email::EmailConfig;
+use rate_limit::RateLimitConfig;
 use server::ServerConfig;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -21,6 +23,7 @@ pub struct Config {
     pub auth: AuthConfig,
     pub cache: CacheConfig,
     pub email: EmailConfig,
+    pub rate_limit: RateLimitConfig,
     pub monitoring: MonitoringConfig,
 }
 
@@ -91,6 +94,17 @@ impl Config {
         }
         if let Ok(brevo_key) = env::var("BREVO_API_KEY") {
             config.email.brevo.as_mut().unwrap().api_key = brevo_key;
+        }
+
+        // Rate limiting environment overrides
+        if let Ok(rate_limit_enabled) = env::var("RATE_LIMIT_ENABLED") {
+            config.rate_limit.enabled = rate_limit_enabled.parse().unwrap_or(true);
+        }
+        if let Ok(rate_limit_backend) = env::var("RATE_LIMIT_BACKEND") {
+            config.rate_limit.backend = rate_limit_backend;
+        }
+        if let Ok(rate_limit_redis_url) = env::var("RATE_LIMIT_REDIS_URL") {
+            config.rate_limit.redis_url = Some(rate_limit_redis_url);
         }
 
         Ok(config)
