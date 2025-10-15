@@ -1,3 +1,4 @@
+#[allow(unused_imports)]
 use rust_auth_service::{
     config::Config,
     database::create_database,
@@ -7,6 +8,7 @@ use anyhow::Result;
 use reqwest::Client;
 use serde_json::{json, Value};
 use std::time::{Duration, Instant};
+#[allow(unused_imports)]
 use tokio::time::sleep;
 use tracing::{error, info, warn};
 
@@ -134,7 +136,7 @@ async fn test_health_endpoints(client: &Client, base_url: &str, stats: &mut Test
     
     for endpoint in endpoints {
         let start = Instant::now();
-        let response = client.get(&format!("{}{}", base_url, endpoint)).send().await;
+        let response = client.get(format!("{}{}", base_url, endpoint)).send().await;
         let duration = start.elapsed();
         
         match response {
@@ -182,7 +184,7 @@ async fn test_registration_flow(client: &Client, base_url: &str, stats: &mut Tes
     
     let start = Instant::now();
     let response = client
-        .post(&format!("{}/auth/register", base_url))
+        .post(format!("{}/auth/register", base_url))
         .json(&registration_payload)
         .send()
         .await;
@@ -215,7 +217,9 @@ async fn test_registration_flow(client: &Client, base_url: &str, stats: &mut Tes
 #[derive(Debug, Clone)]
 struct AuthTestData {
     access_token: String,
+    #[allow(dead_code)]
     refresh_token: String,
+    #[allow(dead_code)]
     user_id: String,
 }
 
@@ -227,7 +231,7 @@ async fn test_login_flow(client: &Client, base_url: &str, user_data: &UserTestDa
     
     let start = Instant::now();
     let response = client
-        .post(&format!("{}/auth/login", base_url))
+        .post(format!("{}/auth/login", base_url))
         .json(&login_payload)
         .send()
         .await;
@@ -276,9 +280,9 @@ async fn test_protected_endpoints(client: &Client, base_url: &str, auth_data: &A
         let start = Instant::now();
         
         let request = match method {
-            "GET" => client.get(&format!("{}{}", base_url, endpoint)),
-            "POST" => client.post(&format!("{}{}", base_url, endpoint)),
-            "PUT" => client.put(&format!("{}{}", base_url, endpoint)),
+            "GET" => client.get(format!("{}{}", base_url, endpoint)),
+            "POST" => client.post(format!("{}{}", base_url, endpoint)),
+            "PUT" => client.put(format!("{}{}", base_url, endpoint)),
             _ => continue,
         };
         
@@ -292,13 +296,13 @@ async fn test_protected_endpoints(client: &Client, base_url: &str, auth_data: &A
         match response {
             Ok(resp) if resp.status().is_success() => {
                 stats.add_request(true, duration);
-                let body: Value = resp.json().await?;
+                let _body: Value = resp.json().await?;
                 info!("✅ {} {} - {}ms", method, endpoint, duration.as_millis());
             }
             Ok(resp) => {
                 stats.add_request(false, duration);
                 let status = resp.status();
-                let body = resp.text().await.unwrap_or_default();
+                let _body = resp.text().await.unwrap_or_default();
                 warn!("⚠️ {} {} failed - Status: {} - {}ms", method, endpoint, status, duration.as_millis());
             }
             Err(e) => {
@@ -319,7 +323,7 @@ async fn test_password_reset_flow(client: &Client, base_url: &str, user_data: &U
     
     let start = Instant::now();
     let response = client
-        .post(&format!("{}/auth/forgot-password", base_url))
+        .post(format!("{}/auth/forgot-password", base_url))
         .json(&reset_request)
         .send()
         .await;
@@ -357,9 +361,9 @@ async fn test_error_scenarios(client: &Client, base_url: &str, stats: &mut TestS
         let start = Instant::now();
         
         let response = if endpoint == "/auth/me" {
-            client.get(&format!("{}{}", base_url, endpoint)).send().await
+            client.get(format!("{}{}", base_url, endpoint)).send().await
         } else {
-            client.post(&format!("{}{}", base_url, endpoint))
+            client.post(format!("{}{}", base_url, endpoint))
                 .json(&payload)
                 .send()
                 .await
@@ -400,7 +404,7 @@ async fn test_performance_load(client: &Client, base_url: &str, stats: &mut Test
         
         let handle = tokio::spawn(async move {
             let start = Instant::now();
-            let response = client.get(&format!("{}/health", base_url)).send().await;
+            let response = client.get(format!("{}/health", base_url)).send().await;
             let duration = start.elapsed();
             
             match response {

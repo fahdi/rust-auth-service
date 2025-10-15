@@ -1,8 +1,10 @@
+#![allow(dead_code)]
+
 use super::{Migration, MigrationProvider, MigrationRecord};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use sqlx::{PgPool, Row};
-use tracing::{info, error};
+use tracing::info;
 
 pub struct PostgreSQLMigrationProvider {
     pool: PgPool,
@@ -18,8 +20,7 @@ impl PostgreSQLMigrationProvider {
         let mut statements = Vec::new();
         let mut current_statement = String::new();
         let mut in_function = false;
-        let mut paren_count = 0;
-        let mut in_comment = false;
+        let in_comment = false;
         let mut in_string = false;
         let mut string_char = '\0';
         
@@ -53,8 +54,8 @@ impl PostgreSQLMigrationProvider {
                             in_string = false;
                         }
                     }
-                    '(' if !in_string && !in_comment => paren_count += 1,
-                    ')' if !in_string && !in_comment => paren_count -= 1,
+                    '(' if !in_string && !in_comment => {},
+                    ')' if !in_string && !in_comment => {},
                     _ => {}
                 }
             }
@@ -76,7 +77,6 @@ impl PostgreSQLMigrationProvider {
                 }
                 current_statement.clear();
                 in_function = false;
-                paren_count = 0;
             }
         }
         

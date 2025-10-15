@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use super::{MigrationLoader, MigrationPlan, MigrationProvider, calculate_migration_plan};
 use anyhow::{Context, Result};
 use std::sync::Arc;

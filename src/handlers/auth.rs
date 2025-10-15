@@ -9,7 +9,6 @@ use serde_json::{json, Value};
 use tracing::{error, info, warn, debug};
 use validator::Validate;
 use uuid::Uuid;
-use chrono::Utc;
 
 use crate::{
     errors::{AppError, AppResult},
@@ -232,8 +231,8 @@ pub async fn login(
 
 // Email verification endpoint
 pub async fn verify_email(
-    State(state): State<AppState>,
-    Json(payload): Json<EmailVerificationRequest>,
+    State(_state): State<AppState>,
+    Json(_payload): Json<EmailVerificationRequest>,
 ) -> Result<Json<Value>, StatusCode> {
     // Find user by verification token (this would need a database method)
     // For now, we'll need to add this method to the database trait
@@ -293,7 +292,7 @@ pub async fn forgot_password(
 
 // Password reset endpoint
 pub async fn reset_password(
-    State(state): State<AppState>,
+    State(_state): State<AppState>,
     Json(payload): Json<PasswordChangeRequest>,
 ) -> Result<Json<Value>, StatusCode> {
     // Validate input

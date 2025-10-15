@@ -1,10 +1,12 @@
+#![allow(dead_code)]
+
 use super::{Migration, MigrationProvider, MigrationRecord};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use futures::TryStreamExt;
 use mongodb::{bson::{doc, Document}, Collection, Database};
 use serde::{Deserialize, Serialize};
-use tracing::{info, error};
+use tracing::info;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct MongoMigrationRecord {

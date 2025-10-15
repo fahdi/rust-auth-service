@@ -41,6 +41,12 @@ pub struct CacheStats {
     pub hit_rate: f64,
 }
 
+impl Default for CacheStats {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CacheStats {
     pub fn new() -> Self {
         Self {

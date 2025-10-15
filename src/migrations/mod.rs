@@ -1,10 +1,12 @@
+#![allow(dead_code)]
+
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
 use tokio::fs;
-use tracing::{error, info, warn};
+use tracing::{info, warn};
 
 pub mod mongodb;
 pub mod mysql;
@@ -32,6 +34,7 @@ pub struct MigrationRecord {
 }
 
 #[async_trait]
+#[allow(dead_code)]
 pub trait MigrationProvider: Send + Sync {
     /// Initialize migration tracking table/collection
     async fn init_migration_table(&self) -> Result<()>;
@@ -55,11 +58,13 @@ pub trait MigrationProvider: Send + Sync {
     async fn ping(&self) -> Result<()>;
 }
 
+#[allow(dead_code)]
 pub struct MigrationLoader {
     migrations_dir: String,
     database_type: String,
 }
 
+#[allow(dead_code)]
 impl MigrationLoader {
     pub fn new(migrations_dir: impl Into<String>, database_type: impl Into<String>) -> Self {
         Self {
@@ -155,8 +160,8 @@ impl MigrationLoader {
 
     fn extract_description(&self, content: &str) -> Option<String> {
         for line in content.lines().take(10) {
-            if line.starts_with("-- Description:") {
-                return Some(line[15..].trim().to_string());
+            if let Some(stripped) = line.strip_prefix("-- Description:") {
+                return Some(stripped.trim().to_string());
             }
         }
         None
@@ -168,6 +173,12 @@ pub struct MigrationPlan {
     pub pending_migrations: Vec<Migration>,
     pub applied_migrations: Vec<MigrationRecord>,
     pub conflicts: Vec<String>,
+}
+
+impl Default for MigrationPlan {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MigrationPlan {

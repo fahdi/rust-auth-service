@@ -6,7 +6,7 @@ use axum::{
 };
 use tracing::{error, warn};
 
-use crate::{utils::jwt::JwtClaims, AppState};
+use crate::AppState;
 
 /// JWT authentication middleware
 /// Extracts and validates JWT token from Authorization header
@@ -81,6 +81,7 @@ pub async fn jwt_auth_middleware(
 /// Optional JWT authentication middleware
 /// Similar to jwt_auth_middleware but doesn't return error if no token is provided
 /// Useful for endpoints that work with or without authentication
+#[allow(dead_code)]
 pub async fn optional_jwt_auth_middleware(
     State(state): State<AppState>,
     mut request: Request,

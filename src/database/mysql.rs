@@ -109,18 +109,18 @@ impl AuthDatabase for MySqlDatabase {
             .bind(&user.password_hash)
             .bind(&user.first_name)
             .bind(&user.last_name)
-            .bind(&user.role.to_string())
+            .bind(user.role.to_string())
             .bind(user.is_active)
             .bind(user.email_verified)
             .bind(&user.email_verification_token)
-            .bind(&user.email_verification_expires)
+            .bind(user.email_verification_expires)
             .bind(&user.password_reset_token)
-            .bind(&user.password_reset_expires)
-            .bind(&user.last_login)
+            .bind(user.password_reset_expires)
+            .bind(user.last_login)
             .bind(user.login_attempts)
-            .bind(&user.locked_until)
-            .bind(&user.created_at)
-            .bind(&user.updated_at)
+            .bind(user.locked_until)
+            .bind(user.created_at)
+            .bind(user.updated_at)
             .bind(&metadata_json)
             .execute(&self.pool)
             .await
@@ -643,6 +643,7 @@ impl AuthDatabase for MySqlDatabase {
 }
 
 /// Create a MySQL connection pool for migrations
+#[allow(dead_code)]
 pub async fn create_pool(config: &crate::config::database::DatabaseConfig) -> Result<sqlx::MySqlPool> {
     use sqlx::mysql::MySqlPoolOptions;
     
