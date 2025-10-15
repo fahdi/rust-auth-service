@@ -78,6 +78,7 @@ fastrand = "2.0"
 tokio-test = "0.4"
 mockito = "1.0"
 tempfile = "3.8"
+base64 = "0.21"
 
 [[bin]]
 name = "test_cache"
