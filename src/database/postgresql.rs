@@ -109,18 +109,18 @@ impl AuthDatabase for PostgresDatabase {
             .bind(&user.password_hash)
             .bind(&user.first_name)
             .bind(&user.last_name)
-            .bind(&user.role.to_string())
+            .bind(user.role.to_string())
             .bind(user.is_active)
             .bind(user.email_verified)
             .bind(&user.email_verification_token)
-            .bind(&user.email_verification_expires)
+            .bind(user.email_verification_expires)
             .bind(&user.password_reset_token)
-            .bind(&user.password_reset_expires)
-            .bind(&user.last_login)
+            .bind(user.password_reset_expires)
+            .bind(user.last_login)
             .bind(user.login_attempts as i32)
-            .bind(&user.locked_until)
-            .bind(&user.created_at)
-            .bind(&user.updated_at)
+            .bind(user.locked_until)
+            .bind(user.created_at)
+            .bind(user.updated_at)
             .bind(&metadata_json)
             .fetch_one(&self.pool)
             .await
@@ -622,6 +622,7 @@ impl AuthDatabase for PostgresDatabase {
 }
 
 /// Create a PostgreSQL connection pool for migrations
+#[allow(dead_code)]
 pub async fn create_pool(config: &crate::config::database::DatabaseConfig) -> Result<Pool<Postgres>> {
     PgPoolOptions::new()
         .max_connections(config.pool.max_connections)
