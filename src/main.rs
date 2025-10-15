@@ -17,7 +17,7 @@ mod metrics;
 mod models;
 // mod services;
 mod database;
-// mod cache;
+mod cache;
 // mod email;
 mod middleware;
 mod migrations;
@@ -25,12 +25,14 @@ mod utils;
 
 use config::Config;
 use database::AuthDatabase;
+use cache::CacheService;
 
 // Application state shared across handlers
 #[derive(Clone)]
 pub struct AppState {
     pub config: Arc<Config>,
     pub database: Arc<dyn AuthDatabase>,
+    pub cache: Arc<CacheService>,
 }
 
 
@@ -61,6 +63,11 @@ async fn main() -> Result<()> {
     let database = database::create_database(&config.database).await?;
     info!("Database connection established");
 
+    // Initialize cache
+    let cache_provider = cache::create_cache_provider(&config.cache).await?;
+    let cache_service = CacheService::new(cache_provider, config.cache.ttl);
+    info!("Cache system initialized");
+
     // Test database connection
     match database.health_check().await {
         Ok(health) => {
@@ -81,6 +88,7 @@ async fn main() -> Result<()> {
     let app_state = AppState {
         config: Arc::new(config.clone()),
         database: Arc::from(database),
+        cache: Arc::new(cache_service),
     };
 
     // Build public routes (no authentication required)
