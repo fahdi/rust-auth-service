@@ -7,7 +7,7 @@ pub mod postgresql;
 pub mod mysql;
 
 use crate::config::database::DatabaseConfig;
-use crate::models::user::{User, CreateUserRequest, UpdateUserRequest, UserError, LoginAttempt};
+use crate::models::user::{User, UserError, LoginAttempt};
 
 /// Database health status
 #[derive(Debug, Serialize, Deserialize)]
@@ -112,6 +112,9 @@ pub async fn create_database(config: &DatabaseConfig) -> Result<Box<dyn AuthData
 }
 
 // Re-export pool creation functions for migrations
+#[allow(unused_imports)]
 pub use postgresql::create_pool as create_pg_pool;
+#[allow(unused_imports)]
 pub use mysql::create_pool as create_mysql_pool;
+#[allow(unused_imports)]
 pub use mongodb::create_database as create_mongo_database;

@@ -80,7 +80,7 @@ impl CacheProvider for RedisCache {
         let ttl_seconds = ttl.as_secs();
         if ttl_seconds == 0 {
             warn!("Setting Redis key '{}' with 0 TTL, using default 1 hour", key);
-            conn.set_ex(key, value, 3600).await
+            conn.set_ex::<_, _, ()>(key, value, 3600).await
         } else {
             conn.set_ex(key, value, ttl_seconds).await
         }
@@ -150,6 +150,7 @@ impl CacheProvider for RedisCache {
 /// Redis connection pool for high-performance scenarios
 pub struct RedisPool {
     client: Client,
+    #[allow(dead_code)]
     pool_size: usize,
 }
 

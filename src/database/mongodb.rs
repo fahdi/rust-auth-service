@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use mongodb::{
     bson::{doc, Document, Bson},
     options::{ClientOptions, IndexOptions},
@@ -530,6 +530,7 @@ impl AuthDatabase for MongoDatabase {
 }
 
 /// Create a MongoDB database connection for migrations
+#[allow(dead_code)]
 pub async fn create_database(config: &crate::config::database::DatabaseConfig) -> Result<mongodb::Database> {
     use mongodb::{Client, options::ClientOptions};
     

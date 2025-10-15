@@ -1,8 +1,10 @@
+#![allow(dead_code)]
+
 use super::{Migration, MigrationProvider, MigrationRecord};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use sqlx::{MySqlPool, Row};
-use tracing::{info, error};
+use tracing::info;
 
 pub struct MySQLMigrationProvider {
     pool: MySqlPool,

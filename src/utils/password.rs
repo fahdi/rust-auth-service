@@ -13,11 +13,6 @@ impl PasswordManager {
         Self { cost }
     }
 
-    /// Create a new password manager with default cost
-    pub fn default() -> Self {
-        Self::new(DEFAULT_COST)
-    }
-
     /// Hash a password using bcrypt
     pub fn hash_password(&self, password: &str) -> Result<String> {
         hash(password, self.cost).context("Failed to hash password")
@@ -407,6 +402,12 @@ mod tests {
 
         assert!(entropy2 > entropy1);
         assert!(entropy2 > 50.0);
+    }
+}
+
+impl Default for PasswordManager {
+    fn default() -> Self {
+        Self::new(DEFAULT_COST)
     }
 }
 

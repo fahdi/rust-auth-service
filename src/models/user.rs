@@ -31,18 +31,15 @@ pub struct User {
 /// User roles for role-based access control
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum UserRole {
+    #[default]
     User,
     Admin,
     Moderator,
     Guest,
 }
 
-impl Default for UserRole {
-    fn default() -> Self {
-        UserRole::User
-    }
-}
 
 impl std::fmt::Display for UserRole {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

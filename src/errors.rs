@@ -28,6 +28,7 @@ pub enum AppError {
     Locked,
 
     #[error("Rate limit exceeded")]
+    #[allow(dead_code)]
     RateLimited,
 
     #[error("Internal server error")]
@@ -37,12 +38,15 @@ pub enum AppError {
     Database(String),
 
     #[error("JWT error: {0}")]
+    #[allow(dead_code)]
     Jwt(String),
 
     #[error("Cache error: {0}")]
+    #[allow(dead_code)]
     Cache(String),
 
     #[error("Email service error: {0}")]
+    #[allow(dead_code)]
     Email(String),
 }
 
@@ -146,17 +150,20 @@ pub type AppResult<T> = Result<T, AppError>;
 
 /// Error response for API endpoints
 #[derive(serde::Serialize)]
+#[allow(dead_code)]
 pub struct ErrorResponse {
     pub error: ErrorDetail,
     pub timestamp: String,
 }
 
 #[derive(serde::Serialize)]
+#[allow(dead_code)]
 pub struct ErrorDetail {
     pub code: String,
     pub message: String,
 }
 
+#[allow(dead_code)]
 impl ErrorResponse {
     pub fn new(code: &str, message: &str) -> Self {
         Self {

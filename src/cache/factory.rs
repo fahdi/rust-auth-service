@@ -1,8 +1,8 @@
 use super::{CacheProvider, MultiLevelCache};
-use super::memory_cache::{MemoryCache, MemoryCacheWithCleanup};
+use super::memory_cache::MemoryCacheWithCleanup;
 use super::redis_cache::RedisCache;
 use crate::config::cache::CacheConfig;
-use anyhow::{Context, Result};
+use anyhow::Result;
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::{info, warn};
