@@ -1,0 +1,187 @@
+# Docker Compose configuration for CI/CD testing
+# This provides all required services for automated testing
+
+version: '3.8'
+
+services:
+  # MongoDB for testing
+  mongodb-test:
+    image: mongo:7.0
+    container_name: auth-test-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=auth_test
+    volumes:
+      - mongodb_test_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - auth-test-network
+
+  # PostgreSQL for testing
+  postgres-test:
+    image: postgres:16
+    container_name: auth-test-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=auth_test
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=test_password
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - auth-test-network
+
+  # MySQL for testing
+  mysql-test:
+    image: mysql:8.0
+    container_name: auth-test-mysql
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_DATABASE=auth_test
+      - MYSQL_ROOT_PASSWORD=test_password
+      - MYSQL_USER=auth_user
+      - MYSQL_PASSWORD=test_password
+    volumes:
+      - mysql_test_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - auth-test-network
+
+  # Redis for caching tests
+  redis-test:
+    image: redis:7.2-alpine
+    container_name: auth-test-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_test_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - auth-test-network
+
+  # Auth service for integration testing
+  auth-service-test:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        RUST_FEATURES: secure
+    container_name: auth-test-service
+    ports:
+      - "8090:8090"
+    environment:
+      - RUST_LOG=info
+      - HOST=0.0.0.0
+      - PORT=8090
+      - MONGODB_TEST_URL=mongodb://mongodb-test:27017/auth_test
+      - POSTGRESQL_TEST_URL=postgresql://postgres:test_password@postgres-test:5432/auth_test
+      - MYSQL_TEST_URL=mysql://auth_user:test_password@mysql-test:3306/auth_test
+      - REDIS_TEST_URL=redis://redis-test:6379
+      - DATABASE_TYPE=mongodb
+      - CACHE_TYPE=redis
+    depends_on:
+      mongodb-test:
+        condition: service_healthy
+      postgres-test:
+        condition: service_healthy
+      mysql-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8090/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - auth-test-network
+    restart: unless-stopped
+
+  # Test runner container
+  test-runner:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: builder
+    container_name: auth-test-runner
+    working_dir: /app
+    environment:
+      - RUST_LOG=info
+      - MONGODB_TEST_URL=mongodb://mongodb-test:27017/auth_test
+      - POSTGRESQL_TEST_URL=postgresql://postgres:test_password@postgres-test:5432/auth_test
+      - MYSQL_TEST_URL=mysql://auth_user:test_password@mysql-test:3306/auth_test
+      - REDIS_TEST_URL=redis://redis-test:6379
+    depends_on:
+      mongodb-test:
+        condition: service_healthy
+      postgres-test:
+        condition: service_healthy
+      mysql-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+      auth-service-test:
+        condition: service_healthy
+    networks:
+      - auth-test-network
+    profiles:
+      - test
+    command: >
+      bash -c "
+        echo 'Running comprehensive test suite...'
+        
+        echo '🧪 Running unit tests...'
+        cargo test --lib --bins --features secure
+        
+        echo '🔗 Running integration tests...'
+        cargo test --test simple_auth_integration -- --include-ignored
+        cargo test --test database_adapters_integration -- --include-ignored
+        cargo test --test cache_integration -- --include-ignored
+        
+        echo '⚡ Running performance tests...'
+        cargo test --test performance_load_testing test_performance_regression_baseline -- --include-ignored
+        
+        echo '🔒 Running security tests...'
+        cargo test --test security_integration test_comprehensive_security_audit -- --include-ignored
+        
+        echo '✅ All tests completed!'
+      "
+
+volumes:
+  mongodb_test_data:
+    driver: local
+  postgres_test_data:
+    driver: local
+  mysql_test_data:
+    driver: local
+  redis_test_data:
+    driver: local
+
+networks:
+  auth-test-network:
+    driver: bridge
