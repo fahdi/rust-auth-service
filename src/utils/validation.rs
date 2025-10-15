@@ -401,7 +401,7 @@ pub fn validate_email(email: &str) -> Result<(), String> {
 
 /// Utility functions for common validation tasks
 pub mod utils {
-    use super::*;
+    
 
     /// Check if a string is a valid URL
     pub fn is_valid_url(url: &str) -> bool {

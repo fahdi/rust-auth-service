@@ -1,12 +1,9 @@
 use anyhow::Result;
 use axum::{
-    extract::State,
     middleware::from_fn_with_state,
-    response::Json,
     routing::{get, post, put},
     Router,
 };
-use serde_json::{json, Value};
 use std::sync::Arc;
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;

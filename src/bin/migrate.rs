@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use std::sync::Arc;
-use tracing::{info, error};
+use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 // Import from main crate
@@ -9,7 +9,6 @@ use rust_auth_service::{
     config::Config, 
     database, 
     migrations::{
-        self, 
         runner::MigrationRunner, 
         MigrationProvider,
         postgresql, 

@@ -19,6 +19,7 @@ pub fn create_cors_layer() -> CorsLayer {
 
 /// Create CORS layer for production
 /// More restrictive CORS configuration
+#[allow(dead_code)]
 pub fn create_production_cors_layer(allowed_origins: Vec<&str>) -> CorsLayer {
     let mut cors = CorsLayer::new()
         .allow_methods([
