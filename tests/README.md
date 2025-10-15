@@ -53,6 +53,15 @@ docker run -d --name mysql-test -p 3306:3306 -e MYSQL_DATABASE=auth_test -e MYSQ
 export MYSQL_TEST_URL="mysql://root:test@localhost:3306/auth_test"
 ```
 
+#### Redis Test Database
+```bash
+# Using Docker
+docker run -d --name redis-test -p 6379:6379 redis:latest
+
+# Set environment variable
+export REDIS_TEST_URL="redis://localhost:6379"
+```
+
 ### Running Tests
 
 #### All Integration Tests
@@ -68,6 +77,9 @@ cargo test --test simple_auth_integration -- --include-ignored
 
 # Database adapter tests
 cargo test --test database_adapters_integration -- --include-ignored
+
+# Cache integration tests
+cargo test --test cache_integration -- --include-ignored
 ```
 
 #### Individual Tests
@@ -86,6 +98,7 @@ cargo test --test database_adapters_integration test_user_creation -- --include-
 | `MONGODB_TEST_URL` | MongoDB test database connection | `mongodb://localhost:27017/auth_test` |
 | `POSTGRESQL_TEST_URL` | PostgreSQL test database connection | `postgresql://user:pass@localhost:5432/auth_test` |
 | `MYSQL_TEST_URL` | MySQL test database connection | `mysql://user:pass@localhost:3306/auth_test` |
+| `REDIS_TEST_URL` | Redis test cache connection | `redis://localhost:6379` |
 | `RUST_LOG` | Logging level for test output | `debug`, `info`, `warn`, `error` |
 
 ## Test Categories
@@ -116,6 +129,34 @@ Comprehensive testing of all database adapters (MongoDB, PostgreSQL, MySQL):
 
 #### End-to-End Lifecycle Tests
 - ✅ **Complete User Lifecycle** - Full user journey from creation to deactivation
+
+### Cache Integration Tests
+
+Comprehensive testing of all cache implementations and patterns:
+
+#### Core Cache Operations
+- ✅ **Basic Operations** - Set, get, delete operations across all cache types
+- ✅ **TTL Functionality** - Time-to-live expiration testing
+- ✅ **Health Checks** - Cache connectivity and ping operations
+- ✅ **Statistics** - Hit/miss ratio calculation and operation tracking
+- ✅ **Cache Service** - Service layer with default and custom TTL operations
+
+#### Cache Implementation Testing
+- ✅ **Memory Cache** - In-memory LRU cache with cleanup processes
+- ✅ **Redis Cache** - Redis server integration and connection handling
+- ✅ **No-Op Cache** - Disabled cache implementation for testing
+- ✅ **Multi-Level Cache** - Redis primary with memory fallback architecture
+
+#### Advanced Cache Patterns
+- ✅ **Get-or-Set Pattern** - Cache-aside pattern with compute functions
+- ✅ **Cache Key Utilities** - Structured key generation for different entity types
+- ✅ **Concurrent Operations** - Multi-threaded cache access and performance validation
+- ✅ **Error Handling** - Graceful degradation and error recovery testing
+
+#### Cache Management
+- ✅ **Memory Management** - LRU eviction and capacity limits
+- ✅ **Performance Testing** - Operations per second and latency measurement
+- ✅ **Complete Cache Workflow** - End-to-end authentication service caching patterns
 
 ### Authentication Flow Integration Tests
 
