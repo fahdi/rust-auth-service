@@ -6,13 +6,9 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 // Import from main crate
 use rust_auth_service::{
-    config::Config, 
-    database, 
-    migrations::{
-        runner::MigrationRunner, 
-        MigrationProvider,
-        mongodb,
-    }
+    config::Config,
+    database,
+    migrations::{mongodb, runner::MigrationRunner, MigrationProvider},
 };
 
 #[cfg(feature = "postgresql")]
@@ -84,11 +80,13 @@ async fn main() -> Result<()> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    info!("Rust Auth Service Migration Tool v{}", env!("CARGO_PKG_VERSION"));
+    info!(
+        "Rust Auth Service Migration Tool v{}",
+        env!("CARGO_PKG_VERSION")
+    );
 
     // Load configuration
-    let config = Config::from_env_and_file()
-        .context("Failed to load configuration")?;
+    let config = Config::from_env_and_file().context("Failed to load configuration")?;
 
     // Create migration provider based on database type
     let migration_provider = create_migration_provider(&config).await?;
@@ -118,7 +116,10 @@ async fn main() -> Result<()> {
         Commands::Validate => {
             runner.validate().await?;
         }
-        Commands::Create { name, database_type } => {
+        Commands::Create {
+            name,
+            database_type,
+        } => {
             let db_type = database_type.unwrap_or_else(|| config.database.r#type.clone());
             create_migration_file(&cli.migrations_dir, &db_type, &name).await?;
         }
@@ -138,7 +139,9 @@ async fn create_migration_provider(config: &Config) -> Result<Arc<dyn MigrationP
             }
             #[cfg(not(feature = "postgresql"))]
             {
-                Err(anyhow::anyhow!("PostgreSQL support not enabled. Enable with --features postgresql"))
+                Err(anyhow::anyhow!(
+                    "PostgreSQL support not enabled. Enable with --features postgresql"
+                ))
             }
         }
         "mysql" => {
@@ -149,7 +152,9 @@ async fn create_migration_provider(config: &Config) -> Result<Arc<dyn MigrationP
             }
             #[cfg(not(feature = "mysql"))]
             {
-                Err(anyhow::anyhow!("MySQL support not enabled. Enable with --features mysql"))
+                Err(anyhow::anyhow!(
+                    "MySQL support not enabled. Enable with --features mysql"
+                ))
             }
         }
         "mongodb" => {
@@ -159,8 +164,16 @@ async fn create_migration_provider(config: &Config) -> Result<Arc<dyn MigrationP
         _ => Err(anyhow::anyhow!(
             "Unsupported database type: {}. Available types: mongodb{}{}",
             config.database.r#type,
-            if cfg!(feature = "postgresql") { ", postgresql" } else { "" },
-            if cfg!(feature = "mysql") { ", mysql" } else { "" }
+            if cfg!(feature = "postgresql") {
+                ", postgresql"
+            } else {
+                ""
+            },
+            if cfg!(feature = "mysql") {
+                ", mysql"
+            } else {
+                ""
+            }
         )),
     }
 }
@@ -174,9 +187,10 @@ async fn create_migration_file(
     use tokio::fs;
 
     let migrations_path = Path::new(migrations_dir).join(database_type);
-    
+
     // Ensure directory exists
-    fs::create_dir_all(&migrations_path).await
+    fs::create_dir_all(&migrations_path)
+        .await
         .context("Failed to create migrations directory")?;
 
     // Find next version number
@@ -186,8 +200,12 @@ async fn create_migration_file(
         while let Some(entry) = dir.next_entry().await? {
             let filename = entry.file_name();
             let filename_str = filename.to_string_lossy();
-            
-            if let Some(v) = filename_str.split('_').next().and_then(|s| s.parse::<u32>().ok()) {
+
+            if let Some(v) = filename_str
+                .split('_')
+                .next()
+                .and_then(|s| s.parse::<u32>().ok())
+            {
                 if v >= version {
                     version = v + 1;
                 }
@@ -196,7 +214,11 @@ async fn create_migration_file(
     }
 
     // Create filename
-    let filename = format!("{:03}_{}.sql", version, name.replace(' ', "_").to_lowercase());
+    let filename = format!(
+        "{:03}_{}.sql",
+        version,
+        name.replace(' ', "_").to_lowercase()
+    );
     let filepath = migrations_path.join(&filename);
 
     // Generate template based on database type
@@ -204,11 +226,17 @@ async fn create_migration_file(
         "postgresql" => generate_postgresql_template(name),
         "mysql" => generate_mysql_template(name),
         "mongodb" => generate_mongodb_template(name),
-        _ => return Err(anyhow::anyhow!("Unsupported database type: {}", database_type)),
+        _ => {
+            return Err(anyhow::anyhow!(
+                "Unsupported database type: {}",
+                database_type
+            ))
+        }
     };
 
     // Write file
-    fs::write(&filepath, template).await
+    fs::write(&filepath, template)
+        .await
         .context("Failed to write migration file")?;
 
     info!("Created migration file: {}", filepath.display());

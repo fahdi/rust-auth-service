@@ -101,7 +101,9 @@ pub async fn optional_jwt_auth_middleware(
             let token = auth_header.trim_start_matches("Bearer ");
 
             // Verify token
-            if let Ok(claims) = crate::utils::jwt::verify_token(token, &state.config.auth.jwt.secret) {
+            if let Ok(claims) =
+                crate::utils::jwt::verify_token(token, &state.config.auth.jwt.secret)
+            {
                 // Verify user still exists and is active
                 if let Ok(Some(user)) = state.database.find_user_by_id(&claims.sub).await {
                     if user.is_active {

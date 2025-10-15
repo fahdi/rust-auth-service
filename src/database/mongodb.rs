@@ -2,15 +2,15 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 use chrono::Utc;
 use mongodb::{
-    bson::{doc, Document, Bson},
+    bson::{doc, Bson, Document},
     options::{ClientOptions, IndexOptions},
     Client, Collection, Database, IndexModel,
 };
 use std::time::Instant;
 
-use crate::config::database::PoolConfig;
-use crate::models::user::{User, UserError, LoginAttempt};
 use super::{AuthDatabase, DatabaseHealth};
+use crate::config::database::PoolConfig;
+use crate::models::user::{LoginAttempt, User, UserError};
 
 const USERS_COLLECTION: &str = "users";
 const DATABASE_NAME: &str = "auth_service";
@@ -26,8 +26,8 @@ impl MongoDatabase {
             .await
             .context("Failed to parse MongoDB connection string")?;
 
-        let client = Client::with_options(client_options)
-            .context("Failed to create MongoDB client")?;
+        let client =
+            Client::with_options(client_options).context("Failed to create MongoDB client")?;
 
         let database = client.database(DATABASE_NAME);
         let users = database.collection::<User>(USERS_COLLECTION);
@@ -86,15 +86,13 @@ impl MongoDatabase {
             .build();
 
         self.users
-            .create_indexes(
-                vec![
-                    email_index,
-                    user_id_index,
-                    verification_token_index,
-                    reset_token_index,
-                    created_at_index,
-                ],
-            )
+            .create_indexes(vec![
+                email_index,
+                user_id_index,
+                verification_token_index,
+                reset_token_index,
+                created_at_index,
+            ])
             .await
             .context("Failed to create database indexes")?;
 
@@ -132,19 +130,25 @@ impl AuthDatabase for MongoDatabase {
 
     async fn find_user_by_email(&self, email: &str) -> Result<Option<User>, UserError> {
         let filter = doc! { "email": email.to_lowercase() };
-        
+
         match self.users.find_one(filter).await {
             Ok(user) => Ok(user),
-            Err(e) => Err(UserError::Database(format!("Failed to find user by email: {}", e))),
+            Err(e) => Err(UserError::Database(format!(
+                "Failed to find user by email: {}",
+                e
+            ))),
         }
     }
 
     async fn find_user_by_id(&self, user_id: &str) -> Result<Option<User>, UserError> {
         let filter = doc! { "user_id": user_id };
-        
+
         match self.users.find_one(filter).await {
             Ok(user) => Ok(user),
-            Err(e) => Err(UserError::Database(format!("Failed to find user by ID: {}", e))),
+            Err(e) => Err(UserError::Database(format!(
+                "Failed to find user by ID: {}",
+                e
+            ))),
         }
     }
 
@@ -161,7 +165,8 @@ impl AuthDatabase for MongoDatabase {
                     Err(UserError::NotFound)
                 } else {
                     // Fetch and return updated user
-                    self.find_user_by_id(&user.user_id).await?
+                    self.find_user_by_id(&user.user_id)
+                        .await?
                         .ok_or(UserError::NotFound)
                 }
             }
@@ -186,13 +191,21 @@ impl AuthDatabase for MongoDatabase {
                     Ok(())
                 }
             }
-            Err(e) => Err(UserError::Database(format!("Failed to update password: {}", e))),
+            Err(e) => Err(UserError::Database(format!(
+                "Failed to update password: {}",
+                e
+            ))),
         }
     }
 
-    async fn set_email_verification_token(&self, user_id: &str, token: &str, expires_hours: u64) -> Result<(), UserError> {
+    async fn set_email_verification_token(
+        &self,
+        user_id: &str,
+        token: &str,
+        expires_hours: u64,
+    ) -> Result<(), UserError> {
         let expires_at = Utc::now() + chrono::Duration::hours(expires_hours as i64);
-        
+
         let filter = doc! { "user_id": user_id };
         let update = doc! {
             "$set": {
@@ -210,7 +223,10 @@ impl AuthDatabase for MongoDatabase {
                     Ok(())
                 }
             }
-            Err(e) => Err(UserError::Database(format!("Failed to set verification token: {}", e))),
+            Err(e) => Err(UserError::Database(format!(
+                "Failed to set verification token: {}",
+                e
+            ))),
         }
     }
 
@@ -220,8 +236,9 @@ impl AuthDatabase for MongoDatabase {
             "email_verification_expires": { "$gt": mongodb::bson::DateTime::from_system_time(Utc::now().into()) }
         };
 
-        let user = self.users.find_one(filter).await
-            .map_err(|e| UserError::Database(format!("Failed to find verification token: {}", e)))?;
+        let user = self.users.find_one(filter).await.map_err(|e| {
+            UserError::Database(format!("Failed to find verification token: {}", e))
+        })?;
 
         let user = user.ok_or(UserError::InvalidVerificationToken)?;
 
@@ -238,15 +255,22 @@ impl AuthDatabase for MongoDatabase {
             }
         };
 
-        self.users.update_one(update_filter, update).await
+        self.users
+            .update_one(update_filter, update)
+            .await
             .map_err(|e| UserError::Database(format!("Failed to verify email: {}", e)))?;
 
         Ok(user.user_id)
     }
 
-    async fn set_password_reset_token(&self, email: &str, token: &str, expires_hours: u64) -> Result<(), UserError> {
+    async fn set_password_reset_token(
+        &self,
+        email: &str,
+        token: &str,
+        expires_hours: u64,
+    ) -> Result<(), UserError> {
         let expires_at = Utc::now() + chrono::Duration::hours(expires_hours as i64);
-        
+
         let filter = doc! { "email": email.to_lowercase() };
         let update = doc! {
             "$set": {
@@ -264,7 +288,10 @@ impl AuthDatabase for MongoDatabase {
                     Ok(())
                 }
             }
-            Err(e) => Err(UserError::Database(format!("Failed to set password reset token: {}", e))),
+            Err(e) => Err(UserError::Database(format!(
+                "Failed to set password reset token: {}",
+                e
+            ))),
         }
     }
 
@@ -274,7 +301,10 @@ impl AuthDatabase for MongoDatabase {
             "password_reset_expires": { "$gt": mongodb::bson::DateTime::from_system_time(Utc::now().into()) }
         };
 
-        let user = self.users.find_one(filter).await
+        let user = self
+            .users
+            .find_one(filter)
+            .await
             .map_err(|e| UserError::Database(format!("Failed to find reset token: {}", e)))?;
 
         let user = user.ok_or(UserError::InvalidPasswordResetToken)?;
@@ -301,7 +331,10 @@ impl AuthDatabase for MongoDatabase {
                     Ok(())
                 }
             }
-            Err(e) => Err(UserError::Database(format!("Failed to clear reset token: {}", e))),
+            Err(e) => Err(UserError::Database(format!(
+                "Failed to clear reset token: {}",
+                e
+            ))),
         }
     }
 
@@ -326,21 +359,33 @@ impl AuthDatabase for MongoDatabase {
                     Ok(())
                 }
             }
-            Err(e) => Err(UserError::Database(format!("Failed to record login: {}", e))),
+            Err(e) => Err(UserError::Database(format!(
+                "Failed to record login: {}",
+                e
+            ))),
         }
     }
 
-    async fn record_failed_login(&self, email: &str, max_attempts: u32, lockout_hours: u64) -> Result<(), UserError> {
+    async fn record_failed_login(
+        &self,
+        email: &str,
+        max_attempts: u32,
+        lockout_hours: u64,
+    ) -> Result<(), UserError> {
         let filter = doc! { "email": email.to_lowercase() };
-        
+
         // First, increment login attempts
         let update = doc! {
             "$inc": { "login_attempts": 1 },
             "$set": { "updated_at": mongodb::bson::DateTime::from_system_time(Utc::now().into()) }
         };
 
-        self.users.update_one(filter.clone(), update).await
-            .map_err(|e| UserError::Database(format!("Failed to increment login attempts: {}", e)))?;
+        self.users
+            .update_one(filter.clone(), update)
+            .await
+            .map_err(|e| {
+                UserError::Database(format!("Failed to increment login attempts: {}", e))
+            })?;
 
         // Check if we need to lock the account
         let user = self.find_user_by_email(email).await?;
@@ -354,7 +399,9 @@ impl AuthDatabase for MongoDatabase {
                     }
                 };
 
-                self.users.update_one(filter, lock_update).await
+                self.users
+                    .update_one(filter, lock_update)
+                    .await
                     .map_err(|e| UserError::Database(format!("Failed to lock account: {}", e)))?;
             }
         }
@@ -364,10 +411,13 @@ impl AuthDatabase for MongoDatabase {
 
     async fn user_exists_by_email(&self, email: &str) -> Result<bool, UserError> {
         let filter = doc! { "email": email.to_lowercase() };
-        
+
         match self.users.count_documents(filter).await {
             Ok(count) => Ok(count > 0),
-            Err(e) => Err(UserError::Database(format!("Failed to check user existence: {}", e))),
+            Err(e) => Err(UserError::Database(format!(
+                "Failed to check user existence: {}",
+                e
+            ))),
         }
     }
 
@@ -388,17 +438,20 @@ impl AuthDatabase for MongoDatabase {
                     Ok(())
                 }
             }
-            Err(e) => Err(UserError::Database(format!("Failed to deactivate user: {}", e))),
+            Err(e) => Err(UserError::Database(format!(
+                "Failed to deactivate user: {}",
+                e
+            ))),
         }
     }
 
     async fn health_check(&self) -> Result<DatabaseHealth> {
         let start = Instant::now();
-        
+
         let result = self.database.run_command(doc! { "ping": 1 }).await;
-        
+
         let response_time_ms = start.elapsed().as_millis() as u64;
-        
+
         match result {
             Ok(_) => Ok(DatabaseHealth {
                 status: "healthy".to_string(),
@@ -419,22 +472,28 @@ impl AuthDatabase for MongoDatabase {
 
     async fn get_user_by_verification_token(&self, token: &str) -> Result<Option<User>, UserError> {
         let filter = doc! { "email_verification_token": token };
-        
+
         match self.users.find_one(filter).await {
             Ok(user) => Ok(user),
-            Err(e) => Err(UserError::Database(format!("Failed to find user by verification token: {}", e))),
+            Err(e) => Err(UserError::Database(format!(
+                "Failed to find user by verification token: {}",
+                e
+            ))),
         }
     }
-    
+
     async fn get_user_by_reset_token(&self, token: &str) -> Result<Option<User>, UserError> {
         let filter = doc! { "password_reset_token": token };
-        
+
         match self.users.find_one(filter).await {
             Ok(user) => Ok(user),
-            Err(e) => Err(UserError::Database(format!("Failed to find user by reset token: {}", e))),
+            Err(e) => Err(UserError::Database(format!(
+                "Failed to find user by reset token: {}",
+                e
+            ))),
         }
     }
-    
+
     async fn verify_user_email(&self, user_id: &str) -> Result<(), UserError> {
         let filter = doc! { "user_id": user_id };
         let update = doc! {
@@ -454,23 +513,34 @@ impl AuthDatabase for MongoDatabase {
                     Ok(())
                 }
             }
-            Err(e) => Err(UserError::Database(format!("Failed to verify email: {}", e))),
+            Err(e) => Err(UserError::Database(format!(
+                "Failed to verify email: {}",
+                e
+            ))),
         }
     }
-    
-    async fn update_login_attempts(&self, user_id: &str, attempts: u32, locked_until: Option<chrono::DateTime<chrono::Utc>>) -> Result<(), UserError> {
+
+    async fn update_login_attempts(
+        &self,
+        user_id: &str,
+        attempts: u32,
+        locked_until: Option<chrono::DateTime<chrono::Utc>>,
+    ) -> Result<(), UserError> {
         let filter = doc! { "user_id": user_id };
         let mut update_doc = doc! {
             "login_attempts": attempts as i32,
             "updated_at": mongodb::bson::DateTime::from_system_time(Utc::now().into())
         };
-        
+
         if let Some(locked_time) = locked_until {
-            update_doc.insert("locked_until", mongodb::bson::DateTime::from_system_time(locked_time.into()));
+            update_doc.insert(
+                "locked_until",
+                mongodb::bson::DateTime::from_system_time(locked_time.into()),
+            );
         } else {
             update_doc.insert("locked_until", Bson::Null);
         }
-        
+
         let update = doc! { "$set": update_doc };
 
         match self.users.update_one(filter, update).await {
@@ -481,10 +551,13 @@ impl AuthDatabase for MongoDatabase {
                     Ok(())
                 }
             }
-            Err(e) => Err(UserError::Database(format!("Failed to update login attempts: {}", e))),
+            Err(e) => Err(UserError::Database(format!(
+                "Failed to update login attempts: {}",
+                e
+            ))),
         }
     }
-    
+
     async fn update_last_login(&self, user_id: &str) -> Result<(), UserError> {
         let filter = doc! { "user_id": user_id };
         let update = doc! {
@@ -502,10 +575,13 @@ impl AuthDatabase for MongoDatabase {
                     Ok(())
                 }
             }
-            Err(e) => Err(UserError::Database(format!("Failed to update last login: {}", e))),
+            Err(e) => Err(UserError::Database(format!(
+                "Failed to update last login: {}",
+                e
+            ))),
         }
     }
-    
+
     async fn record_login_attempt(&self, attempt: &LoginAttempt) -> Result<(), UserError> {
         let login_attempt_doc = doc! {
             "user_id": &attempt.user_id,
@@ -515,14 +591,23 @@ impl AuthDatabase for MongoDatabase {
             "attempted_at": mongodb::bson::DateTime::from_system_time(attempt.attempted_at.into())
         };
 
-        match self.database.collection::<Document>("login_attempts").insert_one(login_attempt_doc).await {
+        match self
+            .database
+            .collection::<Document>("login_attempts")
+            .insert_one(login_attempt_doc)
+            .await
+        {
             Ok(_) => Ok(()),
-            Err(e) => Err(UserError::Database(format!("Failed to record login attempt: {}", e))),
+            Err(e) => Err(UserError::Database(format!(
+                "Failed to record login attempt: {}",
+                e
+            ))),
         }
     }
 
     async fn initialize(&self) -> Result<()> {
-        self.create_indexes().await
+        self.create_indexes()
+            .await
             .context("Failed to initialize database indexes")?;
         Ok(())
     }
@@ -530,15 +615,17 @@ impl AuthDatabase for MongoDatabase {
 
 /// Create a MongoDB database connection for migrations
 #[allow(dead_code)]
-pub async fn create_database(config: &crate::config::database::DatabaseConfig) -> Result<mongodb::Database> {
-    use mongodb::{Client, options::ClientOptions};
-    
-    let client_options = ClientOptions::parse(&config.url).await
+pub async fn create_database(
+    config: &crate::config::database::DatabaseConfig,
+) -> Result<mongodb::Database> {
+    use mongodb::{options::ClientOptions, Client};
+
+    let client_options = ClientOptions::parse(&config.url)
+        .await
         .context("Failed to parse MongoDB connection string")?;
-    
-    let client = Client::with_options(client_options)
-        .context("Failed to create MongoDB client")?;
-        
+
+    let client = Client::with_options(client_options).context("Failed to create MongoDB client")?;
+
     Ok(client.database(DATABASE_NAME))
 }
 
@@ -621,13 +708,15 @@ mod tests {
 
         let user = create_test_user();
         let user_id = user.user_id.clone();
-        
+
         let created_user = db.create_user(user).await.unwrap();
         assert!(!created_user.email_verified);
 
         // Set verification token
         let token = "verification_token_123";
-        db.set_email_verification_token(&user_id, token, 24).await.unwrap();
+        db.set_email_verification_token(&user_id, token, 24)
+            .await
+            .unwrap();
 
         // Verify email
         let verified_user_id = db.verify_email(token).await.unwrap();

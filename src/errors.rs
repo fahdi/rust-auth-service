@@ -56,43 +56,75 @@ impl IntoResponse for AppError {
             AppError::Validation { message } => {
                 (StatusCode::BAD_REQUEST, message.clone(), "VALIDATION_ERROR")
             }
-            AppError::Unauthorized => {
-                (StatusCode::UNAUTHORIZED, "Authentication required".to_string(), "UNAUTHORIZED")
-            }
-            AppError::Forbidden => {
-                (StatusCode::FORBIDDEN, "Insufficient permissions".to_string(), "FORBIDDEN")
-            }
-            AppError::NotFound => {
-                (StatusCode::NOT_FOUND, "Resource not found".to_string(), "NOT_FOUND")
-            }
-            AppError::Conflict => {
-                (StatusCode::CONFLICT, "Resource already exists".to_string(), "CONFLICT")
-            }
-            AppError::Locked => {
-                (StatusCode::LOCKED, "Account is locked".to_string(), "ACCOUNT_LOCKED")
-            }
-            AppError::RateLimited => {
-                (StatusCode::TOO_MANY_REQUESTS, "Rate limit exceeded".to_string(), "RATE_LIMITED")
-            }
+            AppError::Unauthorized => (
+                StatusCode::UNAUTHORIZED,
+                "Authentication required".to_string(),
+                "UNAUTHORIZED",
+            ),
+            AppError::Forbidden => (
+                StatusCode::FORBIDDEN,
+                "Insufficient permissions".to_string(),
+                "FORBIDDEN",
+            ),
+            AppError::NotFound => (
+                StatusCode::NOT_FOUND,
+                "Resource not found".to_string(),
+                "NOT_FOUND",
+            ),
+            AppError::Conflict => (
+                StatusCode::CONFLICT,
+                "Resource already exists".to_string(),
+                "CONFLICT",
+            ),
+            AppError::Locked => (
+                StatusCode::LOCKED,
+                "Account is locked".to_string(),
+                "ACCOUNT_LOCKED",
+            ),
+            AppError::RateLimited => (
+                StatusCode::TOO_MANY_REQUESTS,
+                "Rate limit exceeded".to_string(),
+                "RATE_LIMITED",
+            ),
             AppError::Internal => {
                 error!("Internal server error: {}", self);
-                (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string(), "INTERNAL_ERROR")
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Internal server error".to_string(),
+                    "INTERNAL_ERROR",
+                )
             }
             AppError::Database(msg) => {
                 error!("Database error: {}", msg);
-                (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string(), "DATABASE_ERROR")
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Internal server error".to_string(),
+                    "DATABASE_ERROR",
+                )
             }
             AppError::Jwt(msg) => {
                 error!("JWT error: {}", msg);
-                (StatusCode::UNAUTHORIZED, "Invalid token".to_string(), "INVALID_TOKEN")
+                (
+                    StatusCode::UNAUTHORIZED,
+                    "Invalid token".to_string(),
+                    "INVALID_TOKEN",
+                )
             }
             AppError::Cache(msg) => {
                 error!("Cache error: {}", msg);
-                (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string(), "CACHE_ERROR")
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Internal server error".to_string(),
+                    "CACHE_ERROR",
+                )
             }
             AppError::Email(msg) => {
                 error!("Email service error: {}", msg);
-                (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string(), "EMAIL_ERROR")
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Internal server error".to_string(),
+                    "EMAIL_ERROR",
+                )
             }
         };
 
@@ -121,7 +153,9 @@ impl From<crate::models::user::UserError> for AppError {
             crate::models::user::UserError::InvalidPasswordResetToken => AppError::Unauthorized,
             crate::models::user::UserError::PasswordResetTokenExpired => AppError::Unauthorized,
             crate::models::user::UserError::Database(msg) => AppError::Database(msg),
-            crate::models::user::UserError::Validation(msg) => AppError::Validation { message: msg },
+            crate::models::user::UserError::Validation(msg) => {
+                AppError::Validation { message: msg }
+            }
         }
     }
 }

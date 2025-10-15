@@ -1,13 +1,13 @@
+use reqwest::Client;
+use serde_json::json;
 use std::env;
 use std::time::{Duration, Instant};
 use tokio::time::sleep;
-use serde_json::json;
-use reqwest::Client;
 use uuid::Uuid;
 
-use rust_auth_service::config::{Config, database::DatabaseConfig, database::PoolConfig};
+use rust_auth_service::config::{database::DatabaseConfig, database::PoolConfig, Config};
 use rust_auth_service::database::{create_database, AuthDatabase};
-use rust_auth_service::models::user::{User, CreateUserRequest, UserRole, UserMetadata};
+use rust_auth_service::models::user::{CreateUserRequest, User, UserMetadata, UserRole};
 use rust_auth_service::utils::password::hash_password;
 
 /// Integration tests for all database providers
@@ -38,7 +38,8 @@ impl TestContext {
             pool: pool_config,
         };
 
-        let db = create_database(&db_config).await
+        let db = create_database(&db_config)
+            .await
             .expect(&format!("Failed to create {} database", db_type));
 
         Self {
@@ -81,9 +82,10 @@ async fn create_test_user() -> User {
 #[tokio::test]
 #[ignore] // Only run with --include-ignored
 async fn test_mongodb_integration() {
-    let url = env::var("MONGODB_TEST_URL")
-        .unwrap_or_else(|_| "mongodb://admin:password123@localhost:27017/auth_service_test?authSource=admin".to_string());
-    
+    let url = env::var("MONGODB_TEST_URL").unwrap_or_else(|_| {
+        "mongodb://admin:password123@localhost:27017/auth_service_test?authSource=admin".to_string()
+    });
+
     let ctx = TestContext::new("mongodb", &url).await;
     run_database_tests(&ctx).await;
     ctx.cleanup().await.unwrap();
@@ -93,9 +95,10 @@ async fn test_mongodb_integration() {
 #[tokio::test]
 #[ignore] // Only run with --include-ignored
 async fn test_postgresql_integration() {
-    let url = env::var("POSTGRESQL_TEST_URL")
-        .unwrap_or_else(|_| "postgresql://postgres:password123@localhost:5432/auth_service_test".to_string());
-    
+    let url = env::var("POSTGRESQL_TEST_URL").unwrap_or_else(|_| {
+        "postgresql://postgres:password123@localhost:5432/auth_service_test".to_string()
+    });
+
     let ctx = TestContext::new("postgresql", &url).await;
     run_database_tests(&ctx).await;
     ctx.cleanup().await.unwrap();
@@ -105,9 +108,10 @@ async fn test_postgresql_integration() {
 #[tokio::test]
 #[ignore] // Only run with --include-ignored
 async fn test_mysql_integration() {
-    let url = env::var("MYSQL_TEST_URL")
-        .unwrap_or_else(|_| "mysql://root:password123@localhost:3306/auth_service_test".to_string());
-    
+    let url = env::var("MYSQL_TEST_URL").unwrap_or_else(|_| {
+        "mysql://root:password123@localhost:3306/auth_service_test".to_string()
+    });
+
     let ctx = TestContext::new("mysql", &url).await;
     run_database_tests(&ctx).await;
     ctx.cleanup().await.unwrap();
@@ -142,39 +146,63 @@ async fn run_database_tests(ctx: &TestContext) {
 
     // Test 5: Email verification flow
     let verification_token = Uuid::new_v4().to_string();
-    ctx.db.set_email_verification_token(&user_id, &verification_token, 24).await.unwrap();
-    
+    ctx.db
+        .set_email_verification_token(&user_id, &verification_token, 24)
+        .await
+        .unwrap();
+
     let verified_user_id = ctx.db.verify_email(&verification_token).await.unwrap();
     assert_eq!(verified_user_id, user_id);
 
     // Test 6: Password reset flow
     let reset_token = Uuid::new_v4().to_string();
-    ctx.db.set_password_reset_token(TEST_EMAIL, &reset_token, 2).await.unwrap();
-    
-    let reset_user_id = ctx.db.verify_password_reset_token(&reset_token).await.unwrap();
+    ctx.db
+        .set_password_reset_token(TEST_EMAIL, &reset_token, 2)
+        .await
+        .unwrap();
+
+    let reset_user_id = ctx
+        .db
+        .verify_password_reset_token(&reset_token)
+        .await
+        .unwrap();
     assert_eq!(reset_user_id, user_id);
-    
+
     ctx.db.clear_password_reset_token(&user_id).await.unwrap();
 
     // Test 7: Login attempts and locking
     ctx.db.record_failed_login(TEST_EMAIL, 3, 1).await.unwrap();
     ctx.db.record_failed_login(TEST_EMAIL, 3, 1).await.unwrap();
     ctx.db.record_failed_login(TEST_EMAIL, 3, 1).await.unwrap();
-    
+
     // User should be locked now
-    let locked_user = ctx.db.find_user_by_email(TEST_EMAIL).await.unwrap().unwrap();
+    let locked_user = ctx
+        .db
+        .find_user_by_email(TEST_EMAIL)
+        .await
+        .unwrap()
+        .unwrap();
     assert!(locked_user.is_locked());
 
     // Test successful login (should unlock)
     ctx.db.record_login(&user_id).await.unwrap();
-    let unlocked_user = ctx.db.find_user_by_email(TEST_EMAIL).await.unwrap().unwrap();
+    let unlocked_user = ctx
+        .db
+        .find_user_by_email(TEST_EMAIL)
+        .await
+        .unwrap()
+        .unwrap();
     assert!(!unlocked_user.is_locked());
 
     // Test 8: User exists check
     let exists = ctx.db.user_exists_by_email(TEST_EMAIL).await.unwrap();
     assert!(exists);
 
-    let not_exists = ctx.db.user_exists_by_email("nonexistent@example.com").await.unwrap();
+    let not_exists = ctx
+        .db
+        .user_exists_by_email("nonexistent@example.com")
+        .await
+        .unwrap();
     assert!(!not_exists);
 
     // Test 9: Deactivate user
@@ -190,28 +218,41 @@ async fn run_database_tests(ctx: &TestContext) {
 #[ignore] // Only run with --include-ignored
 async fn performance_test_all_databases() {
     let databases = vec![
-        ("mongodb", env::var("MONGODB_TEST_URL").unwrap_or_else(|_| 
-            "mongodb://admin:password123@localhost:27017/auth_service_test?authSource=admin".to_string())),
-        ("postgresql", env::var("POSTGRESQL_TEST_URL").unwrap_or_else(|_| 
-            "postgresql://postgres:password123@localhost:5432/auth_service_test".to_string())),
-        ("mysql", env::var("MYSQL_TEST_URL").unwrap_or_else(|_| 
-            "mysql://root:password123@localhost:3306/auth_service_test".to_string())),
+        (
+            "mongodb",
+            env::var("MONGODB_TEST_URL").unwrap_or_else(|_| {
+                "mongodb://admin:password123@localhost:27017/auth_service_test?authSource=admin"
+                    .to_string()
+            }),
+        ),
+        (
+            "postgresql",
+            env::var("POSTGRESQL_TEST_URL").unwrap_or_else(|_| {
+                "postgresql://postgres:password123@localhost:5432/auth_service_test".to_string()
+            }),
+        ),
+        (
+            "mysql",
+            env::var("MYSQL_TEST_URL").unwrap_or_else(|_| {
+                "mysql://root:password123@localhost:3306/auth_service_test".to_string()
+            }),
+        ),
     ];
 
     for (db_type, url) in databases {
         println!("\n🚀 Performance testing {} database", db_type);
         let ctx = TestContext::new(db_type, &url).await;
-        
+
         // Run performance tests
         run_performance_benchmark(&ctx).await;
-        
+
         ctx.cleanup().await.unwrap();
     }
 }
 
 async fn run_performance_benchmark(ctx: &TestContext) {
     const ITERATIONS: usize = 100;
-    
+
     // Benchmark 1: User creation
     let start = Instant::now();
     for i in 0..ITERATIONS {
@@ -226,11 +267,11 @@ async fn run_performance_benchmark(ctx: &TestContext) {
         };
         let password_hash = hash_password("TestPassword123!", 4).unwrap();
         let user = User::new(request, password_hash);
-        
+
         let _ = ctx.db.create_user(user).await.unwrap();
     }
     let creation_time = start.elapsed();
-    
+
     // Benchmark 2: User lookup
     let start = Instant::now();
     for i in 0..ITERATIONS {
@@ -238,22 +279,31 @@ async fn run_performance_benchmark(ctx: &TestContext) {
         let _ = ctx.db.find_user_by_email(&email).await.unwrap();
     }
     let lookup_time = start.elapsed();
-    
+
     // Benchmark 3: Health checks
     let start = Instant::now();
     for _ in 0..ITERATIONS {
         let _ = ctx.db.health_check().await.unwrap();
     }
     let health_check_time = start.elapsed();
-    
+
     println!("📊 {} Performance Results:", ctx.db_type.to_uppercase());
-    println!("  User Creation: {:.2}ms avg ({} operations)", 
-        creation_time.as_millis() as f64 / ITERATIONS as f64, ITERATIONS);
-    println!("  User Lookup: {:.2}ms avg ({} operations)", 
-        lookup_time.as_millis() as f64 / ITERATIONS as f64, ITERATIONS);
-    println!("  Health Check: {:.2}ms avg ({} operations)", 
-        health_check_time.as_millis() as f64 / ITERATIONS as f64, ITERATIONS);
-    
+    println!(
+        "  User Creation: {:.2}ms avg ({} operations)",
+        creation_time.as_millis() as f64 / ITERATIONS as f64,
+        ITERATIONS
+    );
+    println!(
+        "  User Lookup: {:.2}ms avg ({} operations)",
+        lookup_time.as_millis() as f64 / ITERATIONS as f64,
+        ITERATIONS
+    );
+    println!(
+        "  Health Check: {:.2}ms avg ({} operations)",
+        health_check_time.as_millis() as f64 / ITERATIONS as f64,
+        ITERATIONS
+    );
+
     // Cleanup performance test data
     for i in 0..ITERATIONS {
         let email = format!("perf_test_{}_{}_@example.com", ctx.db_type, i);
@@ -268,20 +318,20 @@ async fn run_performance_benchmark(ctx: &TestContext) {
 #[ignore] // Only run with --include-ignored
 async fn test_api_endpoints() {
     // This test assumes the auth service is running on localhost:8090
-    let base_url = env::var("AUTH_SERVICE_URL")
-        .unwrap_or_else(|_| "http://localhost:8090".to_string());
-    
+    let base_url =
+        env::var("AUTH_SERVICE_URL").unwrap_or_else(|_| "http://localhost:8090".to_string());
+
     let client = Client::new();
-    
+
     // Test health endpoint
     let health_response = client
         .get(&format!("{}/health", base_url))
         .send()
         .await
         .expect("Failed to call health endpoint");
-    
+
     assert!(health_response.status().is_success());
-    
+
     // Test user registration
     let registration_payload = json!({
         "email": "api_test@example.com",
@@ -289,13 +339,13 @@ async fn test_api_endpoints() {
         "first_name": "API",
         "last_name": "Test"
     });
-    
+
     let register_response = client
         .post(&format!("{}/auth/register", base_url))
         .json(&registration_payload)
         .send()
         .await;
-    
+
     match register_response {
         Ok(response) => {
             println!("Registration response status: {}", response.status());
@@ -314,21 +364,24 @@ async fn test_api_endpoints() {
 #[tokio::test]
 #[ignore] // Only run with --include-ignored
 async fn load_test_concurrent_requests() {
-    let base_url = env::var("AUTH_SERVICE_URL")
-        .unwrap_or_else(|_| "http://localhost:8090".to_string());
-    
+    let base_url =
+        env::var("AUTH_SERVICE_URL").unwrap_or_else(|_| "http://localhost:8090".to_string());
+
     const CONCURRENT_REQUESTS: usize = 50;
     let client = Client::new();
-    
-    println!("🔄 Running load test with {} concurrent health check requests", CONCURRENT_REQUESTS);
-    
+
+    println!(
+        "🔄 Running load test with {} concurrent health check requests",
+        CONCURRENT_REQUESTS
+    );
+
     let start = Instant::now();
     let mut handles = Vec::new();
-    
+
     for i in 0..CONCURRENT_REQUESTS {
         let client = client.clone();
         let url = format!("{}/health", base_url);
-        
+
         let handle = tokio::spawn(async move {
             let response = client.get(&url).send().await;
             match response {
@@ -336,13 +389,13 @@ async fn load_test_concurrent_requests() {
                 Err(_) => (i, false, 0),
             }
         });
-        
+
         handles.push(handle);
     }
-    
+
     let mut successful = 0;
     let mut failed = 0;
-    
+
     for handle in handles {
         match handle.await {
             Ok((_, true, _)) => successful += 1,
@@ -356,15 +409,18 @@ async fn load_test_concurrent_requests() {
             }
         }
     }
-    
+
     let duration = start.elapsed();
-    
+
     println!("📊 Load Test Results:");
     println!("  Duration: {:?}", duration);
     println!("  Successful: {}/{}", successful, CONCURRENT_REQUESTS);
     println!("  Failed: {}", failed);
-    println!("  Requests/second: {:.2}", CONCURRENT_REQUESTS as f64 / duration.as_secs_f64());
-    
+    println!(
+        "  Requests/second: {:.2}",
+        CONCURRENT_REQUESTS as f64 / duration.as_secs_f64()
+    );
+
     if successful == CONCURRENT_REQUESTS {
         println!("✅ Load test passed - all requests successful");
     } else {

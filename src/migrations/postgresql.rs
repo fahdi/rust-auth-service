@@ -27,26 +27,29 @@ impl PostgreSQLMigrationProvider {
         let mut statements = Vec::new();
         let mut current_statement = String::new();
         let mut in_function = false;
-        let in_comment = false;
+        let _in_comment = false;
         let mut in_string = false;
         let mut string_char = '\0';
-        
+
         let lines: Vec<&str> = sql.lines().collect();
-        
+
         for line in lines {
             let trimmed = line.trim();
-            
+
             // Skip comments
             if trimmed.starts_with("--") {
                 continue;
             }
-            
+
             // Check for function start/end
-            if trimmed.to_lowercase().contains("create or replace function") 
-                || trimmed.to_lowercase().contains("create function") {
+            if trimmed
+                .to_lowercase()
+                .contains("create or replace function")
+                || trimmed.to_lowercase().contains("create function")
+            {
                 in_function = true;
             }
-            
+
             for ch in line.chars() {
                 if in_string {
                     current_statement.push(ch);
@@ -55,7 +58,7 @@ impl PostgreSQLMigrationProvider {
                     }
                     continue;
                 }
-                
+
                 match ch {
                     '\'' | '"' => {
                         in_string = true;
@@ -77,9 +80,9 @@ impl PostgreSQLMigrationProvider {
                     }
                 }
             }
-            
+
             current_statement.push('\n');
-            
+
             // Check for function end
             if in_function && trimmed == "$$ LANGUAGE plpgsql;" {
                 in_function = false;
@@ -90,13 +93,13 @@ impl PostgreSQLMigrationProvider {
                 current_statement.clear();
             }
         }
-        
+
         // Add any remaining statement
         let remaining = current_statement.trim().to_string();
         if !remaining.is_empty() && !remaining.starts_with("--") {
             statements.push(remaining);
         }
-        
+
         statements
     }
 }
@@ -116,18 +119,18 @@ impl MigrationProvider for PostgreSQLMigrationProvider {
             
             CREATE INDEX IF NOT EXISTS idx_migrations_applied_at ON _migrations(applied_at);
         "#;
-        
+
         for statement in self.split_sql_statements(query) {
             sqlx::query(&statement)
                 .execute(&self.pool)
                 .await
                 .context("Failed to create migration table")?;
         }
-        
+
         info!("PostgreSQL migration table initialized");
         Ok(())
     }
-    
+
     async fn get_applied_migrations(&self) -> Result<Vec<MigrationRecord>> {
         let rows = sqlx::query(
             "SELECT version, name, checksum, applied_at, execution_time_ms FROM _migrations ORDER BY version"
@@ -135,21 +138,21 @@ impl MigrationProvider for PostgreSQLMigrationProvider {
         .fetch_all(&self.pool)
         .await
         .context("Failed to fetch applied migrations")?;
-        
+
         let mut migrations = Vec::new();
         for row in rows {
             migrations.push(MigrationRecord {
-                version: row.get("version"),
+                version: row.get::<i32, _>("version") as u32,
                 name: row.get("name"),
                 checksum: row.get("checksum"),
                 applied_at: row.get("applied_at"),
                 execution_time_ms: row.get("execution_time_ms"),
             });
         }
-        
+
         Ok(migrations)
     }
-    
+
     async fn record_migration(&self, migration: &Migration, execution_time_ms: i64) -> Result<()> {
         sqlx::query(
             "INSERT INTO _migrations (version, name, checksum, execution_time_ms) VALUES ($1, $2, $3, $4)"
@@ -161,22 +164,22 @@ impl MigrationProvider for PostgreSQLMigrationProvider {
         .execute(&self.pool)
         .await
         .context("Failed to record migration")?;
-        
+
         info!("Recorded migration {} in PostgreSQL", migration.version);
         Ok(())
     }
-    
+
     async fn remove_migration_record(&self, version: u32) -> Result<()> {
         sqlx::query("DELETE FROM _migrations WHERE version = $1")
             .bind(version as i32)
             .execute(&self.pool)
             .await
             .context("Failed to remove migration record")?;
-        
+
         info!("Removed migration record {} from PostgreSQL", version);
         Ok(())
     }
-    
+
     async fn execute_migration(&self, migration: &Migration) -> Result<()> {
         if let Some(ref sql) = migration.up_sql {
             for statement in self.split_sql_statements(sql) {
@@ -184,14 +187,19 @@ impl MigrationProvider for PostgreSQLMigrationProvider {
                     sqlx::query(&statement)
                         .execute(&self.pool)
                         .await
-                        .with_context(|| format!("Failed to execute migration {}: {}", migration.version, statement))?;
+                        .with_context(|| {
+                            format!(
+                                "Failed to execute migration {}: {}",
+                                migration.version, statement
+                            )
+                        })?;
                 }
             }
             info!("Executed PostgreSQL migration {}", migration.version);
         }
         Ok(())
     }
-    
+
     async fn rollback_migration(&self, migration: &Migration) -> Result<()> {
         if let Some(ref sql) = migration.down_sql {
             for statement in self.split_sql_statements(sql) {
@@ -199,16 +207,24 @@ impl MigrationProvider for PostgreSQLMigrationProvider {
                     sqlx::query(&statement)
                         .execute(&self.pool)
                         .await
-                        .with_context(|| format!("Failed to rollback migration {}: {}", migration.version, statement))?;
+                        .with_context(|| {
+                            format!(
+                                "Failed to rollback migration {}: {}",
+                                migration.version, statement
+                            )
+                        })?;
                 }
             }
             info!("Rolled back PostgreSQL migration {}", migration.version);
         } else {
-            return Err(anyhow::anyhow!("No rollback SQL provided for migration {}", migration.version));
+            return Err(anyhow::anyhow!(
+                "No rollback SQL provided for migration {}",
+                migration.version
+            ));
         }
         Ok(())
     }
-    
+
     async fn ping(&self) -> Result<()> {
         sqlx::query("SELECT 1")
             .fetch_one(&self.pool)
@@ -221,7 +237,7 @@ impl MigrationProvider for PostgreSQLMigrationProvider {
 #[cfg(feature = "postgresql")]
 pub async fn create_pool(config: &crate::config::database::DatabaseConfig) -> Result<PgPool> {
     use sqlx::postgres::PgPoolOptions;
-    
+
     let pool = PgPoolOptions::new()
         .min_connections(config.pool.min_connections)
         .max_connections(config.pool.max_connections)
@@ -229,7 +245,7 @@ pub async fn create_pool(config: &crate::config::database::DatabaseConfig) -> Re
         .connect(&config.url)
         .await
         .context("Failed to create PostgreSQL connection pool")?;
-    
+
     info!("PostgreSQL connection pool created");
     Ok(pool)
 }
