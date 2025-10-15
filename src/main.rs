@@ -15,6 +15,7 @@ mod errors;
 mod handlers;
 mod metrics;
 mod models;
+mod oauth2;
 // mod services;
 mod cache;
 mod database;

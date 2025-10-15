@@ -41,6 +41,20 @@ bcrypt = "0.15"
 uuid = { version = "1.6", features = ["v4", "serde"] }
 rand = "0.8"
 
+# OAuth2 & Advanced Authentication
+oauth2 = "4.4"
+base64 = "0.21"
+sha2 = "0.10"
+hmac = "0.12"
+totp-lite = "2.0"
+qrcode = "0.14"
+
+# WebAuthn (for FIDO2/passwordless auth)
+webauthn-rs = { version = "0.5", features = ["danger-allow-state-serialisation"] }
+
+# Social Login & HTTP Client Extensions
+surf = "2.3"
+
 # Caching
 redis = { version = "0.24", features = ["tokio-comp", "connection-manager"] }
 lru = "0.12"
@@ -70,6 +84,7 @@ thiserror = "1.0"
 validator = { version = "0.19", features = ["derive"] }
 regex = "1.10"
 url = "2.5"
+urlencoding = "2.1"
 futures = "0.3"
 fastrand = "2.0"
 
