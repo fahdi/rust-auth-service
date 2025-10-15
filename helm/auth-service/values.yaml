@@ -1,0 +1,268 @@
+# Default values for auth-service Helm chart
+# This is a YAML-formatted file.
+
+# Global settings
+global:
+  imageRegistry: ghcr.io
+  storageClass: fast-ssd
+  postgresql:
+    auth:
+      postgresPassword: ""
+      username: auth_user
+      password: ""
+      database: auth_service
+  redis:
+    auth:
+      password: ""
+
+# Application configuration
+replicaCount: 3
+
+image:
+  registry: ghcr.io
+  repository: fahdi/rust-auth-service
+  tag: latest
+  pullPolicy: Always
+  pullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+# Service account configuration
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Pod security context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+# Container security context
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  capabilities:
+    drop:
+    - ALL
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8090
+  targetPort: http
+  annotations: {}
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: auth.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: auth-service-tls
+      hosts:
+        - auth.example.com
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Horizontal Pod Autoscaler
+autoscaling:
+  enabled: false
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Node selector and affinity
+nodeSelector: {}
+
+tolerations: []
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - auth-service
+        topologyKey: kubernetes.io/hostname
+
+# Health checks
+healthcheck:
+  enabled: true
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+# Application configuration
+config:
+  # Server settings
+  server:
+    host: 0.0.0.0
+    port: 8090
+    workers: 4
+  
+  # Database configuration
+  database:
+    type: mongodb
+    poolSize: 10
+    timeout: 30
+  
+  # Authentication settings
+  auth:
+    jwtExpiration: 3600
+    passwordHashRounds: 12
+    maxFailedAttempts: 5
+    lockoutDuration: 900
+  
+  # Cache configuration
+  cache:
+    type: redis
+    maxSize: 1000
+    ttl: 3600
+  
+  # Rate limiting
+  rateLimiting:
+    requestsPerMinute: 100
+    burstSize: 10
+    cleanupInterval: 60
+  
+  # Monitoring
+  monitoring:
+    prometheusEnabled: true
+    tracingLevel: info
+
+# Environment variables
+env:
+  RUST_LOG: info
+  RUST_BACKTRACE: "1"
+
+# Secrets (these should be overridden in production)
+secrets:
+  jwtSecret: "your-super-secure-jwt-secret-key-change-in-production"
+  mongodbUrl: ""
+  redisUrl: ""
+  brevoApiKey: ""
+  sendgridApiKey: ""
+
+# External services configuration
+mongodb:
+  enabled: true
+  architecture: replicaset
+  replicaCount: 3
+  auth:
+    enabled: true
+    rootUser: root
+    rootPassword: ""
+    username: auth_user
+    password: ""
+    database: auth_service
+  persistence:
+    enabled: true
+    size: 20Gi
+    storageClass: ""
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+    requests:
+      cpu: 200m
+      memory: 512Mi
+
+redis:
+  enabled: true
+  architecture: standalone
+  auth:
+    enabled: false
+    password: ""
+  master:
+    persistence:
+      enabled: true
+      size: 10Gi
+      storageClass: ""
+    resources:
+      limits:
+        cpu: 500m
+        memory: 1Gi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+
+postgresql:
+  enabled: false
+  auth:
+    postgresPassword: ""
+    username: auth_user
+    password: ""
+    database: auth_service
+  primary:
+    persistence:
+      enabled: true
+      size: 20Gi
+      storageClass: ""
+
+# Monitoring and observability
+monitoring:
+  serviceMonitor:
+    enabled: false
+    labels: {}
+    annotations: {}
+    interval: 30s
+    scrapeTimeout: 10s
+  
+  prometheusRule:
+    enabled: false
+    labels: {}
+    rules: []
+
+# Network policies
+networkPolicy:
+  enabled: false
+  ingress: []
+  egress: []
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+  # maxUnavailable: 1
+
+# Extra manifests
+extraManifests: []
