@@ -43,6 +43,533 @@ impl OAuth2Server {
         &self.metadata
     }
 
+    /// Get OAuth2 metadata (alias for handlers)
+    pub fn get_metadata(&self) -> OAuth2Metadata {
+        self.metadata.clone()
+    }
+
+    /// Get client by ID
+    pub async fn get_client(&self, client_id: &str) -> Result<Option<OAuth2Client>> {
+        self.service.get_client(client_id).await
+    }
+
+    /// Handle authorization request for handlers
+    pub async fn handle_authorization_request(
+        &self,
+        response_type: &str,
+        client_id: &str,
+        redirect_uri: Option<&str>,
+        scope: Option<&str>,
+        state: Option<&str>,
+        code_challenge: Option<&str>,
+        code_challenge_method: Option<&str>,
+        nonce: Option<&str>,
+        user_id: &str,
+    ) -> Result<String> {
+        use crate::oauth2::flows::validate_redirect_uri;
+
+        // Get and validate client
+        let client = self.service.get_client(client_id).await?
+            .ok_or_else(|| anyhow::anyhow!("Invalid client_id"))?;
+
+        if !client.is_active {
+            return Err(anyhow::anyhow!("Client is not active"));
+        }
+
+        // Validate redirect URI
+        let redirect_uri = redirect_uri.unwrap_or_else(|| client.redirect_uris.first().unwrap());
+        if !client.redirect_uris.contains(&redirect_uri.to_string()) {
+            return Err(anyhow::anyhow!("Invalid redirect_uri"));
+        }
+
+        // Validate redirect URI format
+        validate_redirect_uri(redirect_uri)?;
+
+        // Parse and validate scopes
+        let scope_manager = crate::oauth2::scopes::ScopeManager::new();
+        let requested_scopes = scope.unwrap_or(&self.config.default_scopes.join(" "));
+        let scopes = scope_manager.parse_scope_string(requested_scopes);
+        
+        // Filter scopes to only include those allowed for the client
+        let validated_scopes: Vec<String> = scopes.into_iter()
+            .filter(|scope| client.allowed_scopes.contains(scope))
+            .collect();
+
+        // Validate PKCE for public clients
+        if client.is_public || self.config.require_pkce {
+            if code_challenge.is_none() {
+                return Err(anyhow::anyhow!("PKCE required for this client"));
+            }
+        }
+
+        // Generate authorization code
+        let code = uuid::Uuid::new_v4().to_string();
+        let expires_at = chrono::Utc::now() + chrono::Duration::seconds(self.config.authorization_code_lifetime as i64);
+
+        let auth_code = AuthorizationCode {
+            code: code.clone(),
+            client_id: client_id.to_string(),
+            user_id: user_id.to_string(),
+            redirect_uri: redirect_uri.to_string(),
+            scopes: validated_scopes,
+            expires_at: expires_at.into(),
+            code_challenge: code_challenge.map(|s| s.to_string()),
+            code_challenge_method: code_challenge_method.map(|s| s.to_string()),
+            nonce: nonce.map(|s| s.to_string()),
+            state: state.map(|s| s.to_string()),
+            used: false,
+        };
+
+        self.service.create_auth_code(auth_code).await?;
+
+        // Return redirect URL with authorization code
+        let mut url = format!("{}?code={}", redirect_uri, code);
+        if let Some(state) = state {
+            url.push_str(&format!("&state={}", urlencoding::encode(state)));
+        }
+        Ok(url)
+    }
+
+    /// Handle token request for handlers
+    pub async fn handle_token_request(&self, request: &TokenRequest) -> Result<TokenResponse> {
+        match request.grant_type.as_str() {
+            "authorization_code" => {
+                self.handle_authorization_code_grant(
+                    request.code.as_ref().ok_or_else(|| anyhow::anyhow!("Missing authorization code"))?,
+                    request.client_id.as_ref().ok_or_else(|| anyhow::anyhow!("Missing client_id"))?,
+                    request.client_secret.as_deref(),
+                    request.redirect_uri.as_ref().ok_or_else(|| anyhow::anyhow!("Missing redirect_uri"))?,
+                    request.code_verifier.as_deref(),
+                ).await
+            }
+            "client_credentials" => {
+                self.handle_client_credentials_grant(
+                    request.client_id.as_ref().ok_or_else(|| anyhow::anyhow!("Missing client_id"))?,
+                    request.client_secret.as_deref(),
+                    request.scope.as_deref(),
+                ).await
+            }
+            "refresh_token" => {
+                self.handle_refresh_token_grant(
+                    request.refresh_token.as_ref().ok_or_else(|| anyhow::anyhow!("Missing refresh token"))?,
+                    request.client_id.as_ref().ok_or_else(|| anyhow::anyhow!("Missing client_id"))?,
+                    request.client_secret.as_deref(),
+                    request.scope.as_deref(),
+                ).await
+            }
+            _ => Err(anyhow::anyhow!("Unsupported grant type: {}", request.grant_type))
+        }
+    }
+
+    /// Handle authorization code grant
+    async fn handle_authorization_code_grant(
+        &self,
+        code: &str,
+        client_id: &str,
+        client_secret: Option<&str>,
+        redirect_uri: &str,
+        code_verifier: Option<&str>,
+    ) -> Result<TokenResponse> {
+        use crate::oauth2::pkce::{verify_pkce, PKCEVerificationResult};
+
+        // Get and validate authorization code
+        let auth_code = self.service.get_auth_code(code).await?
+            .ok_or_else(|| anyhow::anyhow!("Invalid authorization code"))?;
+
+        if auth_code.used {
+            return Err(anyhow::anyhow!("Authorization code already used"));
+        }
+
+        if auth_code.expires_at < chrono::Utc::now().into() {
+            return Err(anyhow::anyhow!("Authorization code expired"));
+        }
+
+        if auth_code.client_id != client_id {
+            return Err(anyhow::anyhow!("Client ID mismatch"));
+        }
+
+        if auth_code.redirect_uri != redirect_uri {
+            return Err(anyhow::anyhow!("Redirect URI mismatch"));
+        }
+
+        // Get and validate client
+        let client = self.service.get_client(client_id).await?
+            .ok_or_else(|| anyhow::anyhow!("Invalid client"))?;
+
+        // Authenticate client
+        if !client.is_public {
+            let provided_secret = client_secret.ok_or_else(|| anyhow::anyhow!("Client secret required"))?;
+            let expected_secret = client.client_secret.as_ref()
+                .ok_or_else(|| anyhow::anyhow!("Client secret not configured"))?;
+
+            if provided_secret != expected_secret {
+                return Err(anyhow::anyhow!("Invalid client credentials"));
+            }
+        }
+
+        // Verify PKCE if present
+        let pkce_result = verify_pkce(
+            code_verifier,
+            auth_code.code_challenge.as_deref(),
+            auth_code.code_challenge_method.as_deref(),
+        );
+
+        match pkce_result {
+            PKCEVerificationResult::Valid => {},
+            PKCEVerificationResult::Invalid => return Err(anyhow::anyhow!("PKCE verification failed")),
+            PKCEVerificationResult::MethodMismatch => return Err(anyhow::anyhow!("PKCE method mismatch")),
+            PKCEVerificationResult::MissingVerifier => {
+                if auth_code.code_challenge.is_some() {
+                    return Err(anyhow::anyhow!("PKCE verifier required"));
+                }
+            },
+            PKCEVerificationResult::MissingChallenge => {
+                if code_verifier.is_some() {
+                    return Err(anyhow::anyhow!("PKCE not used in authorization"));
+                }
+            },
+        }
+
+        // Mark authorization code as used
+        self.service.use_auth_code(code).await?;
+
+        // Generate tokens
+        let (access_token, access_token_record) = self.token_manager.generate_access_token(
+            &auth_code.user_id,
+            client_id,
+            &auth_code.scopes,
+            None,
+            Some(chrono::Utc::now().timestamp()),
+            None,
+        )?;
+
+        // Store access token
+        self.service.create_access_token(access_token_record).await?;
+
+        let mut response = TokenResponse {
+            access_token,
+            token_type: "Bearer".to_string(),
+            expires_in: Some(self.config.access_token_lifetime),
+            refresh_token: None,
+            scope: Some(auth_code.scopes.join(" ")),
+            id_token: None,
+        };
+
+        // Generate refresh token if enabled
+        if self.config.enable_refresh_tokens {
+            let (refresh_token, refresh_token_record) = self.token_manager.generate_refresh_token(
+                &response.access_token,
+                &auth_code.user_id,
+                client_id,
+                &auth_code.scopes,
+                None,
+            )?;
+
+            self.service.create_refresh_token(refresh_token_record).await?;
+            response.refresh_token = Some(refresh_token);
+        }
+
+        // Generate ID token if openid scope requested
+        if auth_code.scopes.contains(&"openid".to_string()) {
+            let id_token = self.token_manager.generate_id_token(
+                &auth_code.user_id,
+                client_id,
+                chrono::Utc::now().timestamp(),
+                auth_code.nonce.clone(),
+                Some(&response.access_token),
+                Some(code),
+                None,
+            )?;
+
+            response.id_token = Some(id_token);
+        }
+
+        Ok(response)
+    }
+
+    /// Handle client credentials grant
+    async fn handle_client_credentials_grant(
+        &self,
+        client_id: &str,
+        client_secret: Option<&str>,
+        scope: Option<&str>,
+    ) -> Result<TokenResponse> {
+        if !self.config.enable_client_credentials {
+            return Err(anyhow::anyhow!("Client credentials grant not enabled"));
+        }
+
+        // Get and validate client
+        let client = self.service.get_client(client_id).await?
+            .ok_or_else(|| anyhow::anyhow!("Invalid client"))?;
+
+        if !client.allowed_grant_types.contains(&GrantType::ClientCredentials) {
+            return Err(anyhow::anyhow!("Client credentials grant not allowed for this client"));
+        }
+
+        // Authenticate client
+        if !client.is_public {
+            let provided_secret = client_secret.ok_or_else(|| anyhow::anyhow!("Client secret required"))?;
+            let expected_secret = client.client_secret.as_ref()
+                .ok_or_else(|| anyhow::anyhow!("Client secret not configured"))?;
+
+            if provided_secret != expected_secret {
+                return Err(anyhow::anyhow!("Invalid client credentials"));
+            }
+        }
+
+        // Parse and validate scopes
+        let scope_manager = crate::oauth2::scopes::ScopeManager::new();
+        let requested_scopes = scope.unwrap_or(&self.config.default_scopes.join(" "));
+        let scopes = scope_manager.parse_scope_string(requested_scopes);
+        let validated_scopes: Vec<String> = scopes.into_iter()
+            .filter(|scope| client.allowed_scopes.contains(scope))
+            .collect();
+
+        // Generate access token (no user context for client credentials)
+        let (access_token, access_token_record) = self.token_manager.generate_access_token(
+            "", // No user for client credentials
+            client_id,
+            &validated_scopes,
+            None,
+            Some(chrono::Utc::now().timestamp()),
+            None,
+        )?;
+
+        // Store access token
+        self.service.create_access_token(access_token_record).await?;
+
+        Ok(TokenResponse {
+            access_token,
+            token_type: "Bearer".to_string(),
+            expires_in: Some(self.config.access_token_lifetime),
+            refresh_token: None,
+            scope: Some(validated_scopes.join(" ")),
+            id_token: None,
+        })
+    }
+
+    /// Handle refresh token grant
+    async fn handle_refresh_token_grant(
+        &self,
+        refresh_token: &str,
+        client_id: &str,
+        client_secret: Option<&str>,
+        scope: Option<&str>,
+    ) -> Result<TokenResponse> {
+        if !self.config.enable_refresh_tokens {
+            return Err(anyhow::anyhow!("Refresh token grant not enabled"));
+        }
+
+        // Get and validate refresh token
+        let token_record = self.service.get_refresh_token(refresh_token).await?
+            .ok_or_else(|| anyhow::anyhow!("Invalid refresh token"))?;
+
+        if token_record.used {
+            return Err(anyhow::anyhow!("Refresh token already used"));
+        }
+
+        if let Some(expires_at) = token_record.expires_at {
+            if expires_at < chrono::Utc::now().into() {
+                return Err(anyhow::anyhow!("Refresh token expired"));
+            }
+        }
+
+        if token_record.client_id != client_id {
+            return Err(anyhow::anyhow!("Client ID mismatch"));
+        }
+
+        // Get and validate client
+        let client = self.service.get_client(client_id).await?
+            .ok_or_else(|| anyhow::anyhow!("Invalid client"))?;
+
+        // Authenticate client
+        if !client.is_public {
+            let provided_secret = client_secret.ok_or_else(|| anyhow::anyhow!("Client secret required"))?;
+            let expected_secret = client.client_secret.as_ref()
+                .ok_or_else(|| anyhow::anyhow!("Client secret not configured"))?;
+
+            if provided_secret != expected_secret {
+                return Err(anyhow::anyhow!("Invalid client credentials"));
+            }
+        }
+
+        // Validate scopes (can't request more than original)
+        let scope_manager = crate::oauth2::scopes::ScopeManager::new();
+        let scopes = if let Some(scope) = scope {
+            let requested_scopes = scope_manager.parse_scope_string(scope);
+            let original_scopes = &token_record.scopes;
+            
+            // Ensure requested scopes are subset of original
+            for requested_scope in &requested_scopes {
+                if !original_scopes.contains(requested_scope) {
+                    return Err(anyhow::anyhow!("Cannot request scope not in original token: {}", requested_scope));
+                }
+            }
+            requested_scopes
+        } else {
+            token_record.scopes.clone()
+        };
+
+        // Mark refresh token as used
+        self.service.use_refresh_token(refresh_token).await?;
+
+        // Revoke old access token
+        self.service.revoke_access_token(&token_record.access_token).await?;
+
+        // Generate new tokens
+        let user_id = token_record.user_id.as_deref().unwrap_or("");
+        let (access_token, access_token_record) = self.token_manager.generate_access_token(
+            user_id,
+            client_id,
+            &scopes,
+            None,
+            Some(chrono::Utc::now().timestamp()),
+            None,
+        )?;
+
+        // Store new access token
+        self.service.create_access_token(access_token_record).await?;
+
+        let mut response = TokenResponse {
+            access_token,
+            token_type: "Bearer".to_string(),
+            expires_in: Some(self.config.access_token_lifetime),
+            refresh_token: None,
+            scope: Some(scopes.join(" ")),
+            id_token: None,
+        };
+
+        // Generate new refresh token
+        let (new_refresh_token, new_refresh_token_record) = self.token_manager.generate_refresh_token(
+            &response.access_token,
+            user_id,
+            client_id,
+            &scopes,
+            None,
+        )?;
+
+        self.service.create_refresh_token(new_refresh_token_record).await?;
+        response.refresh_token = Some(new_refresh_token);
+
+        // Generate ID token if openid scope present
+        if scopes.contains(&"openid".to_string()) && !user_id.is_empty() {
+            let id_token = self.token_manager.generate_id_token(
+                user_id,
+                client_id,
+                chrono::Utc::now().timestamp(),
+                None,
+                Some(&response.access_token),
+                None,
+                None,
+            )?;
+
+            response.id_token = Some(id_token);
+        }
+
+        Ok(response)
+    }
+
+    /// Handle device authorization for handlers
+    pub async fn handle_device_authorization(&self, client_id: &str, scope: Option<&str>) -> Result<DeviceAuthorizationResponse> {
+        if !self.config.enable_device_flow {
+            return Err(anyhow::anyhow!("Device flow not enabled"));
+        }
+
+        // Get and validate client
+        let client = self.service.get_client(client_id).await?
+            .ok_or_else(|| anyhow::anyhow!("Invalid client"))?;
+
+        if !client.allowed_grant_types.contains(&GrantType::DeviceCode) {
+            return Err(anyhow::anyhow!("Device code grant not allowed for this client"));
+        }
+
+        // Validate and process scopes
+        let scope_manager = crate::oauth2::scopes::ScopeManager::new();
+        let requested_scopes = scope.unwrap_or(&self.config.default_scopes.join(" "));
+        let scopes = scope_manager.parse_scopes(requested_scopes);
+        let validated_scopes: Vec<String> = scopes.into_iter()
+            .filter(|scope| client.allowed_scopes.contains(scope))
+            .collect();
+
+        // Generate device code and user code
+        let device_code = uuid::Uuid::new_v4().to_string();
+        let user_code = self.generate_user_code();
+        let verification_uri = format!("{}/device", self.config.base_url);
+        let verification_uri_complete = format!("{}?user_code={}", verification_uri, user_code);
+
+        let device_auth = DeviceAuthorization {
+            device_code: device_code.clone(),
+            user_code: user_code.clone(),
+            verification_uri: verification_uri.clone(),
+            verification_uri_complete: verification_uri_complete.clone(),
+            client_id: client_id.to_string(),
+            scopes: validated_scopes,
+            expires_at: (chrono::Utc::now() + chrono::Duration::seconds(self.config.device_code_lifetime as i64)).into(),
+            interval: self.config.device_code_interval,
+            user_id: None,
+            authorized: false,
+        };
+
+        // Store device authorization
+        self.service.create_device_authorization(device_auth).await?;
+
+        Ok(DeviceAuthorizationResponse {
+            device_code,
+            user_code,
+            verification_uri,
+            verification_uri_complete,
+            expires_in: self.config.device_code_lifetime,
+            interval: self.config.device_code_interval,
+        })
+    }
+
+    /// Authorize device code for handlers
+    pub async fn authorize_device_code(&self, user_code: &str, user_id: &str) -> Result<bool> {
+        self.service.authorize_device(user_code, user_id).await
+    }
+
+    /// Generate user-friendly device code
+    fn generate_user_code(&self) -> String {
+        use rand::Rng;
+        
+        // Generate 8-character alphanumeric code (excluding confusing characters)
+        let charset: &[u8] = b"ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        let mut rng = rand::thread_rng();
+        
+        (0..8)
+            .map(|_| {
+                let idx = rng.gen_range(0..charset.len());
+                charset[idx] as char
+            })
+            .collect()
+    }
+
+    /// Introspect token for handlers
+    pub async fn introspect_token(&self, token: &str) -> Result<TokenIntrospection> {
+        self.service.introspect_token(token).await
+    }
+
+    /// Revoke token for handlers
+    pub async fn revoke_token(&self, token: &str) -> Result<bool> {
+        // Try to revoke as access token first, then refresh token
+        let access_revoked = self.service.revoke_access_token(token).await.unwrap_or(false);
+        if access_revoked {
+            return Ok(true);
+        }
+        
+        let refresh_revoked = self.service.revoke_refresh_token(token).await.unwrap_or(false);
+        Ok(refresh_revoked)
+    }
+
+    /// Get JWKS for handlers
+    pub async fn get_jwks(&self) -> Result<serde_json::Value> {
+        // TODO: Implement proper JWKS endpoint with public keys
+        // For now, return a basic structure
+        Ok(serde_json::json!({
+            "keys": []
+        }))
+    }
+
     /// Handle authorization request (GET/POST /oauth2/authorize)
     pub async fn handle_authorize(
         &self,
