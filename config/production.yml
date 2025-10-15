@@ -1,0 +1,236 @@
+# Production configuration for Auth Service
+# This file contains production-specific settings and should be secured
+
+server:
+  host: 0.0.0.0
+  port: 8090
+  workers: 4
+  max_connections: 1000
+  keep_alive: 75
+  timeout: 30
+
+# Database configuration with connection pooling
+database:
+  type: mongodb  # Options: mongodb, postgresql, mysql
+  mongodb:
+    url: "${MONGODB_URL}"
+    database: "auth_service"
+    pool_size: 20
+    timeout: 30
+    ssl: true
+    ssl_verify_certificate: true
+    ssl_ca_file: "/etc/ssl/certs/mongodb-ca.pem"
+  postgresql:
+    url: "${POSTGRESQL_URL}"
+    pool_size: 15
+    timeout: 30
+    ssl_mode: "require"
+    ssl_cert: "/etc/ssl/certs/postgresql.crt"
+    ssl_key: "/etc/ssl/private/postgresql.key"
+    ssl_ca: "/etc/ssl/certs/ca-certificates.crt"
+  mysql:
+    url: "${MYSQL_URL}"
+    pool_size: 15
+    timeout: 30
+    ssl_mode: "REQUIRED"
+    ssl_ca: "/etc/ssl/certs/mysql-ca.pem"
+
+# Authentication configuration
+auth:
+  jwt_secret: "${JWT_SECRET}"
+  jwt_expiration: 3600  # 1 hour
+  jwt_refresh_expiration: 604800  # 7 days
+  password_hash_rounds: 12
+  max_failed_attempts: 5
+  lockout_duration: 900  # 15 minutes
+  require_email_verification: true
+  allow_password_reset: true
+  session_timeout: 7200  # 2 hours
+
+# Cache configuration with Redis primary and memory fallback
+cache:
+  type: "multi-level"  # Options: memory, redis, multi-level
+  redis:
+    url: "${REDIS_URL}"
+    pool_size: 15
+    timeout: 5
+    ssl: true
+    ssl_cert_file: "/etc/ssl/certs/redis.crt"
+    ssl_key_file: "/etc/ssl/private/redis.key"
+    ssl_ca_file: "/etc/ssl/certs/redis-ca.pem"
+    cluster_mode: false
+    sentinel_urls: []
+  memory:
+    max_size: 10000
+    ttl: 3600
+    cleanup_interval: 300
+
+# Email service configuration
+email:
+  provider: "brevo"  # Options: brevo, sendgrid, smtp
+  brevo:
+    api_key: "${BREVO_API_KEY}"
+    from_email: "${EMAIL_FROM}"
+    from_name: "Auth Service"
+    template_path: "/app/templates"
+  sendgrid:
+    api_key: "${SENDGRID_API_KEY}"
+    from_email: "${EMAIL_FROM}"
+    from_name: "Auth Service"
+    template_path: "/app/templates"
+  smtp:
+    host: "${SMTP_HOST}"
+    port: 587
+    username: "${SMTP_USERNAME}"
+    password: "${SMTP_PASSWORD}"
+    use_tls: true
+    from_email: "${EMAIL_FROM}"
+    from_name: "Auth Service"
+
+# Rate limiting configuration
+rate_limiting:
+  enabled: true
+  requests_per_minute: 60
+  burst_size: 10
+  cleanup_interval: 60
+  whitelist_ips:
+    - "127.0.0.1"
+    - "::1"
+  endpoint_limits:
+    "/auth/login": 
+      requests_per_minute: 5
+      burst_size: 2
+    "/auth/register":
+      requests_per_minute: 3
+      burst_size: 1
+    "/auth/forgot-password":
+      requests_per_minute: 2
+      burst_size: 1
+    "/auth/reset-password":
+      requests_per_minute: 3
+      burst_size: 1
+
+# Security configuration
+security:
+  cors:
+    allowed_origins:
+      - "https://app.auth-service.com"
+      - "https://admin.auth-service.com"
+    allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    allowed_headers: ["Content-Type", "Authorization", "X-Requested-With"]
+    max_age: 3600
+  headers:
+    content_security_policy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+    x_frame_options: "DENY"
+    x_content_type_options: "nosniff"
+    x_xss_protection: "1; mode=block"
+    strict_transport_security: "max-age=31536000; includeSubDomains"
+    referrer_policy: "strict-origin-when-cross-origin"
+  encryption:
+    algorithm: "AES-256-GCM"
+    key_rotation_interval: 2592000  # 30 days
+
+# Monitoring and observability
+monitoring:
+  prometheus:
+    enabled: true
+    path: "/metrics"
+    push_gateway_url: "${PROMETHEUS_PUSH_GATEWAY_URL}"
+  tracing:
+    enabled: true
+    level: "info"
+    format: "json"
+    jaeger_endpoint: "${JAEGER_ENDPOINT}"
+    sample_rate: 0.1
+  health_checks:
+    enabled: true
+    path: "/health"
+    detailed_path: "/health/detailed"
+    check_interval: 30
+    timeout: 10
+  audit_logging:
+    enabled: true
+    log_path: "/var/log/auth-service/audit.log"
+    log_format: "json"
+    retention_days: 90
+
+# Logging configuration
+logging:
+  level: "info"
+  format: "json"
+  output: "stdout"
+  file_output:
+    enabled: true
+    path: "/var/log/auth-service/app.log"
+    max_size: "100MB"
+    max_files: 10
+    compress: true
+  structured_fields:
+    service: "auth-service"
+    version: "${APP_VERSION}"
+    environment: "production"
+    datacenter: "${DATACENTER}"
+    instance_id: "${INSTANCE_ID}"
+
+# Performance tuning
+performance:
+  async_runtime:
+    worker_threads: 4
+    blocking_threads: 512
+    thread_keep_alive: 10
+  database_pool:
+    min_connections: 5
+    max_connections: 20
+    connection_timeout: 30
+    idle_timeout: 600
+    max_lifetime: 3600
+  cache_pool:
+    min_connections: 3
+    max_connections: 15
+    connection_timeout: 5
+    idle_timeout: 300
+
+# Environment-specific overrides
+environment:
+  name: "production"
+  region: "${AWS_REGION}"
+  availability_zone: "${AWS_AZ}"
+  instance_type: "${INSTANCE_TYPE}"
+  deployment_id: "${DEPLOYMENT_ID}"
+  git_commit: "${GIT_COMMIT}"
+  build_time: "${BUILD_TIME}"
+
+# Feature flags
+features:
+  oauth2_providers: true
+  multi_factor_auth: false
+  social_login: true
+  advanced_analytics: true
+  admin_dashboard: true
+  api_versioning: true
+  
+# Backup and recovery
+backup:
+  enabled: true
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  retention_days: 30
+  destinations:
+    - type: "s3"
+      bucket: "${BACKUP_S3_BUCKET}"
+      prefix: "auth-service-backups"
+      encryption: true
+    - type: "local"
+      path: "/backup/auth-service"
+      encryption: true
+
+# Disaster recovery
+disaster_recovery:
+  enabled: true
+  replication:
+    enabled: true
+    target_region: "${DR_REGION}"
+    replication_lag_threshold: 300  # 5 minutes
+  failover:
+    automatic: false
+    health_check_threshold: 3
+    recovery_timeout: 1800  # 30 minutes
