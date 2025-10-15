@@ -48,10 +48,12 @@ pub async fn jwt_auth_middleware(
         }
     };
 
-    // TODO: Check if token is blacklisted
-    // if state.cache.is_token_blacklisted(token).await? {
-    //     return Err(StatusCode::UNAUTHORIZED);
-    // }
+    // Check if token is blacklisted
+    let blacklist_key = format!("blacklist:token:{}", claims.jti);
+    if let Ok(Some(_)) = state.cache.get(&blacklist_key).await {
+        warn!("Blacklisted token used: {}", claims.sub);
+        return Err(StatusCode::UNAUTHORIZED);
+    }
 
     // Verify user still exists and is active
     match state.database.find_user_by_id(&claims.sub).await {
