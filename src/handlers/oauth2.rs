@@ -16,14 +16,16 @@ use crate::{
         client::OAuth2ClientManager,
     },
     utils::response::{ApiResponse, ApiError},
+    AppState,
 };
 
 /// OAuth2 authorization endpoint
 pub async fn authorize(
-    State(oauth2_server): State<OAuth2Server>,
+    State(app_state): State<AppState>,
     Query(params): Query<AuthorizeRequest>,
     Extension(user_id): Extension<Option<String>>,
 ) -> Result<Redirect, ApiError> {
+    let oauth2_server = &app_state.oauth2_server;
     // Check if user is authenticated
     let user_id = user_id.ok_or_else(|| {
         ApiError::new(
@@ -53,10 +55,11 @@ pub async fn authorize(
 
 /// OAuth2 authorization consent page
 pub async fn authorize_consent(
-    State(oauth2_server): State<OAuth2Server>,
+    State(app_state): State<AppState>,
     Query(params): Query<AuthorizeRequest>,
     Extension(user_id): Extension<Option<String>>,
 ) -> Result<Html<String>, ApiError> {
+    let oauth2_server = &app_state.oauth2_server;
     // Check if user is authenticated
     let user_id = user_id.ok_or_else(|| {
         ApiError::new(
@@ -167,10 +170,11 @@ pub struct ConsentForm {
 }
 
 pub async fn authorize_consent_post(
-    State(oauth2_server): State<OAuth2Server>,
+    State(app_state): State<AppState>,
     Extension(user_id): Extension<Option<String>>,
     Form(form): Form<ConsentForm>,
 ) -> Result<Redirect, ApiError> {
+    let oauth2_server = &app_state.oauth2_server;
     let user_id = user_id.ok_or_else(|| {
         ApiError::new(StatusCode::UNAUTHORIZED, "User must be authenticated".to_string())
     })?;
@@ -206,9 +210,10 @@ pub async fn authorize_consent_post(
 
 /// OAuth2 token endpoint
 pub async fn token(
-    State(oauth2_server): State<OAuth2Server>,
+    State(app_state): State<AppState>,
     Form(params): Form<TokenRequest>,
 ) -> Result<Json<TokenResponse>, Json<OAuth2ErrorResponse>> {
+    let oauth2_server = &app_state.oauth2_server;
     match oauth2_server.handle_token_request(&params).await {
         Ok(response) => Ok(Json(response)),
         Err(e) => {
@@ -225,9 +230,10 @@ pub async fn token(
 
 /// OAuth2 device authorization endpoint
 pub async fn device_authorization(
-    State(oauth2_server): State<OAuth2Server>,
+    State(app_state): State<AppState>,
     Form(params): Form<DeviceAuthorizationRequest>,
 ) -> Result<Json<DeviceAuthorizationResponse>, Json<OAuth2ErrorResponse>> {
+    let oauth2_server = &app_state.oauth2_server;
     match oauth2_server.handle_device_authorization(&params.client_id, params.scope.as_deref()).await {
         Ok(response) => Ok(Json(response)),
         Err(e) => {
@@ -244,9 +250,10 @@ pub async fn device_authorization(
 
 /// Device verification page
 pub async fn device_verify(
-    State(oauth2_server): State<OAuth2Server>,
+    State(app_state): State<AppState>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<Html<String>, ApiError> {
+    let _oauth2_server = &app_state.oauth2_server;
     let user_code = params.get("user_code").cloned().unwrap_or_default();
 
     let html = format!(
@@ -295,10 +302,11 @@ pub struct DeviceVerifyForm {
 }
 
 pub async fn device_verify_post(
-    State(oauth2_server): State<OAuth2Server>,
+    State(app_state): State<AppState>,
     Extension(user_id): Extension<Option<String>>,
     Form(form): Form<DeviceVerifyForm>,
 ) -> Result<Html<String>, ApiError> {
+    let oauth2_server = &app_state.oauth2_server;
     let user_id = user_id.ok_or_else(|| {
         ApiError::new(StatusCode::UNAUTHORIZED, "User must be authenticated".to_string())
     })?;
@@ -365,9 +373,10 @@ pub async fn device_verify_post(
 
 /// OAuth2 token introspection endpoint (RFC 7662)
 pub async fn introspect(
-    State(oauth2_server): State<OAuth2Server>,
+    State(app_state): State<AppState>,
     Form(params): Form<HashMap<String, String>>,
 ) -> Result<Json<serde_json::Value>, Json<OAuth2ErrorResponse>> {
+    let oauth2_server = &app_state.oauth2_server;
     let token = params.get("token").ok_or_else(|| {
         Json(OAuth2ErrorResponse {
             error: OAuth2Error::InvalidRequest,
@@ -390,9 +399,10 @@ pub async fn introspect(
 
 /// OAuth2 token revocation endpoint (RFC 7009)
 pub async fn revoke(
-    State(oauth2_server): State<OAuth2Server>,
+    State(app_state): State<AppState>,
     Form(params): Form<HashMap<String, String>>,
 ) -> Result<StatusCode, Json<OAuth2ErrorResponse>> {
+    let oauth2_server = &app_state.oauth2_server;
     let token = params.get("token").ok_or_else(|| {
         Json(OAuth2ErrorResponse {
             error: OAuth2Error::InvalidRequest,
@@ -415,15 +425,17 @@ pub async fn revoke(
 
 /// OAuth2 metadata endpoint (RFC 8414)
 pub async fn metadata(
-    State(oauth2_server): State<OAuth2Server>,
+    State(app_state): State<AppState>,
 ) -> Json<OAuth2Metadata> {
+    let oauth2_server = &app_state.oauth2_server;
     Json(oauth2_server.get_metadata())
 }
 
 /// JWKS endpoint for public keys
 pub async fn jwks(
-    State(oauth2_server): State<OAuth2Server>,
+    State(app_state): State<AppState>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
+    let oauth2_server = &app_state.oauth2_server;
     let jwks = oauth2_server
         .get_jwks()
         .await
@@ -508,15 +520,15 @@ pub async fn list_clients(
 /// Helper function to describe OAuth2 scopes
 fn describe_scope(scope: &str) -> String {
     match scope {
-        "openid" => "Access your identity",
-        "profile" => "Access your profile information",
-        "email" => "Access your email address",
-        "read" => "Read access to your data",
-        "write" => "Write access to your data",
-        "admin" => "Administrative access",
-        "offline_access" => "Access your data while offline",
-        _ => &format!("Access to {}", scope),
-    }.to_string()
+        "openid" => "Access your identity".to_string(),
+        "profile" => "Access your profile information".to_string(),
+        "email" => "Access your email address".to_string(),
+        "read" => "Read access to your data".to_string(),
+        "write" => "Write access to your data".to_string(),
+        "admin" => "Administrative access".to_string(),
+        "offline_access" => "Access your data while offline".to_string(),
+        _ => format!("Access to {}", scope),
+    }
 }
 
 #[cfg(test)]

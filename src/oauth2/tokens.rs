@@ -80,6 +80,7 @@ pub struct IdTokenClaims {
 }
 
 /// Token generator and validator
+#[derive(Clone)]
 pub struct TokenManager {
     config: OAuth2Config,
     encoding_key: EncodingKey,

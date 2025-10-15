@@ -486,9 +486,8 @@ fn validate_redirect_uris(redirect_uris: &[String]) -> Result<(), ValidationErro
         }
 
         // Validate URI format
-        if let Err(e) = validate_redirect_uri(uri) {
-            let error_msg = format!("Invalid redirect URI: {}", e);
-            return Err(ValidationError::new(&error_msg));
+        if let Err(_e) = validate_redirect_uri(uri) {
+            return Err(ValidationError::new("Invalid redirect URI format"));
         }
     }
 
@@ -510,26 +509,23 @@ fn validate_grant_types(grant_types: &[String]) -> Result<(), ValidationError> {
 
     for grant_type in grant_types {
         if !valid_grant_types.contains(&grant_type.as_str()) {
-            let error_msg = format!("Invalid grant type: {}", grant_type);
-            return Err(ValidationError::new(&error_msg));
+            return Err(ValidationError::new("Invalid grant type"));
         }
     }
 
     Ok(())
 }
 
-fn validate_scopes(scopes: &Option<String>) -> Result<(), ValidationError> {
-    if let Some(scope_str) = scopes {
-        // Basic scope validation - no control characters
-        let scope_regex = Regex::new(r"^[a-zA-Z0-9:/_-]+( [a-zA-Z0-9:/_-]+)*$").unwrap();
-        if !scope_regex.is_match(scope_str) {
-            return Err(ValidationError::new("Invalid scope format"));
-        }
+fn validate_scopes(scopes: &String) -> Result<(), ValidationError> {
+    // Basic scope validation - no control characters
+    let scope_regex = Regex::new(r"^[a-zA-Z0-9:/_-]+( [a-zA-Z0-9:/_-]+)*$").unwrap();
+    if !scope_regex.is_match(scopes) {
+        return Err(ValidationError::new("Invalid scope format"));
+    }
 
-        // Check scope length
-        if scope_str.len() > 1000 {
-            return Err(ValidationError::new("Scope string too long"));
-        }
+    // Check scope length
+    if scopes.len() > 1000 {
+        return Err(ValidationError::new("Scope string too long"));
     }
 
     Ok(())

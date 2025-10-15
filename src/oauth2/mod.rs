@@ -176,7 +176,7 @@ pub struct TokenResponse {
 }
 
 /// Authorization request parameters
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthorizeRequest {
     pub response_type: String,
     pub client_id: String,
@@ -208,7 +208,7 @@ pub struct TokenRequest {
 }
 
 /// Device authorization request
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeviceAuthorizationRequest {
     pub client_id: String,
     pub scope: Option<String>,

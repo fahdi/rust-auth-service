@@ -72,16 +72,21 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
         }
 
         // Validate and process scopes
-        let requested_scopes = scope.unwrap_or(&self.config.default_scopes.join(" "));
-        let scopes = self.scope_manager.parse_scopes(requested_scopes);
-        match self.scope_manager.validate_scopes(&scopes) {
-            crate::oauth2::scopes::ScopeValidationResult::Valid => {},
-            crate::oauth2::scopes::ScopeValidationResult::Invalid(invalid_scopes) => {
-                return Err(anyhow!("Invalid scopes: {}", invalid_scopes.join(", ")));
-            },
-            crate::oauth2::scopes::ScopeValidationResult::Forbidden(forbidden_scopes) => {
-                return Err(anyhow!("Forbidden scopes: {}", forbidden_scopes.join(", ")));
-            },
+        let default_scopes = self.config.default_scopes.join(" ");
+        let requested_scopes = scope.unwrap_or(&default_scopes);
+        let scopes = crate::oauth2::scopes::utils::parse_scope_string(requested_scopes);
+        let validation_result = self.scope_manager.validate_scopes(&scopes);
+        if !validation_result.invalid.is_empty() {
+            return Err(anyhow!("Invalid scopes: {}", validation_result.invalid.join(", ")));
+        }
+        if !validation_result.conflicts.is_empty() {
+            return Err(anyhow!("Scope conflicts: {}", 
+                validation_result.conflicts.iter()
+                    .map(|c| &c.reason)
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
         }
         // Filter scopes to only include those allowed for the client
         let validated_scopes: Vec<String> = scopes.into_iter()
@@ -212,7 +217,7 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
             return Err(anyhow!("Authorization code already used"));
         }
 
-        if auth_code.expires_at < Utc::now().into() {
+        if auth_code.expires_at < Utc::now() {
             return Err(anyhow!("Authorization code expired"));
         }
 
@@ -334,16 +339,21 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
         self.authenticate_client(&client, client_secret).await?;
 
         // Validate and process scopes
-        let requested_scopes = scope.unwrap_or(&self.config.default_scopes.join(" "));
-        let scopes = self.scope_manager.parse_scopes(requested_scopes);
-        match self.scope_manager.validate_scopes(&scopes) {
-            crate::oauth2::scopes::ScopeValidationResult::Valid => {},
-            crate::oauth2::scopes::ScopeValidationResult::Invalid(invalid_scopes) => {
-                return Err(anyhow!("Invalid scopes: {}", invalid_scopes.join(", ")));
-            },
-            crate::oauth2::scopes::ScopeValidationResult::Forbidden(forbidden_scopes) => {
-                return Err(anyhow!("Forbidden scopes: {}", forbidden_scopes.join(", ")));
-            },
+        let default_scopes = self.config.default_scopes.join(" ");
+        let requested_scopes = scope.unwrap_or(&default_scopes);
+        let scopes = crate::oauth2::scopes::utils::parse_scope_string(requested_scopes);
+        let validation_result = self.scope_manager.validate_scopes(&scopes);
+        if !validation_result.invalid.is_empty() {
+            return Err(anyhow!("Invalid scopes: {}", validation_result.invalid.join(", ")));
+        }
+        if !validation_result.conflicts.is_empty() {
+            return Err(anyhow!("Scope conflicts: {}", 
+                validation_result.conflicts.iter()
+                    .map(|c| &c.reason)
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
         }
         // Filter scopes to only include those allowed for the client
         let validated_scopes: Vec<String> = scopes.into_iter()
@@ -394,7 +404,7 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
         }
 
         if let Some(expires_at) = token_record.expires_at {
-            if expires_at < Utc::now().into() {
+            if expires_at < Utc::now() {
                 return Err(anyhow!("Refresh token expired"));
             }
         }
@@ -412,7 +422,7 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
 
         // Validate scopes (can't request more than original)
         let scopes = if let Some(scope) = scope {
-            let requested_scopes = self.scope_manager.parse_scopes(scope);
+            let requested_scopes = crate::oauth2::scopes::utils::parse_scope_string(scope);
             let original_scopes = &token_record.scopes;
             
             // Ensure requested scopes are subset of original
@@ -504,16 +514,21 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
         }
 
         // Validate and process scopes
-        let requested_scopes = scope.unwrap_or(&self.config.default_scopes.join(" "));
-        let scopes = self.scope_manager.parse_scopes(requested_scopes);
-        match self.scope_manager.validate_scopes(&scopes) {
-            crate::oauth2::scopes::ScopeValidationResult::Valid => {},
-            crate::oauth2::scopes::ScopeValidationResult::Invalid(invalid_scopes) => {
-                return Err(anyhow!("Invalid scopes: {}", invalid_scopes.join(", ")));
-            },
-            crate::oauth2::scopes::ScopeValidationResult::Forbidden(forbidden_scopes) => {
-                return Err(anyhow!("Forbidden scopes: {}", forbidden_scopes.join(", ")));
-            },
+        let default_scopes = self.config.default_scopes.join(" ");
+        let requested_scopes = scope.unwrap_or(&default_scopes);
+        let scopes = crate::oauth2::scopes::utils::parse_scope_string(requested_scopes);
+        let validation_result = self.scope_manager.validate_scopes(&scopes);
+        if !validation_result.invalid.is_empty() {
+            return Err(anyhow!("Invalid scopes: {}", validation_result.invalid.join(", ")));
+        }
+        if !validation_result.conflicts.is_empty() {
+            return Err(anyhow!("Scope conflicts: {}", 
+                validation_result.conflicts.iter()
+                    .map(|c| &c.reason)
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
         }
         // Filter scopes to only include those allowed for the client
         let validated_scopes: Vec<String> = scopes.into_iter()
@@ -567,7 +582,7 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
         let device_auth = self.service.get_device_authorization_by_device_code(device_code).await?
             .ok_or_else(|| anyhow!("Invalid device code"))?;
 
-        if device_auth.expires_at < Utc::now().into() {
+        if device_auth.expires_at < Utc::now() {
             return Err(anyhow!("Device code expired"));
         }
 
