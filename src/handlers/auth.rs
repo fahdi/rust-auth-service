@@ -465,7 +465,19 @@ pub async fn get_profile(
     State(state): State<AppState>,
     Extension(claims): Extension<JwtClaims>,
 ) -> Result<Json<UserResponse>, StatusCode> {
-    // Get user by ID from JWT claims
+    let cache_key = format!("user_profile:{}", claims.sub);
+    
+    // Try to get user profile from cache first
+    if let Ok(Some(cached_profile)) = state.cache.get(&cache_key).await {
+        if let Ok(user_response) = serde_json::from_str::<UserResponse>(&cached_profile) {
+            debug!("User profile cache hit for user: {}", claims.sub);
+            return Ok(Json(user_response));
+        }
+    }
+    
+    debug!("User profile cache miss for user: {}", claims.sub);
+    
+    // Get user by ID from database
     let user = match state.database.find_user_by_id(&claims.sub).await {
         Ok(Some(user)) => user,
         Ok(None) => {
@@ -478,7 +490,22 @@ pub async fn get_profile(
         }
     };
 
-    Ok(Json(user.to_response()))
+    let user_response = user.to_response();
+    
+    // Cache the user profile for 5 minutes
+    if let Ok(serialized) = serde_json::to_string(&user_response) {
+        if let Err(e) = state.cache.set_with_ttl(
+            &cache_key, 
+            &serialized, 
+            std::time::Duration::from_secs(300)
+        ).await {
+            warn!("Failed to cache user profile: {}", e);
+        } else {
+            debug!("Cached user profile for user: {}", claims.sub);
+        }
+    }
+
+    Ok(Json(user_response))
 }
 
 // Update user profile
@@ -532,6 +559,15 @@ pub async fn update_profile(
     match state.database.update_user(&user).await {
         Ok(updated_user) => {
             info!("Profile updated for user: {}", updated_user.email);
+            
+            // Invalidate cache after successful update
+            let cache_key = format!("user_profile:{}", claims.sub);
+            if let Err(e) = state.cache.delete(&cache_key).await {
+                warn!("Failed to invalidate user profile cache: {}", e);
+            } else {
+                debug!("Invalidated cache for user profile: {}", claims.sub);
+            }
+            
             Ok(Json(updated_user.to_response()))
         }
         Err(e) => {
@@ -543,11 +579,30 @@ pub async fn update_profile(
 
 // Logout endpoint
 pub async fn logout(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Extension(claims): Extension<JwtClaims>,
 ) -> Result<Json<Value>, StatusCode> {
-    // TODO: Add token to blacklist
-    // For now, just log the logout
+    // Add token to blacklist cache until it expires
+    let blacklist_key = format!("blacklist:token:{}", claims.jti);
+    let ttl = std::time::Duration::from_secs((claims.exp as u64).saturating_sub(
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs()
+    ));
+    
+    if let Err(e) = state.cache.set_with_ttl(&blacklist_key, "blacklisted", ttl).await {
+        warn!("Failed to blacklist token: {}", e);
+    } else {
+        debug!("Token blacklisted for user: {}", claims.sub);
+    }
+    
+    // Invalidate user profile cache on logout
+    let cache_key = format!("user_profile:{}", claims.sub);
+    if let Err(e) = state.cache.delete(&cache_key).await {
+        warn!("Failed to invalidate user profile cache on logout: {}", e);
+    }
+    
     info!("User logged out: {}", claims.sub);
 
     Ok(Json(json!({

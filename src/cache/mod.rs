@@ -63,6 +63,19 @@ impl CacheStats {
             self.hit_rate = self.hits as f64 / total as f64;
         }
     }
+    
+    pub fn hit_ratio(&self) -> f64 {
+        let total = self.hits + self.misses;
+        if total > 0 {
+            self.hits as f64 / total as f64
+        } else {
+            0.0
+        }
+    }
+    
+    pub fn total_operations(&self) -> u64 {
+        self.hits + self.misses
+    }
 }
 
 /// Multi-level cache that tries Redis first, falls back to memory cache
