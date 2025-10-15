@@ -7,6 +7,7 @@ pub mod mfa;
 pub mod migrations;
 pub mod models;
 pub mod oauth2;
+pub mod social;
 pub mod utils;
 
 // Re-export commonly used types
