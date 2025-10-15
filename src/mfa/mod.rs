@@ -3,10 +3,11 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-pub mod totp;
-pub mod sms;
-pub mod backup_codes;
-pub mod webauthn;
+// TODO: Implement MFA modules
+// pub mod totp;
+// pub mod sms;
+// pub mod backup_codes;
+// pub mod webauthn;
 
 /// Multi-Factor Authentication types
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -188,7 +189,8 @@ impl Default for MfaConfig {
     }
 }
 
-/// MFA manager
+/*
+/// MFA manager (TODO: Implement after OAuth2)
 pub struct MfaManager<T: MfaService> {
     service: T,
     config: MfaConfig,
@@ -196,7 +198,10 @@ pub struct MfaManager<T: MfaService> {
     sms_provider: Option<sms::SmsProvider>,
     webauthn_provider: webauthn::WebAuthnProvider,
 }
+*/
 
+/*
+// TODO: Implement MFA functionality after OAuth2 is complete
 impl<T: MfaService> MfaManager<T> {
     pub fn new(
         service: T,
@@ -272,7 +277,7 @@ impl<T: MfaService> MfaManager<T> {
         } else {
             // Use primary method or first available
             enabled_methods.iter().find(|m| m.is_primary)
-                .unwrap_or(enabled_methods[0])
+                .unwrap_or(&enabled_methods[0])
         };
 
         match method.mfa_type {
@@ -688,3 +693,4 @@ impl<T: MfaService> MfaManager<T> {
         Ok(self.service.use_backup_code(&challenge.user_id, code).await?)
     }
 }
+*/

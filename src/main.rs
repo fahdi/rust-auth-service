@@ -83,9 +83,18 @@ async fn main() -> Result<()> {
         .unwrap_or(b"default-secret-key-change-in-production");
         
     let token_manager = TokenManager::new(oauth2_config.clone(), jwt_key, None)?;
-    // TODO: Implement OAuth2Service for the database
-    // For now, create OAuth2Server without database service - this needs to be fixed
-    let oauth2_server = OAuth2Server::new_without_service(oauth2_config, Arc::new(token_manager.clone()));
+    
+    // Create OAuth2Service from database
+    let oauth2_service: Arc<dyn oauth2::OAuth2Service> = match config.database.r#type.as_str() {
+        "mongodb" => {
+            // Create a new MongoDB connection specifically for OAuth2Service
+            let mongodb = database::mongodb::MongoDatabase::new(&config.database.url, &config.database.pool).await?;
+            Arc::new(mongodb)
+        }
+        _ => return Err(anyhow::anyhow!("OAuth2Service not implemented for database type: {}", config.database.r#type)),
+    };
+    
+    let oauth2_server = OAuth2Server::new(oauth2_config, oauth2_service, token_manager.clone());
     info!("OAuth2 server initialized");
 
     // Test database connection
