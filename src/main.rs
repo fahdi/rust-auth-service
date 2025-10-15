@@ -102,7 +102,11 @@ async fn main() -> Result<()> {
     let app = Router::new()
         .merge(public_routes)
         .merge(protected_routes)
-        .with_state(app_state)
+        .with_state(app_state.clone())
+        .layer(from_fn_with_state(
+            app_state.clone(),
+            middleware::rate_limit_middleware,
+        ))
         .layer(middleware::create_cors_layer())
         .layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()));
 
