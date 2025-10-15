@@ -1,0 +1,307 @@
+version: '3.8'
+
+services:
+  backup-scheduler:
+    build:
+      context: ./backup
+      dockerfile: docker/Dockerfile.backup
+    image: auth-service-backup:latest
+    container_name: auth-service-backup
+    restart: unless-stopped
+    
+    environment:
+      # Backup configuration
+      BACKUP_TYPE: "full"
+      BACKUP_DIR: "/var/backups/auth-service"
+      RETENTION_DAYS: "30"
+      COMPRESSION_ENABLED: "true"
+      ENCRYPTION_ENABLED: "true"
+      
+      # Database configuration
+      DATABASE_TYPE: "${DATABASE_TYPE:-mongodb}"
+      DATABASE_URL: "${DATABASE_URL}"
+      MONGODB_URL: "${MONGODB_URL}"
+      POSTGRESQL_URL: "${POSTGRESQL_URL}"
+      MYSQL_URL: "${MYSQL_URL}"
+      
+      # Encryption
+      BACKUP_ENCRYPTION_KEY: "${BACKUP_ENCRYPTION_KEY}"
+      
+      # Cloud storage
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
+      AWS_DEFAULT_REGION: "${AWS_DEFAULT_REGION:-us-east-1}"
+      S3_BUCKET: "${BACKUP_S3_BUCKET}"
+      S3_STORAGE_CLASS: "STANDARD_IA"
+      S3_SERVER_SIDE_ENCRYPTION: "AES256"
+      
+      # Google Cloud Storage
+      GOOGLE_APPLICATION_CREDENTIALS: "/etc/gcp/service-account.json"
+      GCS_BUCKET: "${BACKUP_GCS_BUCKET}"
+      
+      # Notifications
+      NOTIFICATION_ENABLED: "true"
+      WEBHOOK_URL: "${BACKUP_WEBHOOK_URL}"
+      EMAIL_TO: "${BACKUP_EMAIL_TO}"
+      PAGERDUTY_SERVICE_KEY: "${PAGERDUTY_SERVICE_KEY}"
+      
+      # Disaster recovery
+      DR_ENABLED: "true"
+      DR_REGION: "${DR_REGION:-us-west-2}"
+      PRIMARY_REGION: "${PRIMARY_REGION:-us-east-1}"
+      
+      # Monitoring
+      PROMETHEUS_PUSHGATEWAY_URL: "${PROMETHEUS_PUSHGATEWAY_URL}"
+      BACKUP_METRICS_ENABLED: "true"
+      
+      # Application info
+      APP_VERSION: "${APP_VERSION:-latest}"
+      ENVIRONMENT: "${ENVIRONMENT:-production}"
+      INSTANCE_ID: "${INSTANCE_ID}"
+      GIT_COMMIT: "${GIT_COMMIT}"
+    
+    volumes:
+      # Backup storage
+      - backup-data:/var/backups/auth-service
+      - backup-logs:/var/log/auth-service
+      
+      # Configuration
+      - ./backup/config:/app/backup/config:ro
+      
+      # GCP service account (if using GCS)
+      - ./secrets/gcp-service-account.json:/etc/gcp/service-account.json:ro
+      
+      # AWS credentials (alternative to environment variables)
+      - ./secrets/aws-credentials:/home/backup/.aws:ro
+      
+      # SSH keys for remote backups (if needed)
+      - ./secrets/ssh-keys:/home/backup/.ssh:ro
+      
+      # Local timezone
+      - /etc/localtime:/etc/localtime:ro
+    
+    networks:
+      - auth-service-network
+      - backup-network
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "/app/backup/scripts/backup.sh", "--type", "config", "--dry-run"]
+      interval: 1h
+      timeout: 30s
+      retries: 3
+      start_period: 30s
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.1'
+    
+    depends_on:
+      - auth-service
+    
+    command: ["cron"]
+
+  backup-restore:
+    build:
+      context: ./backup
+      dockerfile: docker/Dockerfile.backup
+    image: auth-service-backup:latest
+    container_name: auth-service-restore
+    profiles: ["restore"]  # Only start when restore profile is active
+    
+    environment:
+      # Database configuration
+      DATABASE_TYPE: "${DATABASE_TYPE:-mongodb}"
+      DATABASE_URL: "${DATABASE_URL}"
+      MONGODB_URL: "${MONGODB_URL}"
+      POSTGRESQL_URL: "${POSTGRESQL_URL}"
+      MYSQL_URL: "${MYSQL_URL}"
+      
+      # Encryption
+      BACKUP_ENCRYPTION_KEY: "${BACKUP_ENCRYPTION_KEY}"
+      
+      # Cloud storage
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
+      AWS_DEFAULT_REGION: "${AWS_DEFAULT_REGION:-us-east-1}"
+      S3_BUCKET: "${BACKUP_S3_BUCKET}"
+      
+      # Google Cloud Storage
+      GOOGLE_APPLICATION_CREDENTIALS: "/etc/gcp/service-account.json"
+      GCS_BUCKET: "${BACKUP_GCS_BUCKET}"
+      
+      # Restore configuration
+      DRY_RUN: "${RESTORE_DRY_RUN:-false}"
+      FORCE_RESTORE: "${FORCE_RESTORE:-false}"
+      VERIFY_BEFORE_RESTORE: "${VERIFY_BEFORE_RESTORE:-true}"
+      
+      # Health check URL for validation
+      HEALTH_CHECK_URL: "http://auth-service:8090/health"
+    
+    volumes:
+      # Backup storage (read-only for restore)
+      - backup-data:/var/backups/auth-service:ro
+      - backup-logs:/var/log/auth-service
+      
+      # Configuration
+      - ./backup/config:/app/backup/config:ro
+      
+      # Credentials
+      - ./secrets/gcp-service-account.json:/etc/gcp/service-account.json:ro
+      - ./secrets/aws-credentials:/home/backup/.aws:ro
+    
+    networks:
+      - auth-service-network
+      - backup-network
+    
+    command: ["shell"]  # Start in shell mode for manual restore operations
+
+  disaster-recovery:
+    build:
+      context: ./backup
+      dockerfile: docker/Dockerfile.backup
+    image: auth-service-backup:latest
+    container_name: auth-service-dr
+    profiles: ["dr"]  # Only start when DR profile is active
+    
+    environment:
+      # Disaster recovery configuration
+      DR_MODE: "${DR_MODE:-manual}"
+      DR_REGION: "${DR_REGION:-us-west-2}"
+      PRIMARY_REGION: "${PRIMARY_REGION:-us-east-1}"
+      FORCE_FAILOVER: "${FORCE_FAILOVER:-false}"
+      
+      # Database configuration
+      DATABASE_TYPE: "${DATABASE_TYPE:-mongodb}"
+      PRIMARY_DATABASE_URL: "${DATABASE_URL}"
+      DR_DATABASE_URL: "${DR_DATABASE_URL}"
+      
+      # API endpoints for health checks
+      PRIMARY_API_URL: "${PRIMARY_API_URL}"
+      DR_API_URL: "${DR_API_URL}"
+      
+      # Load balancer IPs for DNS updates
+      PRIMARY_LOAD_BALANCER_IP: "${PRIMARY_LOAD_BALANCER_IP}"
+      DR_LOAD_BALANCER_IP: "${DR_LOAD_BALANCER_IP}"
+      
+      # DNS configuration
+      ROUTE53_HOSTED_ZONE_ID: "${ROUTE53_HOSTED_ZONE_ID}"
+      DNS_RECORD_NAME: "${DNS_RECORD_NAME}"
+      
+      # Kubernetes configuration
+      DR_REPLICA_COUNT: "${DR_REPLICA_COUNT:-3}"
+      PRIMARY_REPLICA_COUNT: "${PRIMARY_REPLICA_COUNT:-3}"
+      DR_STANDBY_REPLICAS: "${DR_STANDBY_REPLICAS:-1}"
+      
+      # Storage buckets
+      STORAGE_BUCKET: "${STORAGE_BUCKET}"
+      DR_STORAGE_BUCKET: "${DR_STORAGE_BUCKET}"
+      DR_CONFIG_BUCKET: "${DR_CONFIG_BUCKET}"
+      
+      # Auto Scaling Groups
+      PRIMARY_ASG_NAME: "${PRIMARY_ASG_NAME}"
+      DR_ASG_NAME: "${DR_ASG_NAME}"
+      
+      # Replication monitoring
+      REPLICATION_LAG_THRESHOLD: "${REPLICATION_LAG_THRESHOLD:-300}"
+      
+      # Notifications
+      NOTIFICATION_ENABLED: "true"
+      WEBHOOK_URL: "${DR_WEBHOOK_URL}"
+      EMAIL_TO: "${DR_EMAIL_TO}"
+      PAGERDUTY_SERVICE_KEY: "${PAGERDUTY_SERVICE_KEY}"
+      
+      # AWS credentials
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
+      AWS_DEFAULT_REGION: "${AWS_DEFAULT_REGION:-us-east-1}"
+    
+    volumes:
+      # Configuration
+      - ./backup/config:/app/backup/config:ro
+      
+      # Kubernetes config
+      - ./secrets/kubeconfig:/home/backup/.kube/config:ro
+      
+      # AWS credentials
+      - ./secrets/aws-credentials:/home/backup/.aws:ro
+      
+      # Logs
+      - backup-logs:/var/log/auth-service
+    
+    networks:
+      - auth-service-network
+      - backup-network
+    
+    command: ["monitor"]  # Start in monitoring mode
+
+  backup-monitor:
+    build:
+      context: ./backup
+      dockerfile: docker/Dockerfile.backup
+    image: auth-service-backup:latest
+    container_name: auth-service-backup-monitor
+    restart: unless-stopped
+    
+    environment:
+      # Monitoring configuration
+      BACKUP_DIR: "/var/backups/auth-service"
+      LOG_FILE: "/var/log/auth-service/backup-monitor.log"
+      
+      # Notification settings
+      NOTIFICATION_ENABLED: "true"
+      WEBHOOK_URL: "${BACKUP_WEBHOOK_URL}"
+      EMAIL_TO: "${BACKUP_EMAIL_TO}"
+      
+      # Thresholds
+      DISK_SPACE_THRESHOLD: "5242880"  # 5GB in KB
+      LOG_SIZE_THRESHOLD: "104857600"   # 100MB in bytes
+      BACKUP_AGE_THRESHOLD: "86400"     # 24 hours in seconds
+    
+    volumes:
+      - backup-data:/var/backups/auth-service:ro
+      - backup-logs:/var/log/auth-service
+      - ./backup/config:/app/backup/config:ro
+    
+    networks:
+      - backup-network
+    
+    command: ["monitor"]
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "ps", "aux", "|", "grep", "-v", "grep", "|", "grep", "monitor"]
+      interval: 5m
+      timeout: 10s
+      retries: 3
+
+volumes:
+  backup-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/backups/auth-service
+  
+  backup-logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/log/auth-service
+
+networks:
+  auth-service-network:
+    external: true
+  
+  backup-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
