@@ -1,0 +1,266 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Auth Service Dashboard",
+    "tags": ["auth-service", "monitoring"],
+    "style": "dark",
+    "timezone": "browser",
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Request Rate",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{job=\"auth-service\"}[5m])",
+            "legendFormat": "RPS"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps",
+            "min": 0,
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 50},
+                {"color": "red", "value": 100}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Error Rate",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{job=\"auth-service\",status=~\"5..\"}[5m]) / rate(http_requests_total{job=\"auth-service\"}[5m]) * 100",
+            "legendFormat": "Error %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 1},
+                {"color": "red", "value": 5}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Response Time (95th percentile)",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job=\"auth-service\"}[5m]))",
+            "legendFormat": "P95"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "min": 0,
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 0.5},
+                {"color": "red", "value": 1.0}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0}
+      },
+      {
+        "id": 4,
+        "title": "Active Users",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "active_users_total",
+            "legendFormat": "Active Users"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "min": 0
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0}
+      },
+      {
+        "id": 5,
+        "title": "Request Rate by Endpoint",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{job=\"auth-service\"}[5m])",
+            "legendFormat": "{{method}} {{path}}"
+          }
+        ],
+        "yAxes": [
+          {"label": "Requests/sec", "min": 0},
+          {"show": false}
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+      },
+      {
+        "id": 6,
+        "title": "Response Time Distribution",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(http_request_duration_seconds_bucket{job=\"auth-service\"}[5m]))",
+            "legendFormat": "P50"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job=\"auth-service\"}[5m]))",
+            "legendFormat": "P95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{job=\"auth-service\"}[5m]))",
+            "legendFormat": "P99"
+          }
+        ],
+        "yAxes": [
+          {"label": "Response Time (s)", "min": 0},
+          {"show": false}
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+      },
+      {
+        "id": 7,
+        "title": "Database Performance",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(database_operations_total{job=\"auth-service\"}[5m])",
+            "legendFormat": "{{operation}} ops/sec"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(database_operation_duration_seconds_bucket{job=\"auth-service\"}[5m]))",
+            "legendFormat": "P95 duration"
+          }
+        ],
+        "yAxes": [
+          {"label": "Operations/sec", "min": 0},
+          {"label": "Duration (s)", "min": 0}
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
+      },
+      {
+        "id": 8,
+        "title": "Cache Performance",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(cache_hits_total{job=\"auth-service\"}[5m])",
+            "legendFormat": "Cache Hits/sec"
+          },
+          {
+            "expr": "rate(cache_misses_total{job=\"auth-service\"}[5m])",
+            "legendFormat": "Cache Misses/sec"
+          },
+          {
+            "expr": "cache_hits_total / (cache_hits_total + cache_misses_total) * 100",
+            "legendFormat": "Hit Rate %"
+          }
+        ],
+        "yAxes": [
+          {"label": "Operations/sec", "min": 0},
+          {"label": "Hit Rate %", "min": 0, "max": 100}
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
+      },
+      {
+        "id": 9,
+        "title": "Authentication Metrics",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(auth_successful_logins_total[5m])",
+            "legendFormat": "Successful Logins/sec"
+          },
+          {
+            "expr": "rate(auth_failed_logins_total[5m])",
+            "legendFormat": "Failed Logins/sec"
+          },
+          {
+            "expr": "rate(user_registrations_total[5m])",
+            "legendFormat": "Registrations/sec"
+          }
+        ],
+        "yAxes": [
+          {"label": "Events/sec", "min": 0},
+          {"show": false}
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24}
+      },
+      {
+        "id": 10,
+        "title": "System Metrics",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "process_resident_memory_bytes{job=\"auth-service\"} / 1024 / 1024",
+            "legendFormat": "Memory (MB)"
+          },
+          {
+            "expr": "rate(process_cpu_seconds_total{job=\"auth-service\"}[5m]) * 100",
+            "legendFormat": "CPU %"
+          },
+          {
+            "expr": "process_open_fds{job=\"auth-service\"}",
+            "legendFormat": "Open FDs"
+          }
+        ],
+        "yAxes": [
+          {"label": "Memory (MB) / CPU %", "min": 0},
+          {"label": "File Descriptors", "min": 0}
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24}
+      },
+      {
+        "id": 11,
+        "title": "Security Events",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(rate_limit_exceeded_total[5m])",
+            "legendFormat": "Rate Limit Exceeded/sec"
+          },
+          {
+            "expr": "rate(auth_account_locked_total[5m])",
+            "legendFormat": "Account Locks/sec"
+          },
+          {
+            "expr": "rate(auth_suspicious_activity_total[5m])",
+            "legendFormat": "Suspicious Activity/sec"
+          }
+        ],
+        "yAxes": [
+          {"label": "Events/sec", "min": 0},
+          {"show": false}
+        ],
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 32}
+      }
+    ]
+  }
+}
