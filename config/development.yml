@@ -1,0 +1,199 @@
+# Development configuration for Auth Service
+# This file contains development-specific settings for local development
+
+server:
+  host: 127.0.0.1
+  port: 8090
+  workers: 1
+  max_connections: 100
+  keep_alive: 30
+  timeout: 30
+
+# Database configuration for development
+database:
+  type: mongodb
+  mongodb:
+    url: "mongodb://localhost:27017"
+    database: "auth_service_dev"
+    pool_size: 5
+    timeout: 30
+    ssl: false
+  postgresql:
+    url: "postgresql://localhost:5432/auth_service_dev"
+    pool_size: 5
+    timeout: 30
+    ssl_mode: "prefer"
+  mysql:
+    url: "mysql://localhost:3306/auth_service_dev"
+    pool_size: 5
+    timeout: 30
+    ssl_mode: "PREFERRED"
+
+# Authentication configuration (relaxed for development)
+auth:
+  jwt_secret: "development-secret-key-change-in-production"
+  jwt_expiration: 3600
+  jwt_refresh_expiration: 604800
+  password_hash_rounds: 4  # Lower for faster development
+  max_failed_attempts: 10  # More lenient for testing
+  lockout_duration: 60     # Shorter lockout for development
+  require_email_verification: false  # Disabled for easier testing
+  allow_password_reset: true
+  session_timeout: 3600
+
+# Cache configuration (simple for development)
+cache:
+  type: "memory"  # Use in-memory cache for development
+  redis:
+    url: "redis://localhost:6379"
+    pool_size: 3
+    timeout: 5
+    ssl: false
+    cluster_mode: false
+  memory:
+    max_size: 1000
+    ttl: 1800
+    cleanup_interval: 300
+
+# Email service configuration for development
+email:
+  provider: "smtp"  # Use local SMTP for development
+  smtp:
+    host: "localhost"
+    port: 1025  # MailHog or similar local SMTP server
+    username: ""
+    password: ""
+    use_tls: false
+    from_email: "dev@auth-service.local"
+    from_name: "Auth Service Dev"
+
+# Rate limiting configuration (very permissive for development)
+rate_limiting:
+  enabled: false  # Disabled for easier development
+  requests_per_minute: 1000
+  burst_size: 100
+  cleanup_interval: 60
+  whitelist_ips:
+    - "127.0.0.1"
+    - "::1"
+    - "0.0.0.0/0"  # Allow all IPs in development
+  endpoint_limits:
+    "/auth/login": 
+      requests_per_minute: 100
+      burst_size: 50
+    "/auth/register":
+      requests_per_minute: 100
+      burst_size: 50
+
+# Security configuration (relaxed for development)
+security:
+  cors:
+    allowed_origins:
+      - "http://localhost:3000"
+      - "http://localhost:3001"
+      - "http://localhost:8080"
+      - "http://127.0.0.1:3000"
+    allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"]
+    allowed_headers: ["*"]
+    max_age: 3600
+  headers:
+    content_security_policy: "default-src 'self' 'unsafe-inline' 'unsafe-eval'"
+    x_frame_options: "SAMEORIGIN"
+    x_content_type_options: "nosniff"
+    x_xss_protection: "1; mode=block"
+    strict_transport_security: ""  # No HTTPS in development
+    referrer_policy: "no-referrer-when-downgrade"
+
+# Monitoring and observability (basic for development)
+monitoring:
+  prometheus:
+    enabled: true
+    path: "/metrics"
+  tracing:
+    enabled: true
+    level: "debug"  # Verbose logging for development
+    format: "pretty"  # Human-readable format
+    jaeger_endpoint: ""  # No Jaeger in development
+    sample_rate: 1.0
+  health_checks:
+    enabled: true
+    path: "/health"
+    detailed_path: "/health/detailed"
+    check_interval: 60
+    timeout: 5
+  audit_logging:
+    enabled: false  # Disabled for development
+    log_path: "./logs/audit.log"
+    log_format: "json"
+    retention_days: 7
+
+# Logging configuration (verbose for development)
+logging:
+  level: "debug"
+  format: "pretty"  # Human-readable format for development
+  output: "stdout"
+  file_output:
+    enabled: false  # Console-only for development
+    path: "./logs/app.log"
+    max_size: "10MB"
+    max_files: 3
+    compress: false
+  structured_fields:
+    service: "auth-service"
+    version: "dev"
+    environment: "development"
+    instance_id: "dev-local"
+
+# Performance tuning (minimal for development)
+performance:
+  async_runtime:
+    worker_threads: 1
+    blocking_threads: 64
+    thread_keep_alive: 10
+  database_pool:
+    min_connections: 1
+    max_connections: 5
+    connection_timeout: 30
+    idle_timeout: 300
+    max_lifetime: 1800
+  cache_pool:
+    min_connections: 1
+    max_connections: 3
+    connection_timeout: 5
+    idle_timeout: 300
+
+# Environment-specific settings
+environment:
+  name: "development"
+  region: "local"
+  availability_zone: "local"
+  instance_type: "development"
+  deployment_id: "dev-local"
+  git_commit: "${GIT_COMMIT:-unknown}"
+  build_time: "${BUILD_TIME:-unknown}"
+
+# Feature flags (enable all features for testing)
+features:
+  oauth2_providers: true
+  multi_factor_auth: true
+  social_login: true
+  advanced_analytics: false  # Disabled to reduce noise
+  admin_dashboard: true
+  api_versioning: true
+  
+# Backup and recovery (disabled for development)
+backup:
+  enabled: false
+  schedule: ""
+  retention_days: 0
+  destinations: []
+
+# Test data configuration (enabled for development)
+test_data:
+  enabled: true
+  auto_generate: true
+  users:
+    count: 10
+    email_pattern: "dev-user-{id}@example.com"
+    default_password: "DevPassword123!"
+  cleanup_on_restart: false
