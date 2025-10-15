@@ -130,8 +130,9 @@ pub struct PasswordChangeRequest {
 }
 
 /// Request DTO for email verification
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct EmailVerificationRequest {
+    #[validate(length(min = 1, message = "Verification token is required"))]
     pub token: String,
 }
 

@@ -231,16 +231,52 @@ pub async fn login(
 
 // Email verification endpoint
 pub async fn verify_email(
-    State(_state): State<AppState>,
-    Json(_payload): Json<EmailVerificationRequest>,
+    State(state): State<AppState>,
+    Json(payload): Json<EmailVerificationRequest>,
 ) -> Result<Json<Value>, StatusCode> {
-    // Find user by verification token (this would need a database method)
-    // For now, we'll need to add this method to the database trait
-    // TODO: Implement get_user_by_verification_token in database trait
-    
-    Ok(Json(json!({
-        "message": "Email verification endpoint - implementation pending database method"
-    })))
+    // Validate input
+    if let Err(validation_errors) = payload.validate() {
+        error!("Email verification validation failed: {:?}", validation_errors);
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    // Find user by verification token
+    match state.database.get_user_by_verification_token(&payload.token).await {
+        Ok(Some(user)) => {
+            // Check if token is still valid (not expired)
+            if let Some(expires) = user.email_verification_expires {
+                let now = chrono::Utc::now();
+                if now > expires {
+                    warn!("Email verification token expired for user: {}", user.email);
+                    return Err(StatusCode::BAD_REQUEST);
+                }
+            }
+
+            // Verify the user's email
+            if let Err(e) = state.database.verify_user_email(&user.user_id).await {
+                error!("Failed to verify user email: {}", e);
+                return Err(StatusCode::INTERNAL_SERVER_ERROR);
+            }
+
+            info!("Email verified successfully for user: {}", user.email);
+            Ok(Json(json!({
+                "message": "Email verified successfully",
+                "user": {
+                    "user_id": user.user_id,
+                    "email": user.email,
+                    "email_verified": true
+                }
+            })))
+        }
+        Ok(None) => {
+            warn!("Invalid verification token provided");
+            Err(StatusCode::BAD_REQUEST)
+        }
+        Err(e) => {
+            error!("Database error during email verification: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
 }
 
 // Password reset request endpoint
@@ -292,7 +328,7 @@ pub async fn forgot_password(
 
 // Password reset endpoint
 pub async fn reset_password(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Json(payload): Json<PasswordChangeRequest>,
 ) -> Result<Json<Value>, StatusCode> {
     // Validate input
@@ -301,12 +337,55 @@ pub async fn reset_password(
         return Err(StatusCode::BAD_REQUEST);
     }
 
-    // TODO: Find user by reset token (need database method)
-    // For now, we'll need to add this method to the database trait
-    
-    Ok(Json(json!({
-        "message": "Password reset endpoint - implementation pending database method"
-    })))
+    // Find user by reset token
+    match state.database.get_user_by_reset_token(&payload.token).await {
+        Ok(Some(user)) => {
+            // Check if token is still valid (not expired)
+            if let Some(expires) = user.password_reset_expires {
+                let now = chrono::Utc::now();
+                if now > expires {
+                    warn!("Password reset token expired for user: {}", user.email);
+                    return Err(StatusCode::BAD_REQUEST);
+                }
+            }
+
+            // Hash the new password
+            let password_hash = match hash_password(&payload.new_password) {
+                Ok(hash) => hash,
+                Err(e) => {
+                    error!("Failed to hash password: {}", e);
+                    return Err(StatusCode::INTERNAL_SERVER_ERROR);
+                }
+            };
+
+            // Update user password
+            if let Err(e) = state.database.update_password(&user.user_id, &password_hash).await {
+                error!("Failed to update user password: {}", e);
+                return Err(StatusCode::INTERNAL_SERVER_ERROR);
+            }
+
+            // Clear the password reset token
+            if let Err(e) = state.database.clear_password_reset_token(&user.user_id).await {
+                error!("Failed to clear password reset token: {}", e);
+                // Don't return error here since password was already updated
+                warn!("Password reset token could not be cleared: {}", e);
+            }
+
+            info!("Password reset successfully for user: {}", user.email);
+            Ok(Json(json!({
+                "message": "Password reset successful",
+                "status": "success"
+            })))
+        }
+        Ok(None) => {
+            warn!("Invalid password reset token provided");
+            Err(StatusCode::BAD_REQUEST)
+        }
+        Err(e) => {
+            error!("Database error during password reset: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
 }
 
 // Refresh token endpoint
