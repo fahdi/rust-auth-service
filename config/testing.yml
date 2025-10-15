@@ -1,0 +1,188 @@
+# Testing configuration for Auth Service
+# This file contains testing-specific settings for automated tests
+
+server:
+  host: 127.0.0.1
+  port: 0  # Use random available port for testing
+  workers: 1
+  max_connections: 50
+  keep_alive: 10
+  timeout: 5
+
+# Database configuration for testing (in-memory where possible)
+database:
+  type: mongodb
+  mongodb:
+    url: "mongodb://localhost:27017"
+    database: "auth_service_test"
+    pool_size: 2
+    timeout: 5
+    ssl: false
+  postgresql:
+    url: "postgresql://localhost:5432/auth_service_test"
+    pool_size: 2
+    timeout: 5
+    ssl_mode: "disable"
+  mysql:
+    url: "mysql://localhost:3306/auth_service_test"
+    pool_size: 2
+    timeout: 5
+    ssl_mode: "DISABLED"
+
+# Authentication configuration (fast for testing)
+auth:
+  jwt_secret: "test-secret-key-for-automated-tests"
+  jwt_expiration: 300   # 5 minutes for testing
+  jwt_refresh_expiration: 3600  # 1 hour for testing
+  password_hash_rounds: 4  # Minimum for speed
+  max_failed_attempts: 3
+  lockout_duration: 10   # Very short for testing
+  require_email_verification: false
+  allow_password_reset: true
+  session_timeout: 300
+
+# Cache configuration (in-memory only for testing)
+cache:
+  type: "memory"
+  redis:
+    url: "redis://localhost:6379"
+    pool_size: 1
+    timeout: 1
+    ssl: false
+    cluster_mode: false
+  memory:
+    max_size: 100
+    ttl: 300
+    cleanup_interval: 60
+
+# Email service configuration (mock for testing)
+email:
+  provider: "smtp"
+  smtp:
+    host: "localhost"
+    port: 1025
+    username: ""
+    password: ""
+    use_tls: false
+    from_email: "test@auth-service.test"
+    from_name: "Auth Service Test"
+
+# Rate limiting configuration (disabled for testing)
+rate_limiting:
+  enabled: false
+  requests_per_minute: 10000
+  burst_size: 1000
+  cleanup_interval: 60
+  whitelist_ips:
+    - "127.0.0.1"
+    - "::1"
+  endpoint_limits: {}
+
+# Security configuration (minimal for testing)
+security:
+  cors:
+    allowed_origins: ["*"]
+    allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"]
+    allowed_headers: ["*"]
+    max_age: 3600
+  headers:
+    content_security_policy: ""
+    x_frame_options: ""
+    x_content_type_options: ""
+    x_xss_protection: ""
+    strict_transport_security: ""
+    referrer_policy: ""
+
+# Monitoring and observability (minimal for testing)
+monitoring:
+  prometheus:
+    enabled: false  # Disabled for testing
+    path: "/metrics"
+  tracing:
+    enabled: false  # Disabled for testing performance
+    level: "error"
+    format: "json"
+    jaeger_endpoint: ""
+    sample_rate: 0.0
+  health_checks:
+    enabled: true
+    path: "/health"
+    detailed_path: "/health/detailed"
+    check_interval: 60
+    timeout: 1
+  audit_logging:
+    enabled: false
+    log_path: ""
+    log_format: "json"
+    retention_days: 0
+
+# Logging configuration (minimal for testing)
+logging:
+  level: "error"  # Only errors to reduce test noise
+  format: "json"
+  output: "stdout"
+  file_output:
+    enabled: false
+    path: ""
+    max_size: ""
+    max_files: 0
+    compress: false
+  structured_fields:
+    service: "auth-service"
+    version: "test"
+    environment: "testing"
+    instance_id: "test"
+
+# Performance tuning (minimal for testing)
+performance:
+  async_runtime:
+    worker_threads: 1
+    blocking_threads: 16
+    thread_keep_alive: 1
+  database_pool:
+    min_connections: 1
+    max_connections: 2
+    connection_timeout: 5
+    idle_timeout: 60
+    max_lifetime: 300
+  cache_pool:
+    min_connections: 1
+    max_connections: 1
+    connection_timeout: 1
+    idle_timeout: 60
+
+# Environment-specific settings
+environment:
+  name: "testing"
+  region: "test"
+  availability_zone: "test"
+  instance_type: "test"
+  deployment_id: "test"
+  git_commit: "test"
+  build_time: "test"
+
+# Feature flags (controlled for testing)
+features:
+  oauth2_providers: false  # Disabled for unit tests
+  multi_factor_auth: false
+  social_login: false
+  advanced_analytics: false
+  admin_dashboard: false
+  api_versioning: true
+  
+# Backup and recovery (disabled for testing)
+backup:
+  enabled: false
+  schedule: ""
+  retention_days: 0
+  destinations: []
+
+# Test data configuration
+test_data:
+  enabled: true
+  auto_generate: false  # Manual control in tests
+  users:
+    count: 0
+    email_pattern: "test-{id}@example.com"
+    default_password: "TestPassword123!"
+  cleanup_on_restart: true  # Clean between test runs

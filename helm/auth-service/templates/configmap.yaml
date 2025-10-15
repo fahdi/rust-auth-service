@@ -1,0 +1,54 @@
+{{- include "auth-service.validateValues" . -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "auth-service.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "auth-service.labels" . | nindent 4 }}
+data:
+  config.yml: |
+    server:
+      host: {{ .Values.config.server.host }}
+      port: {{ .Values.config.server.port }}
+      workers: {{ .Values.config.server.workers }}
+    
+    database:
+      {{- include "auth-service.databaseConfig" . | nindent 6 }}
+    
+    auth:
+      jwt_secret: "${JWT_SECRET}"
+      jwt_expiration: {{ .Values.config.auth.jwtExpiration }}
+      password_hash_rounds: {{ .Values.config.auth.passwordHashRounds }}
+      max_failed_attempts: {{ .Values.config.auth.maxFailedAttempts }}
+      lockout_duration: {{ .Values.config.auth.lockoutDuration }}
+    
+    cache:
+      {{- include "auth-service.cacheConfig" . | nindent 6 }}
+    
+    email:
+      provider: "${EMAIL_PROVIDER:-brevo}"
+      brevo:
+        api_key: "${BREVO_API_KEY}"
+        from_email: "${EMAIL_FROM:-noreply@auth-service.com}"
+      sendgrid:
+        api_key: "${SENDGRID_API_KEY}"
+        from_email: "${EMAIL_FROM:-noreply@auth-service.com}"
+      smtp:
+        host: "${SMTP_HOST}"
+        port: 587
+        username: "${SMTP_USERNAME}"
+        password: "${SMTP_PASSWORD}"
+    
+    rate_limiting:
+      requests_per_minute: {{ .Values.config.rateLimiting.requestsPerMinute }}
+      burst_size: {{ .Values.config.rateLimiting.burstSize }}
+      cleanup_interval: {{ .Values.config.rateLimiting.cleanupInterval }}
+    
+    monitoring:
+      prometheus:
+        enabled: {{ .Values.config.monitoring.prometheusEnabled }}
+        path: "/metrics"
+      tracing:
+        level: "{{ .Values.config.monitoring.tracingLevel }}"
+        format: "json"

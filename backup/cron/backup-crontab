@@ -1,0 +1,54 @@
+# Auth Service Backup Crontab
+# Automated backup schedule for production environment
+
+# Environment variables
+SHELL=/bin/bash
+PATH=/usr/local/bin:/usr/bin:/bin
+MAILTO=""
+
+# Configuration
+CONFIG_FILE="/app/backup/config/backup.conf"
+BACKUP_SCRIPT="/app/backup/scripts/backup.sh"
+DR_SCRIPT="/app/backup/scripts/disaster-recovery.sh"
+LOG_FILE="/var/log/auth-service/backup.log"
+
+# Full backup - Daily at 2:00 AM
+0 2 * * * /app/backup/scripts/backup.sh --type full >> /var/log/auth-service/backup.log 2>&1
+
+# Incremental backup - Every 6 hours
+0 */6 * * * /app/backup/scripts/backup.sh --type incremental >> /var/log/auth-service/backup.log 2>&1
+
+# Configuration backup - Weekly on Sunday at 4:00 AM
+0 4 * * 0 /app/backup/scripts/backup.sh --type config >> /var/log/auth-service/backup.log 2>&1
+
+# Backup verification - Daily at 3:00 AM (after full backup)
+0 3 * * * find /var/backups/auth-service -name "auth-service-backup-$(date +%Y%m%d)*.tar.gz*" -exec /app/backup/scripts/backup.sh --verify {} \; >> /var/log/auth-service/backup.log 2>&1
+
+# Cleanup old backups - Daily at 5:00 AM
+0 5 * * * find /var/backups/auth-service -name "*.tar.gz*" -mtime +30 -delete >> /var/log/auth-service/backup.log 2>&1
+
+# Disaster recovery monitoring - Every 30 minutes
+*/30 * * * * /app/backup/scripts/disaster-recovery.sh --monitor >> /var/log/auth-service/backup.log 2>&1
+
+# Health check for backup system - Every hour
+0 * * * * /app/backup/scripts/backup.sh --type config --dry-run >> /var/log/auth-service/backup.log 2>&1 || echo "Backup system health check failed at $(date)" >> /var/log/auth-service/backup.log
+
+# Log rotation - Weekly on Monday at 1:00 AM
+0 1 * * 1 find /var/log/auth-service -name "*.log" -size +100M -exec gzip {} \; && find /var/log/auth-service -name "*.log.gz" -mtime +90 -delete
+
+# Sync to DR region - Every 4 hours
+0 */4 * * * /app/backup/scripts/disaster-recovery.sh --sync >> /var/log/auth-service/backup.log 2>&1
+
+# Send daily backup report - Daily at 8:00 AM
+0 8 * * * /app/backup/scripts/generate-report.sh daily >> /var/log/auth-service/backup.log 2>&1
+
+# Send weekly backup report - Weekly on Monday at 9:00 AM
+0 9 * * 1 /app/backup/scripts/generate-report.sh weekly >> /var/log/auth-service/backup.log 2>&1
+
+# Test restore procedures - Monthly on 1st at 6:00 AM
+0 6 1 * * /app/backup/scripts/restore.sh --list | head -n1 | xargs -I {} /app/backup/scripts/restore.sh --backup-file {} --dry-run >> /var/log/auth-service/backup.log 2>&1
+
+# Clear temporary files - Daily at midnight
+0 0 * * * find /tmp -name "backup_*" -type d -mtime +1 -exec rm -rf {} \; 2>/dev/null
+
+# Empty line required at end of crontab

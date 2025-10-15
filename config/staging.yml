@@ -1,0 +1,201 @@
+# Staging configuration for Auth Service
+# This file contains staging-specific settings for testing production scenarios
+
+server:
+  host: 0.0.0.0
+  port: 8090
+  workers: 2
+  max_connections: 500
+  keep_alive: 60
+  timeout: 30
+
+# Database configuration for staging
+database:
+  type: mongodb
+  mongodb:
+    url: "${MONGODB_STAGING_URL}"
+    database: "auth_service_staging"
+    pool_size: 10
+    timeout: 30
+    ssl: false
+  postgresql:
+    url: "${POSTGRESQL_STAGING_URL}"
+    pool_size: 8
+    timeout: 30
+    ssl_mode: "prefer"
+  mysql:
+    url: "${MYSQL_STAGING_URL}"
+    pool_size: 8
+    timeout: 30
+    ssl_mode: "PREFERRED"
+
+# Authentication configuration
+auth:
+  jwt_secret: "${JWT_SECRET_STAGING}"
+  jwt_expiration: 3600
+  jwt_refresh_expiration: 604800
+  password_hash_rounds: 10  # Lower for faster testing
+  max_failed_attempts: 5
+  lockout_duration: 300  # 5 minutes for faster testing
+  require_email_verification: false  # Disabled for testing
+  allow_password_reset: true
+  session_timeout: 3600
+
+# Cache configuration
+cache:
+  type: "multi-level"
+  redis:
+    url: "${REDIS_STAGING_URL}"
+    pool_size: 8
+    timeout: 5
+    ssl: false
+    cluster_mode: false
+  memory:
+    max_size: 5000
+    ttl: 1800
+    cleanup_interval: 300
+
+# Email service configuration for staging
+email:
+  provider: "smtp"  # Use SMTP for staging to avoid sending real emails
+  smtp:
+    host: "mailhog"  # Local mailhog for email testing
+    port: 1025
+    username: ""
+    password: ""
+    use_tls: false
+    from_email: "staging@auth-service.com"
+    from_name: "Auth Service Staging"
+
+# Rate limiting configuration (more permissive for testing)
+rate_limiting:
+  enabled: true
+  requests_per_minute: 120  # Higher limits for testing
+  burst_size: 20
+  cleanup_interval: 60
+  whitelist_ips:
+    - "127.0.0.1"
+    - "::1"
+    - "10.0.0.0/8"  # Internal network
+  endpoint_limits:
+    "/auth/login": 
+      requests_per_minute: 10
+      burst_size: 5
+    "/auth/register":
+      requests_per_minute: 6
+      burst_size: 3
+
+# Security configuration (less strict for testing)
+security:
+  cors:
+    allowed_origins:
+      - "https://staging.auth-service.com"
+      - "http://localhost:3000"  # Development frontend
+      - "http://localhost:8080"
+    allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    allowed_headers: ["Content-Type", "Authorization", "X-Requested-With"]
+    max_age: 3600
+  headers:
+    content_security_policy: "default-src 'self' 'unsafe-inline' 'unsafe-eval'"
+    x_frame_options: "SAMEORIGIN"
+    x_content_type_options: "nosniff"
+    x_xss_protection: "1; mode=block"
+    strict_transport_security: "max-age=31536000"
+    referrer_policy: "strict-origin-when-cross-origin"
+
+# Monitoring and observability
+monitoring:
+  prometheus:
+    enabled: true
+    path: "/metrics"
+  tracing:
+    enabled: true
+    level: "debug"  # More verbose for staging
+    format: "json"
+    jaeger_endpoint: "${JAEGER_STAGING_ENDPOINT}"
+    sample_rate: 1.0  # Sample all requests in staging
+  health_checks:
+    enabled: true
+    path: "/health"
+    detailed_path: "/health/detailed"
+    check_interval: 30
+    timeout: 10
+  audit_logging:
+    enabled: true
+    log_path: "/var/log/auth-service/audit.log"
+    log_format: "json"
+    retention_days: 30
+
+# Logging configuration (more verbose for staging)
+logging:
+  level: "debug"
+  format: "json"
+  output: "stdout"
+  file_output:
+    enabled: true
+    path: "/var/log/auth-service/app.log"
+    max_size: "50MB"
+    max_files: 5
+    compress: true
+  structured_fields:
+    service: "auth-service"
+    version: "${APP_VERSION}"
+    environment: "staging"
+    instance_id: "${INSTANCE_ID}"
+
+# Performance tuning (smaller scale for staging)
+performance:
+  async_runtime:
+    worker_threads: 2
+    blocking_threads: 256
+    thread_keep_alive: 10
+  database_pool:
+    min_connections: 2
+    max_connections: 10
+    connection_timeout: 30
+    idle_timeout: 600
+    max_lifetime: 3600
+  cache_pool:
+    min_connections: 1
+    max_connections: 8
+    connection_timeout: 5
+    idle_timeout: 300
+
+# Environment-specific settings
+environment:
+  name: "staging"
+  region: "${AWS_REGION}"
+  availability_zone: "${AWS_AZ}"
+  instance_type: "${INSTANCE_TYPE}"
+  deployment_id: "${DEPLOYMENT_ID}"
+  git_commit: "${GIT_COMMIT}"
+  build_time: "${BUILD_TIME}"
+
+# Feature flags (enable all features for testing)
+features:
+  oauth2_providers: true
+  multi_factor_auth: true
+  social_login: true
+  advanced_analytics: true
+  admin_dashboard: true
+  api_versioning: true
+  
+# Backup and recovery (simplified for staging)
+backup:
+  enabled: false
+  schedule: "0 4 * * *"  # Daily at 4 AM
+  retention_days: 7
+  destinations:
+    - type: "local"
+      path: "/backup/auth-service-staging"
+      encryption: false
+
+# Test data configuration
+test_data:
+  enabled: true
+  auto_generate: true
+  users:
+    count: 100
+    email_pattern: "test-user-{id}@staging.com"
+    default_password: "Staging123!"
+  cleanup_on_restart: true

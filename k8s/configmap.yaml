@@ -1,0 +1,196 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auth-service-config
+  namespace: auth-service
+  labels:
+    app.kubernetes.io/name: auth-service
+    app.kubernetes.io/component: config
+data:
+  # Application configuration
+  HOST: "0.0.0.0"
+  PORT: "8090"
+  RUST_LOG: "info"
+  RUST_BACKTRACE: "1"
+  
+  # Database configuration
+  DATABASE_TYPE: "mongodb"
+  DATABASE_POOL_SIZE: "10"
+  DATABASE_TIMEOUT: "30"
+  
+  # Cache configuration
+  CACHE_TYPE: "redis"
+  CACHE_TTL: "3600"
+  CACHE_MAX_SIZE: "1000"
+  
+  # Authentication configuration
+  JWT_EXPIRATION: "3600"
+  PASSWORD_HASH_ROUNDS: "12"
+  
+  # Rate limiting configuration
+  RATE_LIMIT_REQUESTS: "100"
+  RATE_LIMIT_WINDOW: "60"
+  
+  # Monitoring configuration
+  METRICS_ENABLED: "true"
+  HEALTH_CHECK_INTERVAL: "30"
+  
+  # Email configuration
+  EMAIL_PROVIDER: "brevo"
+  EMAIL_FROM: "noreply@auth-service.com"
+  
+  # Production configuration
+  config.yml: |
+    server:
+      host: 0.0.0.0
+      port: 8090
+      workers: 4
+    
+    database:
+      mongodb:
+        url: "${MONGODB_URL}"
+        database: "auth_service"
+        pool_size: 10
+        timeout: 30
+      postgresql:
+        url: "${POSTGRESQL_URL}"
+        pool_size: 10
+        timeout: 30
+      mysql:
+        url: "${MYSQL_URL}"
+        pool_size: 10
+        timeout: 30
+    
+    auth:
+      jwt_secret: "${JWT_SECRET}"
+      jwt_expiration: 3600
+      password_hash_rounds: 12
+      max_failed_attempts: 5
+      lockout_duration: 900
+    
+    cache:
+      redis:
+        url: "${REDIS_URL}"
+        pool_size: 10
+        timeout: 5
+      memory:
+        max_size: 1000
+        ttl: 3600
+    
+    email:
+      provider: "${EMAIL_PROVIDER}"
+      brevo:
+        api_key: "${BREVO_API_KEY}"
+        from_email: "${EMAIL_FROM}"
+      sendgrid:
+        api_key: "${SENDGRID_API_KEY}"
+        from_email: "${EMAIL_FROM}"
+      smtp:
+        host: "${SMTP_HOST}"
+        port: 587
+        username: "${SMTP_USERNAME}"
+        password: "${SMTP_PASSWORD}"
+    
+    rate_limiting:
+      requests_per_minute: 100
+      burst_size: 10
+      cleanup_interval: 60
+    
+    monitoring:
+      prometheus:
+        enabled: true
+        path: "/metrics"
+      tracing:
+        level: "info"
+        format: "json"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auth-service-nginx-config
+  namespace: auth-service
+  labels:
+    app.kubernetes.io/name: auth-service
+    app.kubernetes.io/component: nginx
+data:
+  nginx.conf: |
+    upstream auth_backend {
+        least_conn;
+        server auth-service:8090 max_fails=3 fail_timeout=30s;
+    }
+    
+    # Rate limiting zones
+    limit_req_zone $binary_remote_addr zone=login:10m rate=10r/m;
+    limit_req_zone $binary_remote_addr zone=register:10m rate=5r/m;
+    limit_req_zone $binary_remote_addr zone=api:10m rate=100r/m;
+    
+    server {
+        listen 80;
+        server_name _;
+        
+        # Security headers
+        add_header X-Frame-Options DENY;
+        add_header X-Content-Type-Options nosniff;
+        add_header X-XSS-Protection "1; mode=block";
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains";
+        add_header Referrer-Policy "strict-origin-when-cross-origin";
+        
+        # Request size limits
+        client_max_body_size 1M;
+        client_body_timeout 60s;
+        client_header_timeout 60s;
+        
+        # Rate limiting for authentication endpoints
+        location /auth/login {
+            limit_req zone=login burst=5 nodelay;
+            proxy_pass http://auth_backend;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_connect_timeout 30s;
+            proxy_send_timeout 30s;
+            proxy_read_timeout 30s;
+        }
+        
+        location /auth/register {
+            limit_req zone=register burst=3 nodelay;
+            proxy_pass http://auth_backend;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_connect_timeout 30s;
+            proxy_send_timeout 30s;
+            proxy_read_timeout 30s;
+        }
+        
+        # General API endpoints
+        location / {
+            limit_req zone=api burst=20 nodelay;
+            proxy_pass http://auth_backend;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_connect_timeout 30s;
+            proxy_send_timeout 30s;
+            proxy_read_timeout 30s;
+        }
+        
+        # Health check endpoint (no rate limiting)
+        location /health {
+            access_log off;
+            proxy_pass http://auth_backend;
+            proxy_set_header Host $host;
+            proxy_connect_timeout 5s;
+            proxy_send_timeout 5s;
+            proxy_read_timeout 5s;
+        }
+        
+        # Metrics endpoint (internal only)
+        location /metrics {
+            allow 10.0.0.0/8;
+            allow 172.16.0.0/12;
+            allow 192.168.0.0/16;
+            deny all;
+            proxy_pass http://auth_backend;
+        }
+    }

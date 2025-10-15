@@ -1,0 +1,185 @@
+# Prometheus alerting rules for Auth Service
+groups:
+  - name: auth-service-alerts
+    rules:
+      # High error rate alert
+      - alert: AuthServiceHighErrorRate
+        expr: rate(http_requests_total{job="auth-service",status=~"5.."}[5m]) / rate(http_requests_total{job="auth-service"}[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+          service: auth-service
+        annotations:
+          summary: "Auth Service has high error rate"
+          description: "Auth Service error rate is {{ $value | humanizePercentage }} which is above 5% threshold"
+
+      # Critical error rate alert
+      - alert: AuthServiceCriticalErrorRate
+        expr: rate(http_requests_total{job="auth-service",status=~"5.."}[5m]) / rate(http_requests_total{job="auth-service"}[5m]) > 0.10
+        for: 1m
+        labels:
+          severity: critical
+          service: auth-service
+        annotations:
+          summary: "Auth Service has critical error rate"
+          description: "Auth Service error rate is {{ $value | humanizePercentage }} which is above 10% critical threshold"
+
+      # High response time alert
+      - alert: AuthServiceHighResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="auth-service"}[5m])) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+          service: auth-service
+        annotations:
+          summary: "Auth Service has high response time"
+          description: "Auth Service 95th percentile response time is {{ $value }}s which is above 1s threshold"
+
+      # Service down alert
+      - alert: AuthServiceDown
+        expr: up{job="auth-service"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: auth-service
+        annotations:
+          summary: "Auth Service is down"
+          description: "Auth Service has been down for more than 1 minute"
+
+      # High memory usage alert
+      - alert: AuthServiceHighMemoryUsage
+        expr: process_resident_memory_bytes{job="auth-service"} / 1024 / 1024 > 512
+        for: 5m
+        labels:
+          severity: warning
+          service: auth-service
+        annotations:
+          summary: "Auth Service high memory usage"
+          description: "Auth Service memory usage is {{ $value }}MB which is above 512MB threshold"
+
+      # High CPU usage alert
+      - alert: AuthServiceHighCPUUsage
+        expr: rate(process_cpu_seconds_total{job="auth-service"}[5m]) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          service: auth-service
+        annotations:
+          summary: "Auth Service high CPU usage"
+          description: "Auth Service CPU usage is {{ $value | humanizePercentage }} which is above 80% threshold"
+
+      # Failed authentication attempts spike
+      - alert: AuthServiceFailedLoginSpike
+        expr: rate(auth_failed_logins_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+          service: auth-service
+        annotations:
+          summary: "High number of failed login attempts"
+          description: "Failed login rate is {{ $value }} per second, possible brute force attack"
+
+      # Database connection failures
+      - alert: AuthServiceDatabaseConnectionFailures
+        expr: rate(database_connection_errors_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: critical
+          service: auth-service
+        annotations:
+          summary: "Database connection failures detected"
+          description: "Database connection error rate is {{ $value }} per second"
+
+      # Cache connection failures
+      - alert: AuthServiceCacheConnectionFailures
+        expr: rate(cache_connection_errors_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+          service: auth-service
+        annotations:
+          summary: "Cache connection failures detected"
+          description: "Cache connection error rate is {{ $value }} per second"
+
+      # Low cache hit rate
+      - alert: AuthServiceLowCacheHitRate
+        expr: cache_hits_total / (cache_hits_total + cache_misses_total) < 0.7
+        for: 10m
+        labels:
+          severity: warning
+          service: auth-service
+        annotations:
+          summary: "Low cache hit rate"
+          description: "Cache hit rate is {{ $value | humanizePercentage }} which is below 70% threshold"
+
+  - name: auth-service-capacity
+    rules:
+      # Request rate trending up
+      - alert: AuthServiceRequestRateIncreasing
+        expr: predict_linear(rate(http_requests_total{job="auth-service"}[30m])[1h:5m], 3600) > 1000
+        for: 10m
+        labels:
+          severity: info
+          service: auth-service
+        annotations:
+          summary: "Auth Service request rate trending up"
+          description: "Predicted request rate in 1 hour will be {{ $value }} RPS"
+
+      # Disk space running low
+      - alert: AuthServiceDiskSpaceLow
+        expr: disk_free_bytes{job="auth-service"} / disk_total_bytes{job="auth-service"} < 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: auth-service
+        annotations:
+          summary: "Auth Service disk space running low"
+          description: "Disk space is {{ $value | humanizePercentage }} which is below 10% threshold"
+
+  - name: auth-service-security
+    rules:
+      # Rate limiting triggered frequently
+      - alert: AuthServiceRateLimitingActive
+        expr: rate(rate_limit_exceeded_total[5m]) > 1
+        for: 5m
+        labels:
+          severity: info
+          service: auth-service
+        annotations:
+          summary: "Rate limiting frequently triggered"
+          description: "Rate limiting is being triggered {{ $value }} times per second"
+
+      # Suspicious user agent patterns
+      - alert: AuthServiceSuspiciousUserAgents
+        expr: rate(http_requests_total{job="auth-service",user_agent=~".*bot.*|.*crawler.*|.*scanner.*"}[5m]) > 0.5
+        for: 5m
+        labels:
+          severity: info
+          service: auth-service
+        annotations:
+          summary: "Suspicious user agent activity detected"
+          description: "Suspicious user agent requests at {{ $value }} per second"
+
+  - name: auth-service-business
+    rules:
+      # Low registration rate
+      - alert: AuthServiceLowRegistrationRate
+        expr: rate(user_registrations_total[1h]) < 0.1
+        for: 30m
+        labels:
+          severity: info
+          service: auth-service
+        annotations:
+          summary: "Low user registration rate"
+          description: "User registration rate is {{ $value }} per hour which is unusually low"
+
+      # High password reset rate
+      - alert: AuthServiceHighPasswordResetRate
+        expr: rate(password_resets_total[5m]) > 0.5
+        for: 10m
+        labels:
+          severity: info
+          service: auth-service
+        annotations:
+          summary: "High password reset rate"
+          description: "Password reset rate is {{ $value }} per second which is unusually high"
