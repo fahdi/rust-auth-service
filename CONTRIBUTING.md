@@ -119,6 +119,26 @@ Related to #1
 - [ ] Unit tests pass
 - [ ] Integration tests pass
 - [ ] Manual testing completed
+- [ ] Security builds compile successfully (see Security Build Testing below)
+
+### Security Build Testing
+Test all security build configurations to ensure compatibility:
+
+```bash
+# Test standard build (all databases)
+cargo build
+cargo test
+
+# Test secure build (no MySQL RSA vulnerability)
+cargo build --no-default-features --features secure
+cargo test --no-default-features --features secure
+
+# Test ultra-secure build (MongoDB only, maximum security)
+cargo build --no-default-features --features ultra-secure
+cargo test --no-default-features --features ultra-secure
+```
+
+All three builds must compile and pass tests for changes to be accepted.
 
 ## Checklist
 - [ ] Code follows project style guidelines

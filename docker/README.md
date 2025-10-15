@@ -108,14 +108,33 @@ docker-compose logs redis
 
 ## Production Deployment
 
-Use the production Dockerfile for optimized builds:
-```bash
-# Build production image
-docker build -t rust-auth-service:latest .
+### Security Build Options
 
+Choose your security level for production deployments:
+
+```bash
+# Standard build (all databases)
+docker build -t rust-auth-service:standard .
+
+# Secure build (no MySQL RSA vulnerability)
+docker build -t rust-auth-service:secure . \
+  --build-arg CARGO_FEATURES="--no-default-features --features secure"
+
+# Ultra-secure build (MongoDB only, maximum security)
+docker build -t rust-auth-service:ultra-secure . \
+  --build-arg CARGO_FEATURES="--no-default-features --features ultra-secure"
+```
+
+### Production Container
+```bash
 # Run production container
 docker run -p 8080:8080 \
   -e DATABASE_URL="mongodb://user:pass@mongo:27017/auth" \
   -e JWT_SECRET="production-secret" \
-  rust-auth-service:latest
+  rust-auth-service:secure
 ```
+
+### Security Recommendations
+- Use `secure` or `ultra-secure` builds for production
+- Ultra-secure builds only support MongoDB but eliminate ALL SQL vulnerabilities
+- Secure builds support MongoDB + PostgreSQL and eliminate MySQL RSA vulnerability
