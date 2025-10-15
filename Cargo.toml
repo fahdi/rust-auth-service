@@ -9,6 +9,16 @@ repository = "https://github.com/your-org/rust-auth-service"
 keywords = ["auth", "authentication", "jwt", "microservice", "rust"]
 categories = ["authentication", "web-programming::http-server"]
 
+[features]
+default = ["mongodb", "postgresql", "mysql"]
+# Database support - users can disable MySQL to avoid RSA vulnerability
+mongodb = []
+postgresql = ["sqlx", "sqlx/postgres"]
+mysql = ["sqlx", "sqlx/mysql"]
+# Security-focused builds (progressively eliminate RSA vulnerability)
+secure = ["mongodb", "postgresql"]  # PostgreSQL + MongoDB (eliminates MySQL RSA)
+ultra-secure = ["mongodb"]          # MongoDB only (eliminates ALL SQLx dependencies and RSA)
+
 [dependencies]
 # Web framework
 axum = { version = "0.7", features = ["macros", "multipart", "tracing"] }
@@ -23,7 +33,7 @@ serde_yaml = "0.9"
 
 # Database  
 mongodb = "3.0"
-sqlx = { version = "0.8.1", features = ["runtime-tokio-rustls", "postgres", "mysql", "chrono", "uuid"] }
+sqlx = { version = "0.8.6", features = ["runtime-tokio-rustls", "chrono", "uuid"], optional = true }
 
 # Authentication & Security
 jsonwebtoken = "9.2"

@@ -11,11 +11,15 @@ use rust_auth_service::{
     migrations::{
         runner::MigrationRunner, 
         MigrationProvider,
-        postgresql, 
-        mysql, 
-        mongodb
+        mongodb,
     }
 };
+
+#[cfg(feature = "postgresql")]
+use rust_auth_service::migrations::postgresql;
+
+#[cfg(feature = "mysql")]
+use rust_auth_service::migrations::mysql;
 
 #[derive(Parser)]
 #[command(name = "migrate")]
@@ -127,20 +131,36 @@ async fn main() -> Result<()> {
 async fn create_migration_provider(config: &Config) -> Result<Arc<dyn MigrationProvider>> {
     match config.database.r#type.as_str() {
         "postgresql" => {
-            let pool = database::create_pg_pool(&config.database).await?;
-            Ok(Arc::new(postgresql::PostgreSQLMigrationProvider::new(pool)))
+            #[cfg(feature = "postgresql")]
+            {
+                let pool = database::create_pg_pool(&config.database).await?;
+                Ok(Arc::new(postgresql::PostgreSQLMigrationProvider::new(pool)))
+            }
+            #[cfg(not(feature = "postgresql"))]
+            {
+                Err(anyhow::anyhow!("PostgreSQL support not enabled. Enable with --features postgresql"))
+            }
         }
         "mysql" => {
-            let pool = database::create_mysql_pool(&config.database).await?;
-            Ok(Arc::new(mysql::MySQLMigrationProvider::new(pool)))
+            #[cfg(feature = "mysql")]
+            {
+                let pool = database::create_mysql_pool(&config.database).await?;
+                Ok(Arc::new(mysql::MySQLMigrationProvider::new(pool)))
+            }
+            #[cfg(not(feature = "mysql"))]
+            {
+                Err(anyhow::anyhow!("MySQL support not enabled. Enable with --features mysql"))
+            }
         }
         "mongodb" => {
             let database = database::create_mongo_database(&config.database).await?;
             Ok(Arc::new(mongodb::MongoDBMigrationProvider::new(database)))
         }
         _ => Err(anyhow::anyhow!(
-            "Unsupported database type: {}",
-            config.database.r#type
+            "Unsupported database type: {}. Available types: mongodb{}{}",
+            config.database.r#type,
+            if cfg!(feature = "postgresql") { ", postgresql" } else { "" },
+            if cfg!(feature = "mysql") { ", mysql" } else { "" }
         )),
     }
 }
