@@ -162,11 +162,29 @@ async fn main() -> Result<()> {
         // .route("/oauth2/clients/:client_id", delete(handlers::delete_client))
         ;
 
+    // Build MFA routes (authentication required)
+    let mfa_routes = Router::new()
+        // MFA status and management
+        .route("/mfa/status", get(handlers::get_mfa_status))
+        .route("/mfa/methods", get(handlers::list_mfa_methods))
+        .route("/mfa/methods", post(handlers::setup_mfa_method))
+        .route("/mfa/methods/:method_id/verify", post(handlers::verify_mfa_setup))
+        .route("/mfa/methods/:method_id/primary", put(handlers::set_primary_mfa_method))
+        .route("/mfa/methods/:method_id", delete(handlers::remove_mfa_method))
+        // MFA challenges and verification
+        .route("/mfa/challenge", post(handlers::create_mfa_challenge))
+        .route("/mfa/challenge/:challenge_id/verify", post(handlers::verify_mfa_challenge))
+        // Backup codes
+        .route("/mfa/backup-codes", post(handlers::generate_backup_codes))
+        // MFA disable (with verification)
+        .route("/mfa/disable", post(handlers::disable_mfa));
+
     // Build protected routes (authentication required)
     let protected_routes = Router::new()
         .route("/auth/me", get(handlers::get_profile))
         .route("/auth/profile", put(handlers::update_profile))
         .route("/auth/logout", post(handlers::logout))
+        .merge(mfa_routes)
         .route_layer(from_fn_with_state(
             app_state.clone(),
             middleware::jwt_auth_middleware,
