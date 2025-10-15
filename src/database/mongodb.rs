@@ -94,7 +94,6 @@ impl MongoDatabase {
                     reset_token_index,
                     created_at_index,
                 ],
-                None,
             )
             .await
             .context("Failed to create database indexes")?;
@@ -111,7 +110,7 @@ impl AuthDatabase for MongoDatabase {
             return Err(UserError::EmailAlreadyExists);
         }
 
-        let result = self.users.insert_one(&user, None).await;
+        let result = self.users.insert_one(&user).await;
 
         match result {
             Ok(insert_result) => {
@@ -134,7 +133,7 @@ impl AuthDatabase for MongoDatabase {
     async fn find_user_by_email(&self, email: &str) -> Result<Option<User>, UserError> {
         let filter = doc! { "email": email.to_lowercase() };
         
-        match self.users.find_one(filter, None).await {
+        match self.users.find_one(filter).await {
             Ok(user) => Ok(user),
             Err(e) => Err(UserError::Database(format!("Failed to find user by email: {}", e))),
         }
@@ -143,7 +142,7 @@ impl AuthDatabase for MongoDatabase {
     async fn find_user_by_id(&self, user_id: &str) -> Result<Option<User>, UserError> {
         let filter = doc! { "user_id": user_id };
         
-        match self.users.find_one(filter, None).await {
+        match self.users.find_one(filter).await {
             Ok(user) => Ok(user),
             Err(e) => Err(UserError::Database(format!("Failed to find user by ID: {}", e))),
         }
@@ -156,7 +155,7 @@ impl AuthDatabase for MongoDatabase {
         let filter = doc! { "user_id": &user.user_id };
         let update = doc! { "$set": user_doc };
 
-        match self.users.update_one(filter.clone(), update, None).await {
+        match self.users.update_one(filter.clone(), update).await {
             Ok(result) => {
                 if result.matched_count == 0 {
                     Err(UserError::NotFound)
@@ -179,7 +178,7 @@ impl AuthDatabase for MongoDatabase {
             }
         };
 
-        match self.users.update_one(filter, update, None).await {
+        match self.users.update_one(filter, update).await {
             Ok(result) => {
                 if result.matched_count == 0 {
                     Err(UserError::NotFound)
@@ -203,7 +202,7 @@ impl AuthDatabase for MongoDatabase {
             }
         };
 
-        match self.users.update_one(filter, update, None).await {
+        match self.users.update_one(filter, update).await {
             Ok(result) => {
                 if result.matched_count == 0 {
                     Err(UserError::NotFound)
@@ -221,7 +220,7 @@ impl AuthDatabase for MongoDatabase {
             "email_verification_expires": { "$gt": mongodb::bson::DateTime::from_system_time(Utc::now().into()) }
         };
 
-        let user = self.users.find_one(filter, None).await
+        let user = self.users.find_one(filter).await
             .map_err(|e| UserError::Database(format!("Failed to find verification token: {}", e)))?;
 
         let user = user.ok_or(UserError::InvalidVerificationToken)?;
@@ -239,7 +238,7 @@ impl AuthDatabase for MongoDatabase {
             }
         };
 
-        self.users.update_one(update_filter, update, None).await
+        self.users.update_one(update_filter, update).await
             .map_err(|e| UserError::Database(format!("Failed to verify email: {}", e)))?;
 
         Ok(user.user_id)
@@ -257,7 +256,7 @@ impl AuthDatabase for MongoDatabase {
             }
         };
 
-        match self.users.update_one(filter, update, None).await {
+        match self.users.update_one(filter, update).await {
             Ok(result) => {
                 if result.matched_count == 0 {
                     Err(UserError::NotFound)
@@ -275,7 +274,7 @@ impl AuthDatabase for MongoDatabase {
             "password_reset_expires": { "$gt": mongodb::bson::DateTime::from_system_time(Utc::now().into()) }
         };
 
-        let user = self.users.find_one(filter, None).await
+        let user = self.users.find_one(filter).await
             .map_err(|e| UserError::Database(format!("Failed to find reset token: {}", e)))?;
 
         let user = user.ok_or(UserError::InvalidPasswordResetToken)?;
@@ -294,7 +293,7 @@ impl AuthDatabase for MongoDatabase {
             }
         };
 
-        match self.users.update_one(filter, update, None).await {
+        match self.users.update_one(filter, update).await {
             Ok(result) => {
                 if result.matched_count == 0 {
                     Err(UserError::NotFound)
@@ -319,7 +318,7 @@ impl AuthDatabase for MongoDatabase {
             }
         };
 
-        match self.users.update_one(filter, update, None).await {
+        match self.users.update_one(filter, update).await {
             Ok(result) => {
                 if result.matched_count == 0 {
                     Err(UserError::NotFound)
@@ -340,7 +339,7 @@ impl AuthDatabase for MongoDatabase {
             "$set": { "updated_at": mongodb::bson::DateTime::from_system_time(Utc::now().into()) }
         };
 
-        self.users.update_one(filter.clone(), update, None).await
+        self.users.update_one(filter.clone(), update).await
             .map_err(|e| UserError::Database(format!("Failed to increment login attempts: {}", e)))?;
 
         // Check if we need to lock the account
@@ -355,7 +354,7 @@ impl AuthDatabase for MongoDatabase {
                     }
                 };
 
-                self.users.update_one(filter, lock_update, None).await
+                self.users.update_one(filter, lock_update).await
                     .map_err(|e| UserError::Database(format!("Failed to lock account: {}", e)))?;
             }
         }
@@ -366,7 +365,7 @@ impl AuthDatabase for MongoDatabase {
     async fn user_exists_by_email(&self, email: &str) -> Result<bool, UserError> {
         let filter = doc! { "email": email.to_lowercase() };
         
-        match self.users.count_documents(filter, None).await {
+        match self.users.count_documents(filter).await {
             Ok(count) => Ok(count > 0),
             Err(e) => Err(UserError::Database(format!("Failed to check user existence: {}", e))),
         }
@@ -381,7 +380,7 @@ impl AuthDatabase for MongoDatabase {
             }
         };
 
-        match self.users.update_one(filter, update, None).await {
+        match self.users.update_one(filter, update).await {
             Ok(result) => {
                 if result.matched_count == 0 {
                     Err(UserError::NotFound)
@@ -396,7 +395,7 @@ impl AuthDatabase for MongoDatabase {
     async fn health_check(&self) -> Result<DatabaseHealth> {
         let start = Instant::now();
         
-        let result = self.database.run_command(doc! { "ping": 1 }, None).await;
+        let result = self.database.run_command(doc! { "ping": 1 }).await;
         
         let response_time_ms = start.elapsed().as_millis() as u64;
         
@@ -421,7 +420,7 @@ impl AuthDatabase for MongoDatabase {
     async fn get_user_by_verification_token(&self, token: &str) -> Result<Option<User>, UserError> {
         let filter = doc! { "email_verification_token": token };
         
-        match self.users.find_one(filter, None).await {
+        match self.users.find_one(filter).await {
             Ok(user) => Ok(user),
             Err(e) => Err(UserError::Database(format!("Failed to find user by verification token: {}", e))),
         }
@@ -430,7 +429,7 @@ impl AuthDatabase for MongoDatabase {
     async fn get_user_by_reset_token(&self, token: &str) -> Result<Option<User>, UserError> {
         let filter = doc! { "password_reset_token": token };
         
-        match self.users.find_one(filter, None).await {
+        match self.users.find_one(filter).await {
             Ok(user) => Ok(user),
             Err(e) => Err(UserError::Database(format!("Failed to find user by reset token: {}", e))),
         }
@@ -447,7 +446,7 @@ impl AuthDatabase for MongoDatabase {
             }
         };
 
-        match self.users.update_one(filter, update, None).await {
+        match self.users.update_one(filter, update).await {
             Ok(result) => {
                 if result.matched_count == 0 {
                     Err(UserError::NotFound)
@@ -474,7 +473,7 @@ impl AuthDatabase for MongoDatabase {
         
         let update = doc! { "$set": update_doc };
 
-        match self.users.update_one(filter, update, None).await {
+        match self.users.update_one(filter, update).await {
             Ok(result) => {
                 if result.matched_count == 0 {
                     Err(UserError::NotFound)
@@ -495,7 +494,7 @@ impl AuthDatabase for MongoDatabase {
             }
         };
 
-        match self.users.update_one(filter, update, None).await {
+        match self.users.update_one(filter, update).await {
             Ok(result) => {
                 if result.matched_count == 0 {
                     Err(UserError::NotFound)
@@ -516,7 +515,7 @@ impl AuthDatabase for MongoDatabase {
             "attempted_at": mongodb::bson::DateTime::from_system_time(attempt.attempted_at.into())
         };
 
-        match self.database.collection::<Document>("login_attempts").insert_one(login_attempt_doc, None).await {
+        match self.database.collection::<Document>("login_attempts").insert_one(login_attempt_doc).await {
             Ok(_) => Ok(()),
             Err(e) => Err(UserError::Database(format!("Failed to record login attempt: {}", e))),
         }

@@ -64,7 +64,7 @@ impl MongoDBMigrationProvider {
                 .build();
                 
             self.database
-                .create_collection("users", options)
+                .create_collection("users")
                 .await
                 .context("Failed to create users collection")?;
                 
@@ -76,16 +76,14 @@ impl MongoDBMigrationProvider {
                 mongodb::IndexModel::builder()
                     .keys(doc! { "user_id": 1 })
                     .options(mongodb::options::IndexOptions::builder().unique(true).build())
-                    .build(),
-                None
+                    .build()
             ).await.context("Failed to create user_id index")?;
             
             users_collection.create_index(
                 mongodb::IndexModel::builder()
                     .keys(doc! { "email": 1 })
                     .options(mongodb::options::IndexOptions::builder().unique(true).build())
-                    .build(),
-                None
+                    .build()
             ).await.context("Failed to create email index")?;
             
             // Create other indexes
@@ -93,8 +91,7 @@ impl MongoDBMigrationProvider {
                 users_collection.create_index(
                     mongodb::IndexModel::builder()
                         .keys(doc! { field: 1 })
-                        .build(),
-                    None
+                        .build()
                 ).await.with_context(|| format!("Failed to create {} index", field))?;
             }
             
@@ -102,15 +99,13 @@ impl MongoDBMigrationProvider {
             users_collection.create_index(
                 mongodb::IndexModel::builder()
                     .keys(doc! { "email": 1, "is_active": 1 })
-                    .build(),
-                None
+                    .build()
             ).await.context("Failed to create email+is_active index")?;
             
             users_collection.create_index(
                 mongodb::IndexModel::builder()
                     .keys(doc! { "role": 1, "is_active": 1 })
-                    .build(),
-                None
+                    .build()
             ).await.context("Failed to create role+is_active index")?;
         }
         
@@ -144,7 +139,7 @@ impl MigrationProvider for MongoDBMigrationProvider {
             .build();
 
         self.migrations_collection
-            .create_index(index_model, None)
+            .create_index(index_model)
             .await
             .context("Failed to create migration collection index")?;
 
@@ -154,7 +149,7 @@ impl MigrationProvider for MongoDBMigrationProvider {
             .build();
 
         self.migrations_collection
-            .create_index(applied_at_index, None)
+            .create_index(applied_at_index)
             .await
             .context("Failed to create applied_at index")?;
 
@@ -164,7 +159,7 @@ impl MigrationProvider for MongoDBMigrationProvider {
 
     async fn get_applied_migrations(&self) -> Result<Vec<MigrationRecord>> {
         let cursor = self.migrations_collection
-            .find(None, None)
+            .find(doc! {})
             .await
             .context("Failed to query applied migrations")?;
 
@@ -200,7 +195,7 @@ impl MigrationProvider for MongoDBMigrationProvider {
         };
 
         self.migrations_collection
-            .insert_one(record, None)
+            .insert_one(record)
             .await
             .context("Failed to record migration")?;
 
@@ -211,7 +206,7 @@ impl MigrationProvider for MongoDBMigrationProvider {
         let filter = doc! { "version": version };
         
         let result = self.migrations_collection
-            .delete_one(filter, None)
+            .delete_one(filter)
             .await
             .context("Failed to remove migration record")?;
 
@@ -254,7 +249,7 @@ impl MigrationProvider for MongoDBMigrationProvider {
         // Execute rollback operations (e.g., drop collections)
         if rollback_content.contains("db.users.drop()") {
             self.database.collection::<Document>("users")
-                .drop(None)
+                .drop()
                 .await
                 .context("Failed to drop users collection")?;
         }
@@ -265,7 +260,7 @@ impl MigrationProvider for MongoDBMigrationProvider {
     async fn ping(&self) -> Result<()> {
         // Simple ping using a basic operation
         self.database
-            .run_command(doc! { "ping": 1 }, None)
+            .run_command(doc! { "ping": 1 })
             .await
             .context("Database ping failed")?;
         Ok(())
