@@ -3,7 +3,9 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 pub mod mongodb;
+#[cfg(feature = "postgresql")]
 pub mod postgresql;
+#[cfg(feature = "mysql")]
 pub mod mysql;
 
 use crate::config::database::DatabaseConfig;
@@ -97,24 +99,39 @@ pub async fn create_database(config: &DatabaseConfig) -> Result<Box<dyn AuthData
             db.initialize().await?;
             Ok(Box::new(db))
         }
+        #[cfg(feature = "postgresql")]
         "postgresql" => {
             let db = postgresql::PostgresDatabase::new(&config.url, &config.pool).await?;
             db.initialize().await?;
             Ok(Box::new(db))
         }
+        #[cfg(feature = "mysql")]
         "mysql" => {
             let db = mysql::MySqlDatabase::new(&config.url, &config.pool).await?;
             db.initialize().await?;
             Ok(Box::new(db))
         }
-        _ => Err(anyhow::anyhow!("Unsupported database type: {}", config.r#type)),
+        _ => {
+            #[cfg(not(feature = "postgresql"))]
+            if config.r#type == "postgresql" {
+                return Err(anyhow::anyhow!("PostgreSQL support not enabled. Enable with --features postgresql"));
+            }
+            #[cfg(not(feature = "mysql"))]
+            if config.r#type == "mysql" {
+                return Err(anyhow::anyhow!("MySQL support not enabled. Enable with --features mysql or use --features secure for a MySQL-free build"));
+            }
+            Err(anyhow::anyhow!("Unsupported database type: {}. Available types: mongodb{}{}", 
+                config.r#type,
+                if cfg!(feature = "postgresql") { ", postgresql" } else { "" },
+                if cfg!(feature = "mysql") { ", mysql" } else { "" }
+            ))
+        }
     }
 }
 
 // Re-export pool creation functions for migrations
-#[allow(unused_imports)]
+#[cfg(feature = "postgresql")]
 pub use postgresql::create_pool as create_pg_pool;
-#[allow(unused_imports)]
+#[cfg(feature = "mysql")]
 pub use mysql::create_pool as create_mysql_pool;
-#[allow(unused_imports)]
 pub use mongodb::create_database as create_mongo_database;

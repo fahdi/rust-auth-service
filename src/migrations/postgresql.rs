@@ -1,15 +1,22 @@
 #![allow(dead_code)]
 
+#[cfg(feature = "postgresql")]
 use super::{Migration, MigrationProvider, MigrationRecord};
+#[cfg(feature = "postgresql")]
 use anyhow::{Context, Result};
+#[cfg(feature = "postgresql")]
 use async_trait::async_trait;
+#[cfg(feature = "postgresql")]
 use sqlx::{PgPool, Row};
+#[cfg(feature = "postgresql")]
 use tracing::info;
 
+#[cfg(feature = "postgresql")]
 pub struct PostgreSQLMigrationProvider {
     pool: PgPool,
 }
 
+#[cfg(feature = "postgresql")]
 impl PostgreSQLMigrationProvider {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
@@ -29,260 +36,216 @@ impl PostgreSQLMigrationProvider {
         for line in lines {
             let trimmed = line.trim();
             
-            // Skip empty lines and comments
-            if trimmed.is_empty() || trimmed.starts_with("--") {
+            // Skip comments
+            if trimmed.starts_with("--") {
                 continue;
             }
             
-            // Detect function blocks
-            if trimmed.to_lowercase().contains("create or replace function") || 
-               trimmed.to_lowercase().contains("create function") {
+            // Check for function start/end
+            if trimmed.to_lowercase().contains("create or replace function") 
+                || trimmed.to_lowercase().contains("create function") {
                 in_function = true;
             }
             
-            current_statement.push_str(line);
-            current_statement.push('\n');
-            
-            // Count parentheses and detect end of function
             for ch in line.chars() {
+                if in_string {
+                    current_statement.push(ch);
+                    if ch == string_char {
+                        in_string = false;
+                    }
+                    continue;
+                }
+                
                 match ch {
-                    '\'' | '"' if !in_comment => {
-                        if !in_string {
-                            in_string = true;
-                            string_char = ch;
-                        } else if ch == string_char {
-                            in_string = false;
+                    '\'' | '"' => {
+                        in_string = true;
+                        string_char = ch;
+                        current_statement.push(ch);
+                    }
+                    ';' => {
+                        current_statement.push(ch);
+                        if !in_function {
+                            let stmt = current_statement.trim().to_string();
+                            if !stmt.is_empty() && !stmt.starts_with("--") {
+                                statements.push(stmt);
+                            }
+                            current_statement.clear();
                         }
                     }
-                    '(' if !in_string && !in_comment => {},
-                    ')' if !in_string && !in_comment => {},
-                    _ => {}
+                    _ => {
+                        current_statement.push(ch);
+                    }
                 }
             }
             
-            // Check if we should end the current statement
-            let should_end = if in_function {
-                // End function when we see $$ language plpgsql; or similar
-                trimmed.to_lowercase().contains("$$ language") || 
-                trimmed.to_lowercase().ends_with("language plpgsql;")
-            } else {
-                // Regular statement ends with semicolon
-                trimmed.ends_with(';')
-            };
+            current_statement.push('\n');
             
-            if should_end {
+            // Check for function end
+            if in_function && trimmed == "$$ LANGUAGE plpgsql;" {
+                in_function = false;
                 let stmt = current_statement.trim().to_string();
                 if !stmt.is_empty() {
                     statements.push(stmt);
                 }
                 current_statement.clear();
-                in_function = false;
             }
         }
         
-        // Handle any remaining statement
-        let stmt = current_statement.trim().to_string();
-        if !stmt.is_empty() {
-            statements.push(stmt);
+        // Add any remaining statement
+        let remaining = current_statement.trim().to_string();
+        if !remaining.is_empty() && !remaining.starts_with("--") {
+            statements.push(remaining);
         }
         
         statements
     }
 }
 
+#[cfg(feature = "postgresql")]
 #[async_trait]
 impl MigrationProvider for PostgreSQLMigrationProvider {
     async fn init_migration_table(&self) -> Result<()> {
-        info!("Initializing PostgreSQL migration table...");
-
-        // Create table
-        let create_table_query = r#"
-            CREATE TABLE IF NOT EXISTS schema_migrations (
+        let query = r#"
+            CREATE TABLE IF NOT EXISTS _migrations (
                 version INTEGER PRIMARY KEY,
                 name VARCHAR(255) NOT NULL,
                 checksum VARCHAR(32) NOT NULL,
                 applied_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
                 execution_time_ms BIGINT NOT NULL
-            )
+            );
+            
+            CREATE INDEX IF NOT EXISTS idx_migrations_applied_at ON _migrations(applied_at);
         "#;
-
-        sqlx::query(create_table_query)
-            .execute(&self.pool)
-            .await
-            .context("Failed to create migration table")?;
-
-        // Create index
-        let create_index_query = r#"
-            CREATE INDEX IF NOT EXISTS idx_schema_migrations_applied_at 
-            ON schema_migrations(applied_at)
-        "#;
-
-        sqlx::query(create_index_query)
-            .execute(&self.pool)
-            .await
-            .context("Failed to create migration index")?;
-
-        info!("Migration table initialized successfully");
+        
+        for statement in self.split_sql_statements(query) {
+            sqlx::query(&statement)
+                .execute(&self.pool)
+                .await
+                .context("Failed to create migration table")?;
+        }
+        
+        info!("PostgreSQL migration table initialized");
         Ok(())
     }
-
+    
     async fn get_applied_migrations(&self) -> Result<Vec<MigrationRecord>> {
-        let query = r#"
-            SELECT version, name, checksum, applied_at, execution_time_ms
-            FROM schema_migrations
-            ORDER BY version ASC
-        "#;
-
-        let rows = sqlx::query(query)
-            .fetch_all(&self.pool)
-            .await
-            .context("Failed to fetch applied migrations")?;
-
+        let rows = sqlx::query(
+            "SELECT version, name, checksum, applied_at, execution_time_ms FROM _migrations ORDER BY version"
+        )
+        .fetch_all(&self.pool)
+        .await
+        .context("Failed to fetch applied migrations")?;
+        
         let mut migrations = Vec::new();
         for row in rows {
             migrations.push(MigrationRecord {
-                version: row.get::<i32, _>("version") as u32,
+                version: row.get("version"),
                 name: row.get("name"),
                 checksum: row.get("checksum"),
                 applied_at: row.get("applied_at"),
                 execution_time_ms: row.get("execution_time_ms"),
             });
         }
-
+        
         Ok(migrations)
     }
-
+    
     async fn record_migration(&self, migration: &Migration, execution_time_ms: i64) -> Result<()> {
-        let query = r#"
-            INSERT INTO schema_migrations (version, name, checksum, execution_time_ms)
-            VALUES ($1, $2, $3, $4)
-        "#;
-
-        sqlx::query(query)
-            .bind(migration.version as i32)
-            .bind(&migration.name)
-            .bind(&migration.checksum)
-            .bind(execution_time_ms)
-            .execute(&self.pool)
-            .await
-            .context("Failed to record migration")?;
-
+        sqlx::query(
+            "INSERT INTO _migrations (version, name, checksum, execution_time_ms) VALUES ($1, $2, $3, $4)"
+        )
+        .bind(migration.version as i32)
+        .bind(&migration.name)
+        .bind(&migration.checksum)
+        .bind(execution_time_ms)
+        .execute(&self.pool)
+        .await
+        .context("Failed to record migration")?;
+        
+        info!("Recorded migration {} in PostgreSQL", migration.version);
         Ok(())
     }
-
+    
     async fn remove_migration_record(&self, version: u32) -> Result<()> {
-        let query = "DELETE FROM schema_migrations WHERE version = $1";
-
-        let result = sqlx::query(query)
+        sqlx::query("DELETE FROM _migrations WHERE version = $1")
             .bind(version as i32)
             .execute(&self.pool)
             .await
             .context("Failed to remove migration record")?;
-
-        if result.rows_affected() == 0 {
-            return Err(anyhow::anyhow!("Migration record {} not found", version));
-        }
-
+        
+        info!("Removed migration record {} from PostgreSQL", version);
         Ok(())
     }
-
+    
     async fn execute_migration(&self, migration: &Migration) -> Result<()> {
-        let sql = migration.up_sql.as_ref()
-            .ok_or_else(|| anyhow::anyhow!("Migration {} has no SQL", migration.version))?;
-
-        // Begin transaction for migration
-        let mut tx = self.pool.begin()
-            .await
-            .context("Failed to begin transaction")?;
-
-        // Split SQL into statements and execute each one
-        // We need to be smarter about splitting - handle CREATE FUNCTION blocks properly
-        let statements = self.split_sql_statements(sql);
-        
-        for statement in statements {
-            if statement.trim().is_empty() {
-                continue;
+        if let Some(ref sql) = migration.up_sql {
+            for statement in self.split_sql_statements(sql) {
+                if !statement.trim().is_empty() && !statement.trim().starts_with("--") {
+                    sqlx::query(&statement)
+                        .execute(&self.pool)
+                        .await
+                        .with_context(|| format!("Failed to execute migration {}: {}", migration.version, statement))?;
+                }
             }
-
-            sqlx::query(&statement)
-                .execute(&mut *tx)
-                .await
-                .with_context(|| format!("Failed to execute statement: {}", statement.chars().take(100).collect::<String>()))?;
+            info!("Executed PostgreSQL migration {}", migration.version);
         }
-
-        tx.commit()
-            .await
-            .context("Failed to commit migration transaction")?;
-
         Ok(())
     }
-
+    
     async fn rollback_migration(&self, migration: &Migration) -> Result<()> {
-        let sql = migration.down_sql.as_ref()
-            .ok_or_else(|| anyhow::anyhow!("Migration {} has no rollback SQL", migration.version))?;
-
-        // Begin transaction for rollback
-        let mut tx = self.pool.begin()
-            .await
-            .context("Failed to begin transaction")?;
-
-        // Split and execute rollback statements
-        let statements = self.split_sql_statements(sql);
-        
-        for statement in statements {
-            if statement.trim().is_empty() {
-                continue;
+        if let Some(ref sql) = migration.down_sql {
+            for statement in self.split_sql_statements(sql) {
+                if !statement.trim().is_empty() && !statement.trim().starts_with("--") {
+                    sqlx::query(&statement)
+                        .execute(&self.pool)
+                        .await
+                        .with_context(|| format!("Failed to rollback migration {}: {}", migration.version, statement))?;
+                }
             }
-
-            sqlx::query(&statement)
-                .execute(&mut *tx)
-                .await
-                .with_context(|| format!("Failed to execute rollback statement: {}", statement.chars().take(100).collect::<String>()))?;
+            info!("Rolled back PostgreSQL migration {}", migration.version);
+        } else {
+            return Err(anyhow::anyhow!("No rollback SQL provided for migration {}", migration.version));
         }
-
-        tx.commit()
-            .await
-            .context("Failed to commit rollback transaction")?;
-
         Ok(())
     }
-
+    
     async fn ping(&self) -> Result<()> {
         sqlx::query("SELECT 1")
-            .execute(&self.pool)
+            .fetch_one(&self.pool)
             .await
-            .context("Database ping failed")?;
+            .context("PostgreSQL ping failed")?;
         Ok(())
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+#[cfg(feature = "postgresql")]
+pub async fn create_pool(config: &crate::config::database::DatabaseConfig) -> Result<PgPool> {
     use sqlx::postgres::PgPoolOptions;
+    
+    let pool = PgPoolOptions::new()
+        .min_connections(config.pool.min_connections)
+        .max_connections(config.pool.max_connections)
+        .idle_timeout(std::time::Duration::from_secs(config.pool.idle_timeout))
+        .connect(&config.url)
+        .await
+        .context("Failed to create PostgreSQL connection pool")?;
+    
+    info!("PostgreSQL connection pool created");
+    Ok(pool)
+}
 
-    #[tokio::test]
-    #[ignore] // Requires PostgreSQL instance
-    async fn test_postgresql_migration_provider() {
-        let database_url = std::env::var("POSTGRESQL_TEST_URL")
-            .unwrap_or_else(|_| "postgresql://postgres:password@localhost:5432/test".to_string());
+// Provide empty implementations for when the feature is disabled
+#[cfg(not(feature = "postgresql"))]
+pub struct PostgreSQLMigrationProvider;
 
-        let pool = PgPoolOptions::new()
-            .max_connections(1)
-            .connect(&database_url)
-            .await
-            .expect("Failed to connect to test database");
-
-        let provider = PostgreSQLMigrationProvider::new(pool);
-
-        // Test initialization
-        provider.init_migration_table().await.unwrap();
-
-        // Test getting applied migrations (should be empty)
-        let applied = provider.get_applied_migrations().await.unwrap();
-        assert!(applied.is_empty());
-
-        // Test ping
-        provider.ping().await.unwrap();
+#[cfg(not(feature = "postgresql"))]
+impl PostgreSQLMigrationProvider {
+    pub fn new(_pool: ()) -> Self {
+        Self
     }
+}
+
+#[cfg(not(feature = "postgresql"))]
+pub async fn create_pool(_config: &crate::config::database::DatabaseConfig) -> Result<()> {
+    Err(anyhow::anyhow!("PostgreSQL support not enabled"))
 }

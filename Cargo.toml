@@ -9,6 +9,16 @@ repository = "https://github.com/your-org/rust-auth-service"
 keywords = ["auth", "authentication", "jwt", "microservice", "rust"]
 categories = ["authentication", "web-programming::http-server"]
 
+[features]
+default = ["mongodb", "postgresql", "mysql"]
+# Database support - users can disable MySQL to avoid RSA vulnerability
+mongodb = []
+postgresql = ["sqlx", "sqlx/postgres"]
+mysql = ["sqlx", "sqlx/mysql"]
+# Security-focused builds (progressively eliminate RSA vulnerability)
+secure = ["mongodb", "postgresql"]  # PostgreSQL + MongoDB (eliminates MySQL RSA)
+ultra-secure = ["mongodb"]          # MongoDB only (eliminates ALL SQLx dependencies and RSA)
+
 [dependencies]
 # Web framework
 axum = { version = "0.7", features = ["macros", "multipart", "tracing"] }
@@ -21,9 +31,9 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.9"
 
-# Database
-mongodb = "2.8"
-sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "mysql", "chrono", "uuid"] }
+# Database  
+mongodb = "3.0"
+sqlx = { version = "0.8.6", features = ["runtime-tokio-rustls", "chrono", "uuid"], optional = true }
 
 # Authentication & Security
 jsonwebtoken = "9.2"
@@ -46,7 +56,7 @@ dotenvy = "0.15"
 # Logging & Monitoring
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
-prometheus = "0.13"
+prometheus = "0.14.0"
 
 # CLI
 clap = { version = "4.4", features = ["derive"] }
@@ -57,7 +67,7 @@ chrono = { version = "0.4", features = ["serde"] }
 async-trait = "0.1"
 md5 = "0.7"
 thiserror = "1.0"
-validator = { version = "0.18", features = ["derive"] }
+validator = { version = "0.19", features = ["derive"] }
 regex = "1.10"
 url = "2.5"
 futures = "0.3"

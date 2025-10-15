@@ -9,7 +9,9 @@ use tokio::fs;
 use tracing::{info, warn};
 
 pub mod mongodb;
+#[cfg(feature = "mysql")]
 pub mod mysql;
+#[cfg(feature = "postgresql")]
 pub mod postgresql;
 pub mod runner;
 
