@@ -3,32 +3,37 @@ use async_trait::async_trait;
 use std::sync::Arc;
 use std::time::Duration;
 
-pub mod redis_cache;
-pub mod memory_cache;
 pub mod factory;
+pub mod memory_cache;
+pub mod redis_cache;
 
 // Re-exports for convenience
-pub use factory::{create_cache_provider, create_multi_level_cache, CacheService};
+pub use factory::{create_cache_provider, CacheService};
+// Note: These are available for direct cache usage if needed
+#[allow(unused_imports)]
+pub use factory::create_multi_level_cache;
+#[allow(unused_imports)]
 pub use memory_cache::MemoryCache;
+#[allow(unused_imports)]
 pub use redis_cache::RedisCache;
 
 #[async_trait]
 pub trait CacheProvider: Send + Sync {
     /// Get a value from cache
     async fn get(&self, key: &str) -> Result<Option<String>>;
-    
+
     /// Set a value in cache with TTL
     async fn set(&self, key: &str, value: &str, ttl: Duration) -> Result<()>;
-    
+
     /// Delete a value from cache
     async fn delete(&self, key: &str) -> Result<()>;
-    
+
     /// Check if cache is healthy/connected
     async fn ping(&self) -> Result<()>;
-    
+
     /// Clear all cache entries (for testing)
     async fn clear(&self) -> Result<()>;
-    
+
     /// Get cache statistics
     async fn stats(&self) -> Result<CacheStats>;
 }
@@ -56,14 +61,14 @@ impl CacheStats {
             hit_rate: 0.0,
         }
     }
-    
+
     pub fn calculate_hit_rate(&mut self) {
         let total = self.hits + self.misses;
         if total > 0 {
             self.hit_rate = self.hits as f64 / total as f64;
         }
     }
-    
+
     pub fn hit_ratio(&self) -> f64 {
         let total = self.hits + self.misses;
         if total > 0 {
@@ -72,7 +77,7 @@ impl CacheStats {
             0.0
         }
     }
-    
+
     pub fn total_operations(&self) -> u64 {
         self.hits + self.misses
     }
@@ -85,10 +90,7 @@ pub struct MultiLevelCache {
 }
 
 impl MultiLevelCache {
-    pub fn new(
-        primary: Option<Arc<dyn CacheProvider>>,
-        fallback: Arc<dyn CacheProvider>,
-    ) -> Self {
+    pub fn new(primary: Option<Arc<dyn CacheProvider>>, fallback: Arc<dyn CacheProvider>) -> Self {
         Self { primary, fallback }
     }
 }
@@ -114,7 +116,7 @@ impl CacheProvider for MultiLevelCache {
                 }
             }
         }
-        
+
         // No primary cache or not found, use fallback
         self.fallback.get(key).await
     }
@@ -138,12 +140,12 @@ impl CacheProvider for MultiLevelCache {
     async fn ping(&self) -> Result<()> {
         // Fallback must always work
         self.fallback.ping().await?;
-        
+
         // Primary is optional
         if let Some(primary) = &self.primary {
             primary.ping().await?;
         }
-        
+
         Ok(())
     }
 
@@ -157,7 +159,7 @@ impl CacheProvider for MultiLevelCache {
     async fn stats(&self) -> Result<CacheStats> {
         // Return combined stats from both caches
         let fallback_stats = self.fallback.stats().await?;
-        
+
         if let Some(primary) = &self.primary {
             if let Ok(primary_stats) = primary.stats().await {
                 let mut combined = CacheStats {
@@ -170,39 +172,41 @@ impl CacheProvider for MultiLevelCache {
                 return Ok(combined);
             }
         }
-        
+
         Ok(fallback_stats)
     }
 }
 
 /// Cache key utilities
+#[allow(dead_code)]
 pub struct CacheKey;
 
+#[allow(dead_code)]
 impl CacheKey {
     pub fn user_by_id(user_id: &str) -> String {
         format!("user:id:{}", user_id)
     }
-    
+
     pub fn user_by_email(email: &str) -> String {
         format!("user:email:{}", email)
     }
-    
+
     pub fn session(session_id: &str) -> String {
         format!("session:{}", session_id)
     }
-    
+
     pub fn password_reset_token(token: &str) -> String {
         format!("reset_token:{}", token)
     }
-    
+
     pub fn email_verification_token(token: &str) -> String {
         format!("verify_token:{}", token)
     }
-    
+
     pub fn rate_limit(ip: &str) -> String {
         format!("rate_limit:{}", ip)
     }
-    
+
     pub fn login_attempts(email: &str) -> String {
         format!("login_attempts:{}", email)
     }
@@ -212,25 +216,34 @@ impl CacheKey {
 mod tests {
     use super::*;
     use crate::cache::memory_cache::MemoryCache;
-    
+
     #[tokio::test]
     async fn test_cache_key_generation() {
         assert_eq!(CacheKey::user_by_id("123"), "user:id:123");
-        assert_eq!(CacheKey::user_by_email("test@example.com"), "user:email:test@example.com");
+        assert_eq!(
+            CacheKey::user_by_email("test@example.com"),
+            "user:email:test@example.com"
+        );
         assert_eq!(CacheKey::session("sess_123"), "session:sess_123");
-        assert_eq!(CacheKey::rate_limit("192.168.1.1"), "rate_limit:192.168.1.1");
+        assert_eq!(
+            CacheKey::rate_limit("192.168.1.1"),
+            "rate_limit:192.168.1.1"
+        );
     }
-    
+
     #[tokio::test]
     async fn test_multi_level_cache_fallback() {
         let memory_cache = Arc::new(MemoryCache::new(100));
         let multi_cache = MultiLevelCache::new(None, memory_cache);
-        
+
         // Test basic operations
-        multi_cache.set("test_key", "test_value", Duration::from_secs(60)).await.unwrap();
+        multi_cache
+            .set("test_key", "test_value", Duration::from_secs(60))
+            .await
+            .unwrap();
         let value = multi_cache.get("test_key").await.unwrap();
         assert_eq!(value, Some("test_value".to_string()));
-        
+
         // Test stats
         let stats = multi_cache.stats().await.unwrap();
         assert!(stats.hits > 0 || stats.misses > 0);

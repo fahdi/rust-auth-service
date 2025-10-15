@@ -4,7 +4,10 @@ use super::{Migration, MigrationProvider, MigrationRecord};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use futures::TryStreamExt;
-use mongodb::{bson::{doc, Document}, Collection, Database};
+use mongodb::{
+    bson::{doc, Document},
+    Collection, Database,
+};
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
@@ -24,7 +27,8 @@ pub struct MongoDBMigrationProvider {
 
 impl MongoDBMigrationProvider {
     pub fn new(database: Database) -> Self {
-        let migrations_collection = database.collection::<MongoMigrationRecord>("schema_migrations");
+        let migrations_collection =
+            database.collection::<MongoMigrationRecord>("schema_migrations");
         Self {
             database,
             migrations_collection,
@@ -35,14 +39,14 @@ impl MongoDBMigrationProvider {
     async fn execute_migration_operations(&self, content: &str) -> Result<()> {
         // Parse and execute MongoDB operations
         // Since we can't use eval, we'll implement specific MongoDB operations
-        
+
         // For now, implement basic collection creation and index operations
         // This is a simplified implementation - a full implementation would parse
         // JavaScript and convert to MongoDB driver operations
-        
+
         if content.contains("db.createCollection(\"users\"") {
             // Create users collection with validation schema
-            let options = mongodb::options::CreateCollectionOptions::builder()
+            let _options = mongodb::options::CreateCollectionOptions::builder()
                 .validator(doc! {
                     "$jsonSchema": {
                         "bsonType": "object",
@@ -62,53 +66,84 @@ impl MongoDBMigrationProvider {
                     }
                 })
                 .build();
-                
+
             self.database
                 .create_collection("users")
                 .await
                 .context("Failed to create users collection")?;
-                
+
             // Create indexes
             let users_collection = self.database.collection::<Document>("users");
-            
+
             // Create unique indexes
-            users_collection.create_index(
-                mongodb::IndexModel::builder()
-                    .keys(doc! { "user_id": 1 })
-                    .options(mongodb::options::IndexOptions::builder().unique(true).build())
-                    .build()
-            ).await.context("Failed to create user_id index")?;
-            
-            users_collection.create_index(
-                mongodb::IndexModel::builder()
-                    .keys(doc! { "email": 1 })
-                    .options(mongodb::options::IndexOptions::builder().unique(true).build())
-                    .build()
-            ).await.context("Failed to create email index")?;
-            
-            // Create other indexes
-            for field in ["email_verification_token", "password_reset_token", "created_at", "last_login", "role", "is_active", "locked_until"] {
-                users_collection.create_index(
+            users_collection
+                .create_index(
                     mongodb::IndexModel::builder()
-                        .keys(doc! { field: 1 })
-                        .build()
-                ).await.with_context(|| format!("Failed to create {} index", field))?;
+                        .keys(doc! { "user_id": 1 })
+                        .options(
+                            mongodb::options::IndexOptions::builder()
+                                .unique(true)
+                                .build(),
+                        )
+                        .build(),
+                )
+                .await
+                .context("Failed to create user_id index")?;
+
+            users_collection
+                .create_index(
+                    mongodb::IndexModel::builder()
+                        .keys(doc! { "email": 1 })
+                        .options(
+                            mongodb::options::IndexOptions::builder()
+                                .unique(true)
+                                .build(),
+                        )
+                        .build(),
+                )
+                .await
+                .context("Failed to create email index")?;
+
+            // Create other indexes
+            for field in [
+                "email_verification_token",
+                "password_reset_token",
+                "created_at",
+                "last_login",
+                "role",
+                "is_active",
+                "locked_until",
+            ] {
+                users_collection
+                    .create_index(
+                        mongodb::IndexModel::builder()
+                            .keys(doc! { field: 1 })
+                            .build(),
+                    )
+                    .await
+                    .with_context(|| format!("Failed to create {} index", field))?;
             }
-            
+
             // Create compound indexes
-            users_collection.create_index(
-                mongodb::IndexModel::builder()
-                    .keys(doc! { "email": 1, "is_active": 1 })
-                    .build()
-            ).await.context("Failed to create email+is_active index")?;
-            
-            users_collection.create_index(
-                mongodb::IndexModel::builder()
-                    .keys(doc! { "role": 1, "is_active": 1 })
-                    .build()
-            ).await.context("Failed to create role+is_active index")?;
+            users_collection
+                .create_index(
+                    mongodb::IndexModel::builder()
+                        .keys(doc! { "email": 1, "is_active": 1 })
+                        .build(),
+                )
+                .await
+                .context("Failed to create email+is_active index")?;
+
+            users_collection
+                .create_index(
+                    mongodb::IndexModel::builder()
+                        .keys(doc! { "role": 1, "is_active": 1 })
+                        .build(),
+                )
+                .await
+                .context("Failed to create role+is_active index")?;
         }
-        
+
         Ok(())
     }
 
@@ -134,7 +169,7 @@ impl MigrationProvider for MongoDBMigrationProvider {
             .options(
                 mongodb::options::IndexOptions::builder()
                     .unique(true)
-                    .build()
+                    .build(),
             )
             .build();
 
@@ -158,7 +193,8 @@ impl MigrationProvider for MongoDBMigrationProvider {
     }
 
     async fn get_applied_migrations(&self) -> Result<Vec<MigrationRecord>> {
-        let cursor = self.migrations_collection
+        let cursor = self
+            .migrations_collection
             .find(doc! {})
             .await
             .context("Failed to query applied migrations")?;
@@ -204,8 +240,9 @@ impl MigrationProvider for MongoDBMigrationProvider {
 
     async fn remove_migration_record(&self, version: u32) -> Result<()> {
         let filter = doc! { "version": version };
-        
-        let result = self.migrations_collection
+
+        let result = self
+            .migrations_collection
             .delete_one(filter)
             .await
             .context("Failed to remove migration record")?;
@@ -218,37 +255,48 @@ impl MigrationProvider for MongoDBMigrationProvider {
     }
 
     async fn execute_migration(&self, migration: &Migration) -> Result<()> {
-        let sql = migration.up_sql.as_ref()
+        let sql = migration
+            .up_sql
+            .as_ref()
             .ok_or_else(|| anyhow::anyhow!("Migration {} has no SQL", migration.version))?;
 
         // For MongoDB, the "SQL" is actually JavaScript/MongoDB operations
         let migration_content = self.extract_js_code(sql);
-        
+
         if migration_content.trim().is_empty() {
-            info!("Migration {} has no operations to execute", migration.version);
+            info!(
+                "Migration {} has no operations to execute",
+                migration.version
+            );
             return Ok(());
         }
 
         // Execute MongoDB operations
-        self.execute_migration_operations(&migration_content).await?;
+        self.execute_migration_operations(&migration_content)
+            .await?;
 
         Ok(())
     }
 
     async fn rollback_migration(&self, migration: &Migration) -> Result<()> {
-        let sql = migration.down_sql.as_ref()
-            .ok_or_else(|| anyhow::anyhow!("Migration {} has no rollback SQL", migration.version))?;
+        let sql = migration.down_sql.as_ref().ok_or_else(|| {
+            anyhow::anyhow!("Migration {} has no rollback SQL", migration.version)
+        })?;
 
         // For MongoDB, the rollback operations
         let rollback_content = self.extract_js_code(sql);
-        
+
         if rollback_content.trim().is_empty() {
-            return Err(anyhow::anyhow!("Migration {} has no rollback operations", migration.version));
+            return Err(anyhow::anyhow!(
+                "Migration {} has no rollback operations",
+                migration.version
+            ));
         }
 
         // Execute rollback operations (e.g., drop collections)
         if rollback_content.contains("db.users.drop()") {
-            self.database.collection::<Document>("users")
+            self.database
+                .collection::<Document>("users")
                 .drop()
                 .await
                 .context("Failed to drop users collection")?;

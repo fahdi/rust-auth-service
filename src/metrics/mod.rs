@@ -1,10 +1,11 @@
 use prometheus::{
-    register_histogram_vec, register_int_counter_vec, register_int_gauge,
-    Encoder, HistogramVec, IntCounterVec, IntGauge, TextEncoder,
+    register_histogram_vec, register_int_counter_vec, register_int_gauge, Encoder, HistogramVec,
+    IntCounterVec, IntGauge, TextEncoder,
 };
 use std::sync::OnceLock;
 
 /// Global metrics registry
+#[allow(dead_code)]
 pub struct Metrics {
     // HTTP metrics
     pub http_requests_total: IntCounterVec,
@@ -156,12 +157,12 @@ impl Metrics {
 /// Record HTTP request metrics
 pub fn record_http_request(method: &str, endpoint: &str, status: u16, duration: f64) {
     let metrics = Metrics::get();
-    
+
     metrics
         .http_requests_total
         .with_label_values(&[method, endpoint, &status.to_string()])
         .inc();
-    
+
     metrics
         .http_request_duration
         .with_label_values(&[method, endpoint])
@@ -169,15 +170,16 @@ pub fn record_http_request(method: &str, endpoint: &str, status: u16, duration: 
 }
 
 /// Record authentication attempt
+#[allow(dead_code)]
 pub fn record_auth_attempt(endpoint: &str, success: bool, duration: f64) {
     let metrics = Metrics::get();
     let result = if success { "success" } else { "failure" };
-    
+
     metrics
         .auth_attempts_total
         .with_label_values(&[endpoint, result])
         .inc();
-    
+
     metrics
         .auth_login_duration
         .with_label_values(&[endpoint])
@@ -185,15 +187,16 @@ pub fn record_auth_attempt(endpoint: &str, success: bool, duration: f64) {
 }
 
 /// Record database operation
+#[allow(dead_code)]
 pub fn record_db_operation(database: &str, operation: &str, success: bool, duration: f64) {
     let metrics = Metrics::get();
     let result = if success { "success" } else { "error" };
-    
+
     metrics
         .db_operations_total
         .with_label_values(&[database, operation, result])
         .inc();
-    
+
     metrics
         .db_operation_duration
         .with_label_values(&[database, operation])
@@ -201,10 +204,11 @@ pub fn record_db_operation(database: &str, operation: &str, success: bool, durat
 }
 
 /// Record cache operation
+#[allow(dead_code)]
 pub fn record_cache_operation(operation: &str, hit: bool) {
     let metrics = Metrics::get();
     let result = if hit { "hit" } else { "miss" };
-    
+
     metrics
         .cache_operations_total
         .with_label_values(&[operation, result])
@@ -212,9 +216,10 @@ pub fn record_cache_operation(operation: &str, hit: bool) {
 }
 
 /// Record rate limit hit
+#[allow(dead_code)]
 pub fn record_rate_limit_hit(endpoint: &str, ip: &str) {
     let metrics = Metrics::get();
-    
+
     metrics
         .rate_limit_hits_total
         .with_label_values(&[endpoint, ip])
@@ -222,10 +227,11 @@ pub fn record_rate_limit_hit(endpoint: &str, ip: &str) {
 }
 
 /// Record user registration
+#[allow(dead_code)]
 pub fn record_user_registration(success: bool) {
     let metrics = Metrics::get();
     let result = if success { "success" } else { "failure" };
-    
+
     metrics
         .user_registrations_total
         .with_label_values(&[result])
@@ -233,10 +239,11 @@ pub fn record_user_registration(success: bool) {
 }
 
 /// Record email verification
+#[allow(dead_code)]
 pub fn record_email_verification(success: bool) {
     let metrics = Metrics::get();
     let result = if success { "success" } else { "failure" };
-    
+
     metrics
         .email_verifications_total
         .with_label_values(&[result])
@@ -244,10 +251,11 @@ pub fn record_email_verification(success: bool) {
 }
 
 /// Record password reset
+#[allow(dead_code)]
 pub fn record_password_reset(success: bool) {
     let metrics = Metrics::get();
     let result = if success { "success" } else { "failure" };
-    
+
     metrics
         .password_resets_total
         .with_label_values(&[result])
@@ -255,12 +263,14 @@ pub fn record_password_reset(success: bool) {
 }
 
 /// Update active sessions count
+#[allow(dead_code)]
 pub fn update_active_sessions(count: i64) {
     let metrics = Metrics::get();
     metrics.active_sessions.set(count);
 }
 
 /// Update database connection pool size
+#[allow(dead_code)]
 pub fn update_db_connection_pool_size(size: i64) {
     let metrics = Metrics::get();
     metrics.db_connection_pool_size.set(size);
@@ -282,7 +292,7 @@ mod tests {
     #[test]
     fn test_metrics_initialization() {
         let metrics = Metrics::init();
-        
+
         // Test that metrics can be accessed
         let _http_metrics = &metrics.http_requests_total;
         let _auth_metrics = &metrics.auth_attempts_total;
@@ -292,7 +302,7 @@ mod tests {
     #[test]
     fn test_record_http_request() {
         Metrics::init();
-        
+
         // This should not panic
         record_http_request("GET", "/health", 200, 0.001);
         record_http_request("POST", "/auth/login", 401, 0.045);
@@ -301,7 +311,7 @@ mod tests {
     #[test]
     fn test_record_auth_attempt() {
         Metrics::init();
-        
+
         // This should not panic
         record_auth_attempt("/auth/login", true, 0.025);
         record_auth_attempt("/auth/login", false, 0.030);
@@ -310,7 +320,7 @@ mod tests {
     #[test]
     fn test_record_db_operation() {
         Metrics::init();
-        
+
         // This should not panic
         record_db_operation("mongodb", "find", true, 0.012);
         record_db_operation("postgresql", "insert", false, 0.055);
@@ -319,7 +329,7 @@ mod tests {
     #[test]
     fn test_business_metrics() {
         Metrics::init();
-        
+
         // This should not panic
         record_user_registration(true);
         record_email_verification(false);
@@ -330,10 +340,10 @@ mod tests {
     #[test]
     fn test_get_metrics_text() {
         Metrics::init();
-        
+
         // Record some sample metrics
         record_http_request("GET", "/test", 200, 0.001);
-        
+
         let metrics_text = get_metrics_text().expect("Failed to get metrics text");
         assert!(metrics_text.contains("http_requests_total"));
     }

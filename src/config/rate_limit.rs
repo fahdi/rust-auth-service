@@ -111,18 +111,16 @@ pub struct RateLimitStatus {
 }
 
 /// Rate limit key generation
-pub fn generate_rate_limit_key(
-    category: &str,
-    identifier: &str,
-    window_start: u64,
-) -> String {
+pub fn generate_rate_limit_key(category: &str, identifier: &str, window_start: u64) -> String {
     format!("rate_limit:{}:{}:{}", category, identifier, window_start)
 }
 
 /// Endpoint category detection
 pub fn detect_endpoint_category(path: &str) -> &'static str {
     match path {
-        p if p.starts_with("/health") || p.starts_with("/ready") || p.starts_with("/live") => "health",
+        p if p.starts_with("/health") || p.starts_with("/ready") || p.starts_with("/live") => {
+            "health"
+        }
         "/auth/register" => "registration",
         "/auth/forgot-password" | "/auth/reset-password" => "password_reset",
         p if p.starts_with("/auth/") => "auth",
@@ -139,7 +137,10 @@ mod tests {
         assert_eq!(detect_endpoint_category("/health"), "health");
         assert_eq!(detect_endpoint_category("/auth/register"), "registration");
         assert_eq!(detect_endpoint_category("/auth/login"), "auth");
-        assert_eq!(detect_endpoint_category("/auth/forgot-password"), "password_reset");
+        assert_eq!(
+            detect_endpoint_category("/auth/forgot-password"),
+            "password_reset"
+        );
         assert_eq!(detect_endpoint_category("/api/users"), "general");
     }
 

@@ -1,8 +1,4 @@
-use axum::{
-    extract::State,
-    http::StatusCode,
-    response::Json,
-};
+use axum::{extract::State, http::StatusCode, response::Json};
 use serde_json::{json, Value};
 use tracing::error;
 
@@ -17,11 +13,11 @@ pub async fn health_check(State(state): State<AppState>) -> Result<Json<Value>, 
             return Err(StatusCode::SERVICE_UNAVAILABLE);
         }
     };
-    
+
     // Check cache health
     let cache_healthy = state.cache.ping().await.is_ok();
     let cache_stats = state.cache.stats().await.unwrap_or_default();
-    
+
     let response = json!({
         "status": if db_health.connected && cache_healthy { "ok" } else { "degraded" },
         "timestamp": chrono::Utc::now().to_rfc3339(),
@@ -44,7 +40,7 @@ pub async fn health_check(State(state): State<AppState>) -> Result<Json<Value>, 
             }
         }
     });
-    
+
     if db_health.connected {
         Ok(Json(response))
     } else {
@@ -55,12 +51,15 @@ pub async fn health_check(State(state): State<AppState>) -> Result<Json<Value>, 
 // Ready check handler (for Kubernetes readiness probes)
 pub async fn ready_check(State(state): State<AppState>) -> Result<Json<Value>, StatusCode> {
     // Check if database and cache are ready
-    let db_ready = state.database.health_check().await
+    let db_ready = state
+        .database
+        .health_check()
+        .await
         .map(|health| health.connected)
         .unwrap_or(false);
-    
+
     let cache_ready = state.cache.ping().await.is_ok();
-    
+
     if db_ready && cache_ready {
         Ok(Json(json!({
             "status": "ready",

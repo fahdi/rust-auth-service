@@ -1,24 +1,18 @@
-use axum::{
-    extract::State,
-    response::Json,
-    Extension,
-    http::StatusCode,
-};
+use axum::{extract::State, http::StatusCode, response::Json, Extension};
 use serde::Deserialize;
 use serde_json::{json, Value};
-use tracing::{error, info, warn, debug};
-use validator::Validate;
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
+use validator::Validate;
 
 use crate::{
     errors::{AppError, AppResult},
     models::user::{
-        AuthResponse, CreateUserRequest, EmailVerificationRequest,
-        PasswordChangeRequest, PasswordResetRequest, UpdateUserRequest,
-        User, UserResponse,
+        AuthResponse, CreateUserRequest, EmailVerificationRequest, PasswordChangeRequest,
+        PasswordResetRequest, UpdateUserRequest, User, UserResponse,
     },
     utils::{
-        jwt::{JwtClaims, generate_token, verify_token},
+        jwt::{generate_token, verify_token, JwtClaims},
         password::{hash_password, verify_password},
         validation::validate_password_strength,
     },
@@ -29,7 +23,7 @@ use crate::{
 pub struct LoginRequest {
     #[validate(email(message = "Invalid email format"))]
     pub email: String,
-    
+
     #[validate(length(min = 1, message = "Password is required"))]
     pub password: String,
 }
@@ -45,7 +39,7 @@ pub async fn register(
     Json(payload): Json<CreateUserRequest>,
 ) -> AppResult<Json<AuthResponse>> {
     debug!("Registration attempt for email: {}", payload.email);
-    
+
     // Validate input
     payload.validate()?;
 
@@ -57,7 +51,10 @@ pub async fn register(
     // Check if user already exists
     match state.database.find_user_by_email(&payload.email).await {
         Ok(Some(_)) => {
-            warn!("Registration attempt with existing email: {}", payload.email);
+            warn!(
+                "Registration attempt with existing email: {}",
+                payload.email
+            );
             return Err(AppError::Conflict);
         }
         Ok(None) => {
@@ -70,15 +67,14 @@ pub async fn register(
     }
 
     // Hash password
-    let password_hash = hash_password(&payload.password)
-        .map_err(|e| {
-            error!("Password hashing failed: {:?}", e);
-            AppError::Internal
-        })?;
+    let password_hash = hash_password(&payload.password).map_err(|e| {
+        error!("Password hashing failed: {:?}", e);
+        AppError::Internal
+    })?;
 
     // Create user
     let mut user = User::new(payload, password_hash);
-    
+
     // Generate email verification token
     let verification_token = Uuid::new_v4().to_string();
     user.set_email_verification_token(verification_token.clone(), 24);
@@ -87,10 +83,10 @@ pub async fn register(
     match state.database.create_user(user).await {
         Ok(created_user) => {
             info!("User registered successfully: {}", created_user.email);
-            
+
             // TODO: Send verification email
             // state.email_service.send_verification_email(&created_user, &verification_token).await;
-            
+
             // Generate JWT token
             let access_token = generate_token(
                 &created_user.user_id,
@@ -98,7 +94,8 @@ pub async fn register(
                 &created_user.role.to_string(),
                 (state.config.auth.jwt.expiration_days * 24) as i64,
                 &state.config.auth.jwt.secret,
-            ).map_err(|e| {
+            )
+            .map_err(|e| {
                 error!("JWT token creation failed: {:?}", e);
                 AppError::Internal
             })?;
@@ -109,11 +106,12 @@ pub async fn register(
                 &created_user.role.to_string(),
                 (state.config.auth.jwt.expiration_days * 24 * 7) as i64, // 7x longer
                 &state.config.auth.jwt.secret,
-            ).map_err(|e| {
+            )
+            .map_err(|e| {
                 error!("Refresh token creation failed: {:?}", e);
                 AppError::Internal
             })?;
-            
+
             Ok(Json(AuthResponse {
                 user: created_user.to_response(),
                 access_token,
@@ -134,7 +132,7 @@ pub async fn login(
     Json(payload): Json<LoginRequest>,
 ) -> AppResult<Json<AuthResponse>> {
     debug!("Login attempt for email: {}", payload.email);
-    
+
     // Validate input
     payload.validate()?;
 
@@ -164,20 +162,19 @@ pub async fn login(
     }
 
     // Verify password
-    let password_valid = verify_password(&payload.password, &user.password_hash)
-        .map_err(|e| {
-            error!("Password verification error: {:?}", e);
-            AppError::Internal
-        })?;
+    let password_valid = verify_password(&payload.password, &user.password_hash).map_err(|e| {
+        error!("Password verification error: {:?}", e);
+        AppError::Internal
+    })?;
 
     if !password_valid {
         // Record failed login attempt
         user.record_failed_login(5, 24); // TODO: make configurable
-        
+
         if let Err(e) = state.database.update_user(&user).await {
             error!("Failed to update user after failed login: {:?}", e);
         }
-        
+
         warn!("Invalid password for user: {}", user.email);
         return Err(AppError::Unauthorized);
     }
@@ -190,7 +187,7 @@ pub async fn login(
 
     // Record successful login
     user.record_login();
-    
+
     if let Err(e) = state.database.update_user(&user).await {
         error!("Failed to update user after successful login: {:?}", e);
         // Don't fail the login for this
@@ -203,7 +200,8 @@ pub async fn login(
         &user.role.to_string(),
         (state.config.auth.jwt.expiration_days * 24) as i64,
         &state.config.auth.jwt.secret,
-    ).map_err(|e| {
+    )
+    .map_err(|e| {
         error!("Failed to generate access token: {:?}", e);
         AppError::Internal
     })?;
@@ -214,7 +212,8 @@ pub async fn login(
         &user.role.to_string(),
         (state.config.auth.jwt.expiration_days * 24 * 7) as i64,
         &state.config.auth.jwt.secret,
-    ).map_err(|e| {
+    )
+    .map_err(|e| {
         error!("Failed to generate refresh token: {:?}", e);
         AppError::Internal
     })?;
@@ -236,12 +235,19 @@ pub async fn verify_email(
 ) -> Result<Json<Value>, StatusCode> {
     // Validate input
     if let Err(validation_errors) = payload.validate() {
-        error!("Email verification validation failed: {:?}", validation_errors);
+        error!(
+            "Email verification validation failed: {:?}",
+            validation_errors
+        );
         return Err(StatusCode::BAD_REQUEST);
     }
 
     // Find user by verification token
-    match state.database.get_user_by_verification_token(&payload.token).await {
+    match state
+        .database
+        .get_user_by_verification_token(&payload.token)
+        .await
+    {
         Ok(Some(user)) => {
             // Check if token is still valid (not expired)
             if let Some(expires) = user.email_verification_expires {
@@ -295,7 +301,10 @@ pub async fn forgot_password(
         Ok(Some(user)) => user,
         Ok(None) => {
             // Don't reveal whether email exists or not
-            info!("Password reset requested for non-existent email: {}", payload.email);
+            info!(
+                "Password reset requested for non-existent email: {}",
+                payload.email
+            );
             return Ok(Json(json!({
                 "message": "If the email exists, a password reset link has been sent"
             })));
@@ -359,13 +368,21 @@ pub async fn reset_password(
             };
 
             // Update user password
-            if let Err(e) = state.database.update_password(&user.user_id, &password_hash).await {
+            if let Err(e) = state
+                .database
+                .update_password(&user.user_id, &password_hash)
+                .await
+            {
                 error!("Failed to update user password: {}", e);
                 return Err(StatusCode::INTERNAL_SERVER_ERROR);
             }
 
             // Clear the password reset token
-            if let Err(e) = state.database.clear_password_reset_token(&user.user_id).await {
+            if let Err(e) = state
+                .database
+                .clear_password_reset_token(&user.user_id)
+                .await
+            {
                 error!("Failed to clear password reset token: {}", e);
                 // Don't return error here since password was already updated
                 warn!("Password reset token could not be cleared: {}", e);
@@ -466,7 +483,7 @@ pub async fn get_profile(
     Extension(claims): Extension<JwtClaims>,
 ) -> Result<Json<UserResponse>, StatusCode> {
     let cache_key = format!("user_profile:{}", claims.sub);
-    
+
     // Try to get user profile from cache first
     if let Ok(Some(cached_profile)) = state.cache.get(&cache_key).await {
         if let Ok(user_response) = serde_json::from_str::<UserResponse>(&cached_profile) {
@@ -474,9 +491,9 @@ pub async fn get_profile(
             return Ok(Json(user_response));
         }
     }
-    
+
     debug!("User profile cache miss for user: {}", claims.sub);
-    
+
     // Get user by ID from database
     let user = match state.database.find_user_by_id(&claims.sub).await {
         Ok(Some(user)) => user,
@@ -491,14 +508,14 @@ pub async fn get_profile(
     };
 
     let user_response = user.to_response();
-    
+
     // Cache the user profile for 5 minutes
     if let Ok(serialized) = serde_json::to_string(&user_response) {
-        if let Err(e) = state.cache.set_with_ttl(
-            &cache_key, 
-            &serialized, 
-            std::time::Duration::from_secs(300)
-        ).await {
+        if let Err(e) = state
+            .cache
+            .set_with_ttl(&cache_key, &serialized, std::time::Duration::from_secs(300))
+            .await
+        {
             warn!("Failed to cache user profile: {}", e);
         } else {
             debug!("Cached user profile for user: {}", claims.sub);
@@ -559,7 +576,7 @@ pub async fn update_profile(
     match state.database.update_user(&user).await {
         Ok(updated_user) => {
             info!("Profile updated for user: {}", updated_user.email);
-            
+
             // Invalidate cache after successful update
             let cache_key = format!("user_profile:{}", claims.sub);
             if let Err(e) = state.cache.delete(&cache_key).await {
@@ -567,7 +584,7 @@ pub async fn update_profile(
             } else {
                 debug!("Invalidated cache for user profile: {}", claims.sub);
             }
-            
+
             Ok(Json(updated_user.to_response()))
         }
         Err(e) => {
@@ -584,25 +601,31 @@ pub async fn logout(
 ) -> Result<Json<Value>, StatusCode> {
     // Add token to blacklist cache until it expires
     let blacklist_key = format!("blacklist:token:{}", claims.jti);
-    let ttl = std::time::Duration::from_secs((claims.exp as u64).saturating_sub(
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs()
-    ));
-    
-    if let Err(e) = state.cache.set_with_ttl(&blacklist_key, "blacklisted", ttl).await {
+    let ttl = std::time::Duration::from_secs(
+        (claims.exp as u64).saturating_sub(
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs(),
+        ),
+    );
+
+    if let Err(e) = state
+        .cache
+        .set_with_ttl(&blacklist_key, "blacklisted", ttl)
+        .await
+    {
         warn!("Failed to blacklist token: {}", e);
     } else {
         debug!("Token blacklisted for user: {}", claims.sub);
     }
-    
+
     // Invalidate user profile cache on logout
     let cache_key = format!("user_profile:{}", claims.sub);
     if let Err(e) = state.cache.delete(&cache_key).await {
         warn!("Failed to invalidate user profile cache on logout: {}", e);
     }
-    
+
     info!("User logged out: {}", claims.sub);
 
     Ok(Json(json!({
