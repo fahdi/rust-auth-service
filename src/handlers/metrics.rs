@@ -9,17 +9,20 @@ use tracing::{debug, error};
 use crate::{metrics, AppState};
 
 /// Prometheus metrics endpoint
-/// 
+///
 /// Returns metrics in Prometheus text format for scraping by monitoring systems.
 /// Includes HTTP metrics, authentication metrics, database metrics, cache metrics,
 /// and custom business metrics.
 pub async fn metrics_handler(State(_state): State<AppState>) -> impl IntoResponse {
     debug!("Serving Prometheus metrics");
-    
+
     match metrics::get_metrics_text() {
         Ok(metrics_text) => {
-            debug!("Successfully generated metrics text ({} bytes)", metrics_text.len());
-            
+            debug!(
+                "Successfully generated metrics text ({} bytes)",
+                metrics_text.len()
+            );
+
             Response::builder()
                 .status(StatusCode::OK)
                 .header(
@@ -31,7 +34,7 @@ pub async fn metrics_handler(State(_state): State<AppState>) -> impl IntoRespons
         }
         Err(e) => {
             error!("Failed to generate metrics: {}", e);
-            
+
             Response::builder()
                 .status(StatusCode::INTERNAL_SERVER_ERROR)
                 .header(header::CONTENT_TYPE, "text/plain")
@@ -42,12 +45,12 @@ pub async fn metrics_handler(State(_state): State<AppState>) -> impl IntoRespons
 }
 
 /// System stats endpoint (JSON format for debugging)
-/// 
+///
 /// Provides system statistics in JSON format for debugging and development.
 /// This is separate from the Prometheus metrics endpoint.
 pub async fn stats_handler(State(state): State<AppState>) -> impl IntoResponse {
     debug!("Serving system stats");
-    
+
     // Get basic system information
     let stats = serde_json::json!({
         "server": {
@@ -80,7 +83,7 @@ pub async fn stats_handler(State(state): State<AppState>) -> impl IntoResponse {
         },
         "timestamp": chrono::Utc::now().to_rfc3339()
     });
-    
+
     Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, "application/json")
@@ -94,29 +97,29 @@ mod tests {
     use crate::{config::Config, AppState};
     use axum::extract::State;
     use std::sync::Arc;
-    
+
     async fn create_test_state() -> AppState {
         let config = Config::default();
         let database = crate::database::create_database(&config.database)
             .await
             .expect("Failed to create test database");
-        
+
         AppState {
             config: Arc::new(config),
             database: Arc::from(database),
         }
     }
-    
+
     #[tokio::test]
     async fn test_metrics_handler() {
         // Initialize metrics first
         crate::metrics::Metrics::init();
-        
+
         let state = create_test_state().await;
         let response = metrics_handler(State(state)).await.into_response();
-        
+
         assert_eq!(response.status(), StatusCode::OK);
-        
+
         let content_type = response
             .headers()
             .get(header::CONTENT_TYPE)
@@ -125,14 +128,14 @@ mod tests {
             .unwrap();
         assert!(content_type.starts_with("text/plain"));
     }
-    
+
     #[tokio::test]
     async fn test_stats_handler() {
         let state = create_test_state().await;
         let response = stats_handler(State(state)).await.into_response();
-        
+
         assert_eq!(response.status(), StatusCode::OK);
-        
+
         let content_type = response
             .headers()
             .get(header::CONTENT_TYPE)

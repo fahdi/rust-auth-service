@@ -40,7 +40,6 @@ pub enum UserRole {
     Guest,
 }
 
-
 impl std::fmt::Display for UserRole {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -82,16 +81,24 @@ pub struct UserMetadata {
 pub struct CreateUserRequest {
     #[validate(email(message = "Invalid email format"))]
     pub email: String,
-    
+
     #[validate(length(min = 8, message = "Password must be at least 8 characters"))]
     pub password: String,
-    
-    #[validate(length(min = 2, max = 50, message = "First name must be between 2 and 50 characters"))]
+
+    #[validate(length(
+        min = 2,
+        max = 50,
+        message = "First name must be between 2 and 50 characters"
+    ))]
     pub first_name: String,
-    
-    #[validate(length(min = 2, max = 50, message = "Last name must be between 2 and 50 characters"))]
+
+    #[validate(length(
+        min = 2,
+        max = 50,
+        message = "Last name must be between 2 and 50 characters"
+    ))]
     pub last_name: String,
-    
+
     pub role: Option<UserRole>,
     pub metadata: Option<UserMetadata>,
 }
@@ -101,13 +108,21 @@ pub struct CreateUserRequest {
 pub struct UpdateUserRequest {
     #[validate(email(message = "Invalid email format"))]
     pub email: Option<String>,
-    
-    #[validate(length(min = 2, max = 50, message = "First name must be between 2 and 50 characters"))]
+
+    #[validate(length(
+        min = 2,
+        max = 50,
+        message = "First name must be between 2 and 50 characters"
+    ))]
     pub first_name: Option<String>,
-    
-    #[validate(length(min = 2, max = 50, message = "Last name must be between 2 and 50 characters"))]
+
+    #[validate(length(
+        min = 2,
+        max = 50,
+        message = "Last name must be between 2 and 50 characters"
+    ))]
     pub last_name: Option<String>,
-    
+
     pub role: Option<UserRole>,
     pub is_active: Option<bool>,
     pub metadata: Option<UserMetadata>,
@@ -124,7 +139,7 @@ pub struct PasswordResetRequest {
 #[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct PasswordChangeRequest {
     pub token: String,
-    
+
     #[validate(length(min = 8, message = "Password must be at least 8 characters"))]
     pub new_password: String,
 }
@@ -175,34 +190,34 @@ pub struct LoginAttempt {
 pub enum UserError {
     #[error("User not found")]
     NotFound,
-    
+
     #[error("Email already exists")]
     EmailAlreadyExists,
-    
+
     #[error("Invalid credentials")]
     InvalidCredentials,
-    
+
     #[error("Account is locked")]
     AccountLocked,
-    
+
     #[error("Email not verified")]
     EmailNotVerified,
-    
+
     #[error("Invalid verification token")]
     InvalidVerificationToken,
-    
+
     #[error("Verification token expired")]
     VerificationTokenExpired,
-    
+
     #[error("Invalid password reset token")]
     InvalidPasswordResetToken,
-    
+
     #[error("Password reset token expired")]
     PasswordResetTokenExpired,
-    
+
     #[error("Database error: {0}")]
     Database(String),
-    
+
     #[error("Validation error: {0}")]
     Validation(String),
 }
@@ -212,7 +227,7 @@ impl User {
     pub fn new(request: CreateUserRequest, password_hash: String) -> Self {
         let now = Utc::now();
         let user_id = Uuid::new_v4().to_string();
-        
+
         Self {
             id: None, // Will be set by MongoDB
             user_id,
@@ -277,14 +292,16 @@ impl User {
     /// Set email verification token with expiration
     pub fn set_email_verification_token(&mut self, token: String, hours_valid: u64) {
         self.email_verification_token = Some(token);
-        self.email_verification_expires = Some(Utc::now() + chrono::Duration::hours(hours_valid as i64));
+        self.email_verification_expires =
+            Some(Utc::now() + chrono::Duration::hours(hours_valid as i64));
         self.updated_at = Utc::now();
     }
 
     /// Set password reset token with expiration
     pub fn set_password_reset_token(&mut self, token: String, hours_valid: u64) {
         self.password_reset_token = Some(token);
-        self.password_reset_expires = Some(Utc::now() + chrono::Duration::hours(hours_valid as i64));
+        self.password_reset_expires =
+            Some(Utc::now() + chrono::Duration::hours(hours_valid as i64));
         self.updated_at = Utc::now();
     }
 
@@ -315,7 +332,7 @@ impl User {
     pub fn record_failed_login(&mut self, max_attempts: u32, lockout_hours: u64) {
         self.login_attempts += 1;
         self.updated_at = Utc::now();
-        
+
         if self.login_attempts >= max_attempts {
             self.locked_until = Some(Utc::now() + chrono::Duration::hours(lockout_hours as i64));
         }
@@ -402,14 +419,14 @@ mod tests {
     #[test]
     fn test_account_locking() {
         let mut user = User::new(create_test_user_request(), "hash".to_string());
-        
+
         assert!(!user.is_locked());
-        
+
         // Lock account for 1 hour
         user.record_failed_login(3, 1);
         user.record_failed_login(3, 1);
         user.record_failed_login(3, 1);
-        
+
         assert!(user.is_locked());
     }
 
@@ -417,12 +434,12 @@ mod tests {
     fn test_email_verification_token() {
         let mut user = User::new(create_test_user_request(), "hash".to_string());
         let token = "verification_token_123".to_string();
-        
+
         user.set_email_verification_token(token.clone(), 24);
-        
+
         assert!(user.is_verification_token_valid(&token));
         assert!(!user.is_verification_token_valid("wrong_token"));
-        
+
         user.verify_email();
         assert!(user.email_verified);
         assert!(user.email_verification_token.is_none());
@@ -432,12 +449,12 @@ mod tests {
     fn test_password_reset_token() {
         let mut user = User::new(create_test_user_request(), "hash".to_string());
         let token = "reset_token_123".to_string();
-        
+
         user.set_password_reset_token(token.clone(), 2);
-        
+
         assert!(user.is_password_reset_token_valid(&token));
         assert!(!user.is_password_reset_token_valid("wrong_token"));
-        
+
         user.clear_password_reset_token();
         assert!(user.password_reset_token.is_none());
     }
@@ -445,9 +462,9 @@ mod tests {
     #[test]
     fn test_login_recording() {
         let mut user = User::new(create_test_user_request(), "hash".to_string());
-        
+
         assert!(user.last_login.is_none());
-        
+
         user.record_login();
         assert!(user.last_login.is_some());
         assert_eq!(user.login_attempts, 0);
@@ -456,7 +473,7 @@ mod tests {
     #[test]
     fn test_user_update() {
         let mut user = User::new(create_test_user_request(), "hash".to_string());
-        
+
         let update_request = UpdateUserRequest {
             email: Some("newemail@example.com".to_string()),
             first_name: Some("Jane".to_string()),
@@ -465,9 +482,9 @@ mod tests {
             is_active: Some(false),
             metadata: None,
         };
-        
+
         user.update(update_request);
-        
+
         assert_eq!(user.email, "newemail@example.com");
         assert_eq!(user.first_name, "Jane");
         assert_eq!(user.last_name, "Doe"); // Unchanged
@@ -479,7 +496,7 @@ mod tests {
     fn test_user_response_conversion() {
         let user = User::new(create_test_user_request(), "hash".to_string());
         let response = user.to_response();
-        
+
         assert_eq!(response.email, user.email);
         assert_eq!(response.first_name, user.first_name);
         assert_eq!(response.role, user.role);
@@ -490,7 +507,7 @@ mod tests {
     fn test_user_role_string_conversion() {
         assert_eq!(UserRole::User.to_string(), "user");
         assert_eq!(UserRole::Admin.to_string(), "admin");
-        
+
         assert_eq!("user".parse::<UserRole>().unwrap(), UserRole::User);
         assert_eq!("ADMIN".parse::<UserRole>().unwrap(), UserRole::Admin);
         assert!("invalid".parse::<UserRole>().is_err());

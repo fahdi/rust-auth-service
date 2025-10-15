@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use super::{MigrationLoader, MigrationPlan, MigrationProvider, calculate_migration_plan};
+use super::{calculate_migration_plan, MigrationLoader, MigrationPlan, MigrationProvider};
 use anyhow::{Context, Result};
 use std::sync::Arc;
 use std::time::Instant;
@@ -42,7 +42,9 @@ impl MigrationRunner {
         info!("Starting database migration...");
 
         // Initialize migration tracking
-        self.provider.init_migration_table().await
+        self.provider
+            .init_migration_table()
+            .await
             .context("Failed to initialize migration table")?;
 
         // Load migrations and create plan
@@ -53,7 +55,9 @@ impl MigrationRunner {
             for conflict in &plan.conflicts {
                 error!("  {}", conflict);
             }
-            return Err(anyhow::anyhow!("Migration conflicts detected. Use --force to override."));
+            return Err(anyhow::anyhow!(
+                "Migration conflicts detected. Use --force to override."
+            ));
         }
 
         if !plan.has_pending() {
@@ -85,16 +89,14 @@ impl MigrationRunner {
         info!("Rolling back {} migration(s)...", steps);
 
         let applied_migrations = self.provider.get_applied_migrations().await?;
-        
+
         if applied_migrations.is_empty() {
             info!("No migrations to rollback.");
             return Ok(());
         }
 
         // Sort by version descending to rollback in reverse order
-        let mut migrations_to_rollback: Vec<_> = applied_migrations
-            .into_iter()
-            .collect();
+        let mut migrations_to_rollback: Vec<_> = applied_migrations.into_iter().collect();
         migrations_to_rollback.sort_by(|a, b| b.version.cmp(&a.version));
 
         let rollback_count = std::cmp::min(steps as usize, migrations_to_rollback.len());
@@ -110,17 +112,17 @@ impl MigrationRunner {
 
         // Load migration definitions for rollback
         let all_migrations = self.loader.load_migrations().await?;
-        let migration_map: std::collections::HashMap<u32, _> = all_migrations
-            .into_iter()
-            .map(|m| (m.version, m))
-            .collect();
+        let migration_map: std::collections::HashMap<u32, _> =
+            all_migrations.into_iter().map(|m| (m.version, m)).collect();
 
         for applied_migration in migrations_to_rollback {
             if let Some(migration) = migration_map.get(&applied_migration.version) {
                 self.rollback_migration(migration).await?;
             } else {
-                warn!("Migration definition not found for version {}, skipping rollback", 
-                      applied_migration.version);
+                warn!(
+                    "Migration definition not found for version {}, skipping rollback",
+                    applied_migration.version
+                );
             }
         }
 
@@ -144,8 +146,9 @@ impl MigrationRunner {
 
         println!("\nApplied Migrations ({}):", plan.applied_migrations.len());
         for migration in &plan.applied_migrations {
-            println!("  ✅ {} - {} (applied: {})", 
-                migration.version, 
+            println!(
+                "  ✅ {} - {} (applied: {})",
+                migration.version,
                 migration.name,
                 migration.applied_at.format("%Y-%m-%d %H:%M:%S")
             );
@@ -159,7 +162,10 @@ impl MigrationRunner {
         if plan.is_valid() && !plan.has_pending() {
             println!("\n✅ Database is up to date!");
         } else if plan.has_pending() {
-            println!("\n⏳ {} migration(s) pending", plan.pending_migrations.len());
+            println!(
+                "\n⏳ {} migration(s) pending",
+                plan.pending_migrations.len()
+            );
         }
 
         Ok(())
@@ -182,7 +188,7 @@ impl MigrationRunner {
         // Check for gaps in version numbers
         let mut expected_version = 1;
         let all_migrations = self.loader.load_migrations().await?;
-        
+
         for migration in &all_migrations {
             if migration.version != expected_version {
                 return Err(anyhow::anyhow!(
@@ -201,15 +207,18 @@ impl MigrationRunner {
     async fn create_migration_plan(&self) -> Result<MigrationPlan> {
         let all_migrations = self.loader.load_migrations().await?;
         let applied_migrations = self.provider.get_applied_migrations().await?;
-        
+
         Ok(calculate_migration_plan(all_migrations, applied_migrations))
     }
 
     async fn apply_migration(&self, migration: &super::Migration) -> Result<()> {
-        info!("Applying migration {} - {}", migration.version, migration.name);
+        info!(
+            "Applying migration {} - {}",
+            migration.version, migration.name
+        );
 
         let start_time = Instant::now();
-        
+
         // Execute the migration
         if let Err(e) = self.provider.execute_migration(migration).await {
             error!("Failed to execute migration {}: {}", migration.version, e);
@@ -219,15 +228,23 @@ impl MigrationRunner {
         let execution_time = start_time.elapsed().as_millis() as i64;
 
         // Record the migration as applied
-        self.provider.record_migration(migration, execution_time).await
+        self.provider
+            .record_migration(migration, execution_time)
+            .await
             .context("Failed to record migration")?;
 
-        info!("✅ Migration {} completed in {}ms", migration.version, execution_time);
+        info!(
+            "✅ Migration {} completed in {}ms",
+            migration.version, execution_time
+        );
         Ok(())
     }
 
     async fn rollback_migration(&self, migration: &super::Migration) -> Result<()> {
-        info!("Rolling back migration {} - {}", migration.version, migration.name);
+        info!(
+            "Rolling back migration {} - {}",
+            migration.version, migration.name
+        );
 
         if migration.down_sql.is_none() {
             return Err(anyhow::anyhow!(
@@ -243,10 +260,15 @@ impl MigrationRunner {
         }
 
         // Remove migration record
-        self.provider.remove_migration_record(migration.version).await
+        self.provider
+            .remove_migration_record(migration.version)
+            .await
             .context("Failed to remove migration record")?;
 
-        info!("✅ Migration {} rolled back successfully", migration.version);
+        info!(
+            "✅ Migration {} rolled back successfully",
+            migration.version
+        );
         Ok(())
     }
 }
@@ -275,7 +297,11 @@ mod tests {
             Ok(self.applied_migrations.clone())
         }
 
-        async fn record_migration(&self, _migration: &super::Migration, _execution_time_ms: i64) -> Result<()> {
+        async fn record_migration(
+            &self,
+            _migration: &super::Migration,
+            _execution_time_ms: i64,
+        ) -> Result<()> {
             Ok(())
         }
 
@@ -303,8 +329,7 @@ mod tests {
             should_fail: false,
         });
 
-        let runner = MigrationRunner::new(provider, "migrations", "test")
-            .with_dry_run(true);
+        let runner = MigrationRunner::new(provider, "migrations", "test").with_dry_run(true);
 
         // Note: This would fail in a real test because the migrations directory doesn't exist
         // In a real implementation, you'd want to set up test fixtures

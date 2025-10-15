@@ -331,50 +331,50 @@ impl ValidationSummary {
 /// Standalone password strength validation function
 pub fn validate_password_strength(password: &str) -> Result<(), String> {
     let mut errors = Vec::new();
-    
+
     if password.len() < 8 {
         errors.push("Password must be at least 8 characters long".to_string());
     }
-    
+
     if password.len() > 128 {
         errors.push("Password must not exceed 128 characters".to_string());
     }
-    
+
     let has_lowercase = password.chars().any(|c| c.is_lowercase());
     let has_uppercase = password.chars().any(|c| c.is_uppercase());
     let has_digit = password.chars().any(|c| c.is_ascii_digit());
     let has_special = password.chars().any(|c| !c.is_alphanumeric());
-    
+
     if !has_lowercase {
         errors.push("Password must contain at least one lowercase letter".to_string());
     }
-    
+
     if !has_uppercase {
         errors.push("Password must contain at least one uppercase letter".to_string());
     }
-    
+
     if !has_digit {
         errors.push("Password must contain at least one digit".to_string());
     }
-    
+
     if !has_special {
         errors.push("Password must contain at least one special character".to_string());
     }
-    
+
     // Check for common weak patterns
     let lower_password = password.to_lowercase();
     let weak_patterns = vec![
-        "password", "123456", "qwerty", "abc123", "letmein", 
-        "admin", "welcome", "monkey", "dragon", "master"
+        "password", "123456", "qwerty", "abc123", "letmein", "admin", "welcome", "monkey",
+        "dragon", "master",
     ];
-    
+
     for pattern in weak_patterns {
         if lower_password.contains(pattern) {
             errors.push("Password contains common weak patterns".to_string());
             break;
         }
     }
-    
+
     if errors.is_empty() {
         Ok(())
     } else {
@@ -387,21 +387,20 @@ pub fn validate_email(email: &str) -> Result<(), String> {
     if email.is_empty() {
         return Err("Email is required".to_string());
     }
-    
+
     if email.len() > 254 {
         return Err("Email must not exceed 254 characters".to_string());
     }
-    
+
     if !email.validate_email() {
         return Err("Invalid email format".to_string());
     }
-    
+
     Ok(())
 }
 
 /// Utility functions for common validation tasks
 pub mod utils {
-    
 
     /// Check if a string is a valid URL
     pub fn is_valid_url(url: &str) -> bool {

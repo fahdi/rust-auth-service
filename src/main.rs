@@ -7,7 +7,7 @@ use axum::{
 use std::sync::Arc;
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
-use tracing::{info, error};
+use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod config;
@@ -16,16 +16,16 @@ mod handlers;
 mod metrics;
 mod models;
 // mod services;
-mod database;
 mod cache;
+mod database;
 // mod email;
 mod middleware;
 mod migrations;
 mod utils;
 
+use cache::CacheService;
 use config::Config;
 use database::AuthDatabase;
-use cache::CacheService;
 
 // Application state shared across handlers
 #[derive(Clone)]
@@ -34,7 +34,6 @@ pub struct AppState {
     pub database: Arc<dyn AuthDatabase>,
     pub cache: Arc<CacheService>,
 }
-
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -72,7 +71,10 @@ async fn main() -> Result<()> {
     match database.health_check().await {
         Ok(health) => {
             if health.connected {
-                info!("Database health check passed: {} ({}ms)", health.status, health.response_time_ms);
+                info!(
+                    "Database health check passed: {} ({}ms)",
+                    health.status, health.response_time_ms
+                );
             } else {
                 error!("Database health check failed: {}", health.status);
                 return Err(anyhow::anyhow!("Database not ready"));

@@ -348,16 +348,15 @@ pub fn generate_token(
     };
 
     let encoding_key = EncodingKey::from_secret(secret.as_ref());
-    encode(&Header::default(), &claims, &encoding_key)
-        .context("Failed to generate token")
+    encode(&Header::default(), &claims, &encoding_key).context("Failed to generate token")
 }
 
 pub fn verify_token(token: &str, secret: &str) -> Result<Claims> {
     let decoding_key = DecodingKey::from_secret(secret.as_ref());
     let validation = Validation::default();
-    
-    let token_data = decode::<Claims>(token, &decoding_key, &validation)
-        .context("Failed to verify token")?;
-    
+
+    let token_data =
+        decode::<Claims>(token, &decoding_key, &validation).context("Failed to verify token")?;
+
     Ok(token_data.claims)
 }

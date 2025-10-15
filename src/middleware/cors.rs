@@ -1,5 +1,5 @@
-use tower_http::cors::{Any, CorsLayer};
 use axum::http::HeaderValue;
+use tower_http::cors::{Any, CorsLayer};
 
 /// Create CORS layer for development
 /// Allows all origins, methods, and headers
