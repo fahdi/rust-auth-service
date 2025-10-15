@@ -1,0 +1,21 @@
+apiVersion: v2
+name: auth-service
+description: High-performance Rust Authentication Service Helm Chart
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+home: https://github.com/fahdi/rust-auth-service
+sources:
+  - https://github.com/fahdi/rust-auth-service
+maintainers:
+  - name: Auth Service Team
+    email: team@auth-service.com
+keywords:
+  - authentication
+  - rust
+  - microservice
+  - jwt
+  - security
+annotations:
+  category: Security
+  licenses: MIT
