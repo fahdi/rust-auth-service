@@ -13,6 +13,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 mod config;
 mod errors;
 mod handlers;
+mod metrics;
 mod models;
 // mod services;
 mod database;
@@ -50,6 +51,12 @@ async fn main() -> Result<()> {
     let config = Config::from_env_and_file()?;
     info!("Configuration loaded successfully");
 
+    // Initialize metrics if enabled
+    if config.monitoring.metrics {
+        metrics::Metrics::init();
+        info!("Prometheus metrics initialized");
+    }
+
     // Initialize database
     let database = database::create_database(&config.database).await?;
     info!("Database connection established");
@@ -81,6 +88,8 @@ async fn main() -> Result<()> {
         .route("/health", get(handlers::health_check))
         .route("/ready", get(handlers::ready_check))
         .route("/live", get(handlers::liveness_check))
+        .route("/metrics", get(handlers::metrics_handler))
+        .route("/stats", get(handlers::stats_handler))
         .route("/auth/register", post(handlers::register))
         .route("/auth/login", post(handlers::login))
         .route("/auth/verify", post(handlers::verify_email))
@@ -103,6 +112,10 @@ async fn main() -> Result<()> {
         .merge(public_routes)
         .merge(protected_routes)
         .with_state(app_state.clone())
+        .layer(from_fn_with_state(
+            app_state.clone(),
+            middleware::metrics_middleware,
+        ))
         .layer(from_fn_with_state(
             app_state.clone(),
             middleware::rate_limit_middleware,
