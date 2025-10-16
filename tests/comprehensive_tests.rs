@@ -12,8 +12,40 @@ use rust_auth_service::database::{create_database, AuthDatabase};
 use rust_auth_service::models::user::{CreateUserRequest, User, UserMetadata, UserRole};
 use rust_auth_service::utils::password::hash_password;
 
-/// Comprehensive test suite for research documentation
-/// Tests all implemented features across all database providers
+/// Comprehensive Integration Test Suite
+///
+/// This test suite provides comprehensive coverage of the rust-auth-service
+/// across all supported database adapters (MongoDB, PostgreSQL, MySQL).
+/// 
+/// Tests include:
+/// - Database operations (CRUD, authentication flows)
+/// - Performance benchmarks (throughput, latency)
+/// - Concurrent operations
+/// - Error handling and recovery
+/// - Authentication flows (registration, login, verification)
+/// - Security features (rate limiting, account lockouts)
+/// - Health checks and monitoring
+///
+/// ## Running Tests with Feature-based Selection
+///
+/// Tests are now conditionally compiled based on Cargo features:
+///
+/// ### Database-specific tests:
+/// ```bash
+/// # Run only MongoDB tests
+/// cargo test --test comprehensive_tests --features mongodb
+///
+/// # Run PostgreSQL and MySQL tests
+/// cargo test --test comprehensive_tests --features "postgresql,mysql"
+///
+/// # Run all database tests (default)
+/// cargo test --test comprehensive_tests
+/// ```
+///
+/// ### Prerequisites:
+/// - Docker containers running for enabled database features
+/// - Environment variables configured (optional, defaults provided)
+/// - No more #[ignore] tags - tests run automatically when features are enabled
 
 #[derive(Debug, Clone)]
 struct PerformanceMetrics {
@@ -125,8 +157,9 @@ impl TestResults {
 }
 
 /// Test basic database operations
+/// Runs only when database features are enabled and services are available
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn comprehensive_database_functionality_test() {
     let databases = get_test_databases().await;
 
@@ -161,8 +194,9 @@ async fn comprehensive_database_functionality_test() {
 }
 
 /// Test user registration performance
+/// Runs only when database features are enabled and services are available
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn user_registration_performance_test() {
     let databases = get_test_databases().await;
     const REGISTRATIONS: usize = 100;
@@ -200,8 +234,9 @@ async fn user_registration_performance_test() {
 }
 
 /// Test user authentication performance
+/// Runs only when database features are enabled and services are available
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn user_authentication_performance_test() {
     let databases = get_test_databases().await;
     const AUTH_ATTEMPTS: usize = 1000;
@@ -255,8 +290,9 @@ async fn user_authentication_performance_test() {
 }
 
 /// Test concurrent user operations
+/// Runs only when database features are enabled and services are available
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn concurrent_operations_test() {
     let databases = get_test_databases().await;
     const CONCURRENT_USERS: usize = 50;
@@ -340,8 +376,9 @@ async fn concurrent_operations_test() {
 }
 
 /// Test database health and connection stability
+/// Runs only when database features are enabled and services are available
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn database_health_stability_test() {
     let databases = get_test_databases().await;
     const HEALTH_CHECKS: usize = 1000;
@@ -384,8 +421,9 @@ async fn database_health_stability_test() {
 }
 
 /// Test email verification flow performance
+/// Runs only when database features are enabled and services are available
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn email_verification_flow_test() {
     let databases = get_test_databases().await;
     const VERIFICATION_TESTS: usize = 100;
@@ -423,8 +461,9 @@ async fn email_verification_flow_test() {
 }
 
 /// Test password reset flow performance
+/// Runs only when database features are enabled and services are available
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn password_reset_flow_test() {
     let databases = get_test_databases().await;
     const RESET_TESTS: usize = 100;

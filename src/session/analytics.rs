@@ -1,6 +1,6 @@
-use super::{DeviceType, SecurityLevel, Session, SessionService, TerminationReason};
+use super::{DeviceType, SessionService};
 use anyhow::Result;
-use chrono::{DateTime, Datelike, Duration, Utc};
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -78,8 +78,8 @@ impl<T: SessionService> SessionAnalyticsService<T> {
     /// Analyze device usage patterns
     async fn analyze_device_usage(
         &self,
-        start_date: DateTime<Utc>,
-        end_date: DateTime<Utc>,
+        _start_date: DateTime<Utc>,
+        _end_date: DateTime<Utc>,
     ) -> Result<DeviceAnalytics> {
         // TODO: Query actual device usage data
 
@@ -118,8 +118,8 @@ impl<T: SessionService> SessionAnalyticsService<T> {
     /// Analyze security-related metrics
     async fn analyze_security_metrics(
         &self,
-        start_date: DateTime<Utc>,
-        end_date: DateTime<Utc>,
+        _start_date: DateTime<Utc>,
+        _end_date: DateTime<Utc>,
     ) -> Result<SecurityMetrics> {
         // TODO: Query actual security data
 
@@ -172,8 +172,8 @@ impl<T: SessionService> SessionAnalyticsService<T> {
     /// Analyze user behavior patterns
     async fn analyze_user_behavior(
         &self,
-        start_date: DateTime<Utc>,
-        end_date: DateTime<Utc>,
+        _start_date: DateTime<Utc>,
+        _end_date: DateTime<Utc>,
     ) -> Result<UserBehavior> {
         // TODO: Query actual user behavior data
 
@@ -205,8 +205,8 @@ impl<T: SessionService> SessionAnalyticsService<T> {
     /// Analyze geographic distribution
     async fn analyze_geographic_distribution(
         &self,
-        start_date: DateTime<Utc>,
-        end_date: DateTime<Utc>,
+        _start_date: DateTime<Utc>,
+        _end_date: DateTime<Utc>,
     ) -> Result<GeographicData> {
         // TODO: Query actual geographic data
 
@@ -246,8 +246,8 @@ impl<T: SessionService> SessionAnalyticsService<T> {
     /// Calculate hourly login distribution
     async fn calculate_hourly_distribution(
         &self,
-        start_date: DateTime<Utc>,
-        end_date: DateTime<Utc>,
+        _start_date: DateTime<Utc>,
+        _end_date: DateTime<Utc>,
     ) -> Result<HashMap<u32, u32>> {
         // TODO: Implement actual hourly distribution calculation
         // This would query sessions and group by hour of day
@@ -298,8 +298,8 @@ impl<T: SessionService> SessionAnalyticsService<T> {
     /// Calculate growth rate
     async fn calculate_growth_rate(
         &self,
-        start_date: DateTime<Utc>,
-        end_date: DateTime<Utc>,
+        _start_date: DateTime<Utc>,
+        _end_date: DateTime<Utc>,
     ) -> Result<f64> {
         // TODO: Implement actual growth rate calculation
         // This would compare current period with previous period

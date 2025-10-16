@@ -1,6 +1,6 @@
-use super::{UserGroup, UserManagementService, UserRole};
+use super::{UserGroup, UserManagementService};
 use anyhow::Result;
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 

@@ -10,7 +10,7 @@ use std::time::Instant;
 
 use super::{AuthDatabase, DatabaseHealth};
 use crate::config::database::PoolConfig;
-use crate::models::user::{CreateUserRequest, LoginAttempt, UpdateUserRequest, User, UserError};
+use crate::models::user::{LoginAttempt, User, UserError};
 use crate::oauth2::{
     AccessToken, AuthorizationCode, DeviceAuthorization, OAuth2Client, OAuth2Service, RefreshToken,
     TokenIntrospection,
@@ -129,6 +129,51 @@ impl MongoDatabase {
 
         Ok(())
     }
+    
+    /// Helper function to perform update operations with consistent error handling
+    async fn update_user_by_filter(
+        &self,
+        filter: Document,
+        update: Document,
+        operation_name: &str,
+    ) -> Result<(), UserError> {
+        match self.users.update_one(filter, update).await {
+            Ok(result) => {
+                if result.matched_count == 0 {
+                    Err(UserError::NotFound)
+                } else {
+                    Ok(())
+                }
+            }
+            Err(e) => Err(UserError::Database(format!(
+                "Failed to {}: {}",
+                operation_name, e
+            ))),
+        }
+    }
+
+    /// Helper function to create consistent update documents with updated_at timestamp
+    fn create_update_doc(fields: Document) -> Document {
+        let mut update_fields = fields;
+        update_fields.insert(
+            "updated_at",
+            mongodb::bson::DateTime::from_system_time(Utc::now().into()),
+        );
+        doc! { "$set": update_fields }
+    }
+
+    /// Helper function to create update documents with both set and unset operations
+    fn create_update_doc_with_unset(set_fields: Document, unset_fields: Document) -> Document {
+        let mut update_fields = set_fields;
+        update_fields.insert(
+            "updated_at",
+            mongodb::bson::DateTime::from_system_time(Utc::now().into()),
+        );
+        doc! {
+            "$set": update_fields,
+            "$unset": unset_fields
+        }
+    }
 }
 
 #[async_trait]
@@ -207,26 +252,11 @@ impl AuthDatabase for MongoDatabase {
 
     async fn update_password(&self, user_id: &str, password_hash: &str) -> Result<(), UserError> {
         let filter = doc! { "user_id": user_id };
-        let update = doc! {
-            "$set": {
-                "password_hash": password_hash,
-                "updated_at": mongodb::bson::DateTime::from_system_time(Utc::now().into())
-            }
-        };
+        let update = Self::create_update_doc(doc! {
+            "password_hash": password_hash
+        });
 
-        match self.users.update_one(filter, update).await {
-            Ok(result) => {
-                if result.matched_count == 0 {
-                    Err(UserError::NotFound)
-                } else {
-                    Ok(())
-                }
-            }
-            Err(e) => Err(UserError::Database(format!(
-                "Failed to update password: {}",
-                e
-            ))),
-        }
+        self.update_user_by_filter(filter, update, "update password").await
     }
 
     async fn set_email_verification_token(
@@ -236,29 +266,13 @@ impl AuthDatabase for MongoDatabase {
         expires_hours: u64,
     ) -> Result<(), UserError> {
         let expires_at = Utc::now() + chrono::Duration::hours(expires_hours as i64);
-
         let filter = doc! { "user_id": user_id };
-        let update = doc! {
-            "$set": {
-                "email_verification_token": token,
-                "email_verification_expires": mongodb::bson::DateTime::from_system_time(expires_at.into()),
-                "updated_at": mongodb::bson::DateTime::from_system_time(Utc::now().into())
-            }
-        };
+        let update = Self::create_update_doc(doc! {
+            "email_verification_token": token,
+            "email_verification_expires": mongodb::bson::DateTime::from_system_time(expires_at.into())
+        });
 
-        match self.users.update_one(filter, update).await {
-            Ok(result) => {
-                if result.matched_count == 0 {
-                    Err(UserError::NotFound)
-                } else {
-                    Ok(())
-                }
-            }
-            Err(e) => Err(UserError::Database(format!(
-                "Failed to set verification token: {}",
-                e
-            ))),
-        }
+        self.update_user_by_filter(filter, update, "set verification token").await
     }
 
     async fn verify_email(&self, token: &str) -> Result<String, UserError> {
@@ -275,16 +289,12 @@ impl AuthDatabase for MongoDatabase {
 
         // Update user to mark email as verified
         let update_filter = doc! { "user_id": &user.user_id };
-        let update = doc! {
-            "$set": {
-                "email_verified": true,
-                "updated_at": mongodb::bson::DateTime::from_system_time(Utc::now().into())
-            },
-            "$unset": {
-                "email_verification_token": "",
-                "email_verification_expires": ""
-            }
+        let set_fields = doc! { "email_verified": true };
+        let unset_fields = doc! {
+            "email_verification_token": "",
+            "email_verification_expires": ""
         };
+        let update = Self::create_update_doc_with_unset(set_fields, unset_fields);
 
         self.users
             .update_one(update_filter, update)
@@ -301,29 +311,13 @@ impl AuthDatabase for MongoDatabase {
         expires_hours: u64,
     ) -> Result<(), UserError> {
         let expires_at = Utc::now() + chrono::Duration::hours(expires_hours as i64);
-
         let filter = doc! { "email": email.to_lowercase() };
-        let update = doc! {
-            "$set": {
-                "password_reset_token": token,
-                "password_reset_expires": mongodb::bson::DateTime::from_system_time(expires_at.into()),
-                "updated_at": mongodb::bson::DateTime::from_system_time(Utc::now().into())
-            }
-        };
+        let update = Self::create_update_doc(doc! {
+            "password_reset_token": token,
+            "password_reset_expires": mongodb::bson::DateTime::from_system_time(expires_at.into())
+        });
 
-        match self.users.update_one(filter, update).await {
-            Ok(result) => {
-                if result.matched_count == 0 {
-                    Err(UserError::NotFound)
-                } else {
-                    Ok(())
-                }
-            }
-            Err(e) => Err(UserError::Database(format!(
-                "Failed to set password reset token: {}",
-                e
-            ))),
-        }
+        self.update_user_by_filter(filter, update, "set password reset token").await
     }
 
     async fn verify_password_reset_token(&self, token: &str) -> Result<String, UserError> {
@@ -344,57 +338,25 @@ impl AuthDatabase for MongoDatabase {
 
     async fn clear_password_reset_token(&self, user_id: &str) -> Result<(), UserError> {
         let filter = doc! { "user_id": user_id };
-        let update = doc! {
-            "$unset": {
-                "password_reset_token": "",
-                "password_reset_expires": ""
-            },
-            "$set": {
-                "updated_at": mongodb::bson::DateTime::from_system_time(Utc::now().into())
-            }
+        let unset_fields = doc! {
+            "password_reset_token": "",
+            "password_reset_expires": ""
         };
+        let update = Self::create_update_doc_with_unset(doc! {}, unset_fields);
 
-        match self.users.update_one(filter, update).await {
-            Ok(result) => {
-                if result.matched_count == 0 {
-                    Err(UserError::NotFound)
-                } else {
-                    Ok(())
-                }
-            }
-            Err(e) => Err(UserError::Database(format!(
-                "Failed to clear reset token: {}",
-                e
-            ))),
-        }
+        self.update_user_by_filter(filter, update, "clear reset token").await
     }
 
     async fn record_login(&self, user_id: &str) -> Result<(), UserError> {
         let filter = doc! { "user_id": user_id };
-        let update = doc! {
-            "$set": {
-                "last_login": mongodb::bson::DateTime::from_system_time(Utc::now().into()),
-                "login_attempts": 0,
-                "updated_at": mongodb::bson::DateTime::from_system_time(Utc::now().into())
-            },
-            "$unset": {
-                "locked_until": ""
-            }
+        let set_fields = doc! {
+            "last_login": mongodb::bson::DateTime::from_system_time(Utc::now().into()),
+            "login_attempts": 0
         };
+        let unset_fields = doc! { "locked_until": "" };
+        let update = Self::create_update_doc_with_unset(set_fields, unset_fields);
 
-        match self.users.update_one(filter, update).await {
-            Ok(result) => {
-                if result.matched_count == 0 {
-                    Err(UserError::NotFound)
-                } else {
-                    Ok(())
-                }
-            }
-            Err(e) => Err(UserError::Database(format!(
-                "Failed to record login: {}",
-                e
-            ))),
-        }
+        self.update_user_by_filter(filter, update, "record login").await
     }
 
     async fn record_failed_login(
@@ -454,26 +416,11 @@ impl AuthDatabase for MongoDatabase {
 
     async fn deactivate_user(&self, user_id: &str) -> Result<(), UserError> {
         let filter = doc! { "user_id": user_id };
-        let update = doc! {
-            "$set": {
-                "is_active": false,
-                "updated_at": mongodb::bson::DateTime::from_system_time(Utc::now().into())
-            }
-        };
+        let update = Self::create_update_doc(doc! {
+            "is_active": false
+        });
 
-        match self.users.update_one(filter, update).await {
-            Ok(result) => {
-                if result.matched_count == 0 {
-                    Err(UserError::NotFound)
-                } else {
-                    Ok(())
-                }
-            }
-            Err(e) => Err(UserError::Database(format!(
-                "Failed to deactivate user: {}",
-                e
-            ))),
-        }
+        self.update_user_by_filter(filter, update, "deactivate user").await
     }
 
     async fn health_check(&self) -> Result<DatabaseHealth> {
@@ -591,26 +538,11 @@ impl AuthDatabase for MongoDatabase {
 
     async fn update_last_login(&self, user_id: &str) -> Result<(), UserError> {
         let filter = doc! { "user_id": user_id };
-        let update = doc! {
-            "$set": {
-                "last_login": mongodb::bson::DateTime::from_system_time(Utc::now().into()),
-                "updated_at": mongodb::bson::DateTime::from_system_time(Utc::now().into())
-            }
-        };
+        let update = Self::create_update_doc(doc! {
+            "last_login": mongodb::bson::DateTime::from_system_time(Utc::now().into())
+        });
 
-        match self.users.update_one(filter, update).await {
-            Ok(result) => {
-                if result.matched_count == 0 {
-                    Err(UserError::NotFound)
-                } else {
-                    Ok(())
-                }
-            }
-            Err(e) => Err(UserError::Database(format!(
-                "Failed to update last login: {}",
-                e
-            ))),
-        }
+        self.update_user_by_filter(filter, update, "update last login").await
     }
 
     async fn record_login_attempt(&self, attempt: &LoginAttempt) -> Result<(), UserError> {
@@ -1069,7 +1001,7 @@ mod tests {
         assert!(found_user.is_some());
 
         // Update user
-        let mut user_to_update = db.get_user_by_id(&user_id).await.unwrap().unwrap();
+        let mut user_to_update = db.find_user_by_id(&user_id).await.unwrap().unwrap();
         user_to_update.first_name = "Updated".to_string();
         let updated_user = db.update_user(&user_to_update).await.unwrap();
         assert_eq!(updated_user.first_name, "Updated");

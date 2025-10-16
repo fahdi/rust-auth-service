@@ -80,7 +80,7 @@ async fn create_test_user() -> User {
 
 /// Test MongoDB database operations
 #[tokio::test]
-#[ignore] // Only run with --include-ignored
+#[cfg(feature = "mongodb")]
 async fn test_mongodb_integration() {
     let url = env::var("MONGODB_TEST_URL").unwrap_or_else(|_| {
         "mongodb://admin:password123@localhost:27017/auth_service_test?authSource=admin".to_string()
@@ -93,7 +93,7 @@ async fn test_mongodb_integration() {
 
 /// Test PostgreSQL database operations
 #[tokio::test]
-#[ignore] // Only run with --include-ignored
+#[cfg(feature = "postgresql")]
 async fn test_postgresql_integration() {
     let url = env::var("POSTGRESQL_TEST_URL").unwrap_or_else(|_| {
         "postgresql://postgres:password123@localhost:5432/auth_service_test".to_string()
@@ -106,7 +106,7 @@ async fn test_postgresql_integration() {
 
 /// Test MySQL database operations
 #[tokio::test]
-#[ignore] // Only run with --include-ignored
+#[cfg(feature = "mysql")]
 async fn test_mysql_integration() {
     let url = env::var("MYSQL_TEST_URL").unwrap_or_else(|_| {
         "mysql://root:password123@localhost:3306/auth_service_test".to_string()
@@ -215,7 +215,7 @@ async fn run_database_tests(ctx: &TestContext) {
 
 /// Performance benchmark tests
 #[tokio::test]
-#[ignore] // Only run with --include-ignored
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn performance_test_all_databases() {
     let databases = vec![
         (
@@ -315,7 +315,7 @@ async fn run_performance_benchmark(ctx: &TestContext) {
 
 /// Test authentication endpoints with real HTTP calls
 #[tokio::test]
-#[ignore] // Only run with --include-ignored
+#[cfg(feature = "integration-tests")]
 async fn test_api_endpoints() {
     // This test assumes the auth service is running on localhost:8090
     let base_url =
@@ -362,7 +362,7 @@ async fn test_api_endpoints() {
 
 /// Load test with concurrent requests
 #[tokio::test]
-#[ignore] // Only run with --include-ignored
+#[cfg(feature = "integration-tests")]
 async fn load_test_concurrent_requests() {
     let base_url =
         env::var("AUTH_SERVICE_URL").unwrap_or_else(|_| "http://localhost:8090".to_string());

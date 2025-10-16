@@ -3,7 +3,6 @@ use std::collections::{HashMap, HashSet};
 
 /// OAuth2 scope management system
 /// Handles scope validation, hierarchy, and permissions
-
 /// Standard OAuth2 and OpenID Connect scopes
 pub mod standard {
     pub const OPENID: &str = "openid";

@@ -1,11 +1,9 @@
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
-use rand::{distributions::Alphanumeric, Rng};
 use sha2::{Digest, Sha256};
 
 /// PKCE (Proof Key for Code Exchange) implementation for OAuth2
 /// RFC 7636: https://tools.ietf.org/html/rfc7636
-
 /// PKCE code challenge methods
 #[derive(Debug, Clone, PartialEq)]
 pub enum CodeChallengeMethod {

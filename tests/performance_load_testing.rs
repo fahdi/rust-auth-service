@@ -195,7 +195,7 @@ async fn create_performance_test_databases() -> Vec<(String, Box<dyn AuthDatabas
 
 /// Test database operation performance across all adapters
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn test_database_operation_performance() {
     let databases = create_performance_test_databases().await;
     const OPERATIONS_COUNT: usize = 100;
@@ -275,7 +275,7 @@ async fn test_database_operation_performance() {
 
 /// Test cache operation performance
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn test_cache_operation_performance() {
     let cache_configs = vec![
         (
@@ -406,7 +406,7 @@ async fn wait_for_auth_service() -> Result<(), Box<dyn std::error::Error + Send 
 
 /// Test authentication service load with concurrent users
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_authentication_service_load() {
     wait_for_auth_service()
         .await
@@ -566,7 +566,7 @@ async fn test_authentication_service_load() {
 
 /// Test concurrent user registration performance
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_concurrent_user_registration_performance() {
     wait_for_auth_service()
         .await
@@ -656,7 +656,7 @@ async fn test_concurrent_user_registration_performance() {
 
 /// Test memory usage and resource consumption patterns
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_memory_and_resource_consumption() {
     println!("🚀 Testing memory and resource consumption patterns");
 
@@ -722,7 +722,7 @@ fn get_memory_usage() -> Option<u64> {
 
 /// Stress test with sustained load over time
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_sustained_load_stress_test() {
     wait_for_auth_service()
         .await
@@ -827,7 +827,7 @@ async fn test_sustained_load_stress_test() {
 
 /// Comprehensive performance regression test
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_performance_regression_baseline() {
     println!("🚀 Running comprehensive performance regression baseline");
 

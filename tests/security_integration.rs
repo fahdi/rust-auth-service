@@ -151,7 +151,7 @@ async fn authenticate_user(
 }
 
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_authentication_bypass_attempts() {
     println!("🔍 Testing authentication bypass attempts");
 
@@ -300,7 +300,7 @@ async fn test_authentication_bypass_attempts() {
 }
 
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_sql_injection_attempts() {
     println!("🔍 Testing SQL injection and NoSQL injection attempts");
 
@@ -468,7 +468,7 @@ async fn test_sql_injection_attempts() {
 }
 
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_rate_limiting_protection() {
     println!("🔍 Testing rate limiting and DDoS protection");
 
@@ -645,7 +645,7 @@ async fn test_rate_limiting_protection() {
 }
 
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_password_security_validation() {
     println!("🔍 Testing password security validation");
 
@@ -819,7 +819,7 @@ async fn test_password_security_validation() {
 }
 
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_input_validation_and_sanitization() {
     println!("🔍 Testing input validation and sanitization");
 
@@ -1035,7 +1035,7 @@ async fn test_input_validation_and_sanitization() {
 }
 
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_session_security_and_token_management() {
     println!("🔍 Testing session security and token management");
 
@@ -1271,7 +1271,7 @@ async fn test_session_security_and_token_management() {
 }
 
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_security_headers_validation() {
     println!("🔍 Testing security headers validation");
 
@@ -1461,7 +1461,7 @@ async fn test_security_headers_validation() {
 }
 
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_comprehensive_security_audit() {
     println!("🔍 Running comprehensive security audit");
 

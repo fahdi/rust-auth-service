@@ -5,18 +5,33 @@ use helpers::*;
 use std::time::Duration;
 use tokio::time::sleep;
 
-/// Integration test runner for authentication flows
+/// Integration Test Runner for Authentication Flows
 ///
-/// This test suite requires the auth service to be running on localhost:8090
-/// and test databases to be available. Run with:
+/// This test suite tests the actual HTTP endpoints of the running auth service.
+/// Tests require the auth service to be running on localhost:8090.
+///
+/// ## Running Integration Tests
 ///
 /// ```bash
-/// # Start test environment
-/// ./scripts/setup-dev.sh
+/// # Start the auth service first
+/// cargo run
 ///
-/// # Run integration tests
-/// cargo test --test auth_integration_tests -- --include-ignored
+/// # In another terminal, run integration tests
+/// cargo test --test auth_integration_tests --features integration-tests
 /// ```
+///
+/// ## Test Coverage
+/// - Complete user registration and authentication flows
+/// - JWT token validation and security
+/// - Protected endpoint access control
+/// - Authentication performance benchmarks
+/// - Concurrent authentication operations
+/// - Input validation and error handling
+///
+/// ## Prerequisites
+/// - Auth service running on localhost:8090
+/// - Test databases available and configured
+/// - No more #[ignore] tags - tests run when integration-tests feature is enabled
 
 const SERVICE_HEALTH_TIMEOUT: Duration = Duration::from_secs(30);
 const SERVICE_HEALTH_RETRY_INTERVAL: Duration = Duration::from_secs(1);
@@ -58,7 +73,7 @@ async fn wait_for_service_ready(base_url: &str) -> Result<(), Box<dyn std::error
 
 /// Test authentication service health and basic connectivity
 #[tokio::test]
-#[ignore] // Only run with --include-ignored
+#[cfg(feature = "integration-tests")]
 async fn test_service_health() {
     let base_url =
         std::env::var("AUTH_SERVICE_URL").unwrap_or_else(|_| "http://localhost:8090".to_string());
@@ -96,7 +111,7 @@ async fn test_service_health() {
 
 /// Test complete user registration and authentication flow
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_complete_user_journey() {
     let base_url =
         std::env::var("AUTH_SERVICE_URL").unwrap_or_else(|_| "http://localhost:8090".to_string());
@@ -206,7 +221,7 @@ async fn test_complete_user_journey() {
 
 /// Test authentication input validation
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_authentication_validation() {
     let base_url =
         std::env::var("AUTH_SERVICE_URL").unwrap_or_else(|_| "http://localhost:8090".to_string());
@@ -266,7 +281,7 @@ async fn test_authentication_validation() {
 
 /// Test protected endpoint access control
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_access_control() {
     let base_url =
         std::env::var("AUTH_SERVICE_URL").unwrap_or_else(|_| "http://localhost:8090".to_string());
@@ -330,7 +345,7 @@ async fn test_access_control() {
 
 /// Test concurrent authentication operations
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_concurrent_authentication() {
     let base_url =
         std::env::var("AUTH_SERVICE_URL").unwrap_or_else(|_| "http://localhost:8090".to_string());
@@ -413,7 +428,7 @@ async fn test_concurrent_authentication() {
 
 /// Test authentication performance benchmarks
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_authentication_performance() {
     let base_url =
         std::env::var("AUTH_SERVICE_URL").unwrap_or_else(|_| "http://localhost:8090".to_string());
@@ -434,7 +449,7 @@ async fn test_authentication_performance() {
     // Test registration performance
     let user = TestUser::new("perf_test");
     let start = std::time::Instant::now();
-    let (tokens, _) = client
+    let (_tokens, _) = client
         .register(&user)
         .await
         .expect("Registration should succeed");
@@ -484,7 +499,7 @@ async fn test_authentication_performance() {
 
 /// Test JWT token validation and security
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_jwt_token_security() {
     let base_url =
         std::env::var("AUTH_SERVICE_URL").unwrap_or_else(|_| "http://localhost:8090".to_string());

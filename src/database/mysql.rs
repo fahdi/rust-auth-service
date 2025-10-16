@@ -10,7 +10,7 @@ use std::time::Instant;
 use super::{AuthDatabase, DatabaseHealth};
 use crate::config::database::PoolConfig;
 use crate::models::user::{
-    CreateUserRequest, LoginAttempt, UpdateUserRequest, User, UserError, UserMetadata, UserRole,
+    LoginAttempt, User, UserError, UserMetadata, UserRole,
 };
 
 pub struct MySqlDatabase {
@@ -779,7 +779,7 @@ mod tests {
         assert!(found_user.is_some());
 
         // Update user
-        let mut user_to_update = db.get_user_by_id(&user_id).await.unwrap().unwrap();
+        let mut user_to_update = db.find_user_by_id(&user_id).await.unwrap().unwrap();
         user_to_update.first_name = "Updated".to_string();
         let updated_user = db.update_user(&user_to_update).await.unwrap();
         assert_eq!(updated_user.first_name, "Updated");

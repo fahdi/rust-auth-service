@@ -52,7 +52,7 @@ fn generate_test_user(prefix: &str) -> (String, Value) {
 
 /// Test service health endpoint
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_service_health() {
     wait_for_service().await.expect("Service should be ready");
 
@@ -82,7 +82,7 @@ async fn test_service_health() {
 
 /// Test user registration
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_user_registration() {
     wait_for_service().await.expect("Service should be ready");
 
@@ -119,7 +119,7 @@ async fn test_user_registration() {
 
 /// Test user login
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_user_login() {
     wait_for_service().await.expect("Service should be ready");
 
@@ -168,7 +168,7 @@ async fn test_user_login() {
 
 /// Test protected endpoint access
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_protected_endpoint_access() {
     wait_for_service().await.expect("Service should be ready");
 
@@ -232,7 +232,7 @@ async fn test_protected_endpoint_access() {
 
 /// Test registration validation
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_registration_validation() {
     wait_for_service().await.expect("Service should be ready");
 
@@ -283,7 +283,7 @@ async fn test_registration_validation() {
 
 /// Test complete authentication flow
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_complete_authentication_flow() {
     wait_for_service().await.expect("Service should be ready");
 
@@ -393,7 +393,7 @@ async fn test_complete_authentication_flow() {
 
 /// Test concurrent registrations
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_concurrent_registrations() {
     wait_for_service().await.expect("Service should be ready");
 

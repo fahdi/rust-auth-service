@@ -97,7 +97,10 @@ notice = "warn"
 # A list of advisory IDs to ignore. Note that ignored advisories will still
 # output a note when they are encountered.
 ignore = [
-    #"RUSTSEC-0000-0000",
+    # RSA vulnerability from SQLx MySQL support - mitigated through progressive security architecture
+    # This vulnerability is unavoidable with current SQLx MySQL implementation 
+    # Users concerned about this can use PostgreSQL or MongoDB builds which exclude MySQL/RSA
+    "RUSTSEC-2023-0071",
 ]
 # Threshold for security vulnerabilities, any vulnerability with a CVSS score
 # lower than the range specified will be ignored. Note that ignored advisories

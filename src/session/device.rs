@@ -61,7 +61,7 @@ impl<T: SessionService> DeviceManager<T> {
     }
 
     /// Verify a device using verification token
-    pub async fn verify_device(&self, device_id: &str, verification_token: &str) -> Result<bool> {
+    pub async fn verify_device(&self, _device_id: &str, _verification_token: &str) -> Result<bool> {
         // TODO: Implement device verification logic
         // This would:
         // 1. Look up device by ID
@@ -85,7 +85,7 @@ impl<T: SessionService> DeviceManager<T> {
     }
 
     /// Get all devices for a user
-    pub async fn get_user_devices(&self, user_id: &str) -> Result<Vec<RegisteredDevice>> {
+    pub async fn get_user_devices(&self, _user_id: &str) -> Result<Vec<RegisteredDevice>> {
         // TODO: Implement device lookup by user
         // This would query the database for all devices registered to the user
         Ok(vec![]) // Placeholder
@@ -95,7 +95,7 @@ impl<T: SessionService> DeviceManager<T> {
     pub async fn analyze_device_security(
         &self,
         device_info: &DeviceInfo,
-        user_id: &str,
+        _user_id: &str,
     ) -> Result<DeviceSecurityAnalysis> {
         let mut risk_factors = Vec::new();
         let mut risk_score = 0.0;

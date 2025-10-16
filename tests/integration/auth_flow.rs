@@ -128,7 +128,7 @@ impl AuthFlow {
     fn new(prefix: &str) -> Self {
         let unique_id = Uuid::new_v4().to_string()[..8].to_string();
         Self {
-            email: anyhow::anyhow!("{}+{}@example.com", prefix, unique_id),
+            email: format!("{}+{}@example.com", prefix, unique_id),
             password: "TestPassword123!".to_string(),
             first_name: "Test".to_string(),
             last_name: "User".to_string(),
@@ -148,7 +148,7 @@ impl AuthFlow {
 
         let response = ctx
             .client
-            .post(&anyhow::anyhow!("{}/auth/register", ctx.base_url))
+            .post(&format!("{}/auth/register", ctx.base_url))
             .json(&payload)
             .send()
             .await?;
@@ -170,7 +170,11 @@ impl AuthFlow {
             }
             Ok(body)
         } else {
-            Err(anyhow::anyhow!("Registration failed with status {}: {}", status, body).into())
+            Err(anyhow::anyhow!(
+                "Registration failed with status {}: {}",
+                status,
+                body
+            ))
         }
     }
 
@@ -182,7 +186,7 @@ impl AuthFlow {
 
         let response = ctx
             .client
-            .post(&anyhow::anyhow!("{}/auth/login", ctx.base_url))
+            .post(&format!("{}/auth/login", ctx.base_url))
             .json(&payload)
             .send()
             .await?;
@@ -199,7 +203,11 @@ impl AuthFlow {
             }
             Ok(body)
         } else {
-            Err(anyhow::anyhow!("Login failed with status {}: {}", status, body).into())
+            Err(anyhow::anyhow!(
+                "Login failed with status {}: {}",
+                status,
+                body
+            ))
         }
     }
 
@@ -211,7 +219,7 @@ impl AuthFlow {
 
         let response = ctx
             .client
-            .get(&anyhow::anyhow!("{}/auth/me", ctx.base_url))
+            .get(&format!("{}/auth/me", ctx.base_url))
             .bearer_auth(token)
             .send()
             .await?;
@@ -222,7 +230,11 @@ impl AuthFlow {
         if status == StatusCode::OK {
             Ok(body)
         } else {
-            Err(anyhow::anyhow!("Get profile failed with status {}: {}", status, body).into())
+            Err(anyhow::anyhow!(
+                "Get profile failed with status {}: {}",
+                status,
+                body
+            ))
         }
     }
 
@@ -238,7 +250,7 @@ impl AuthFlow {
 
         let response = ctx
             .client
-            .put(&anyhow::anyhow!("{}/auth/profile", ctx.base_url))
+            .put(&format!("{}/auth/profile", ctx.base_url))
             .bearer_auth(token)
             .json(&updates)
             .send()
@@ -250,7 +262,11 @@ impl AuthFlow {
         if status == StatusCode::OK {
             Ok(body)
         } else {
-            Err(anyhow::anyhow!("Update profile failed with status {}: {}", status, body).into())
+            Err(anyhow::anyhow!(
+                "Update profile failed with status {}: {}",
+                status,
+                body
+            ))
         }
     }
 
@@ -266,7 +282,7 @@ impl AuthFlow {
 
         let response = ctx
             .client
-            .post(&anyhow::anyhow!("{}/auth/refresh", ctx.base_url))
+            .post(&format!("{}/auth/refresh", ctx.base_url))
             .json(&payload)
             .send()
             .await?;
@@ -283,7 +299,11 @@ impl AuthFlow {
             }
             Ok(body)
         } else {
-            Err(anyhow::anyhow!("Token refresh failed with status {}: {}", status, body).into())
+            Err(anyhow::anyhow!(
+                "Token refresh failed with status {}: {}",
+                status,
+                body
+            ))
         }
     }
 
@@ -295,7 +315,7 @@ impl AuthFlow {
 
         let response = ctx
             .client
-            .post(&anyhow::anyhow!("{}/auth/logout", ctx.base_url))
+            .post(&format!("{}/auth/logout", ctx.base_url))
             .bearer_auth(token)
             .send()
             .await?;
@@ -306,7 +326,11 @@ impl AuthFlow {
         if status == StatusCode::OK {
             Ok(body)
         } else {
-            Err(anyhow::anyhow!("Logout failed with status {}: {}", status, body).into())
+            Err(anyhow::anyhow!(
+                "Logout failed with status {}: {}",
+                status,
+                body
+            ))
         }
     }
 
@@ -317,7 +341,7 @@ impl AuthFlow {
 
         let response = ctx
             .client
-            .post(&anyhow::anyhow!("{}/auth/forgot-password", ctx.base_url))
+            .post(&format!("{}/auth/forgot-password", ctx.base_url))
             .json(&payload)
             .send()
             .await?;
@@ -328,14 +352,18 @@ impl AuthFlow {
         if status == StatusCode::OK {
             Ok(body)
         } else {
-            Err(anyhow::anyhow!("Forgot password failed with status {}: {}", status, body).into())
+            Err(anyhow::anyhow!(
+                "Forgot password failed with status {}: {}",
+                status,
+                body
+            ))
         }
     }
 }
 
 /// Test complete registration → login → profile access flow
 #[tokio::test]
-#[ignore] // Only run with --include-ignored when service is running
+#[cfg(feature = "integration-tests")]
 async fn test_complete_authentication_flow() {
     let ctx = AuthTestContext::new();
     ctx.wait_for_service()
@@ -444,7 +472,7 @@ async fn test_complete_authentication_flow() {
 
 /// Test registration with various validation scenarios
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_registration_validation() {
     let ctx = AuthTestContext::new();
     ctx.wait_for_service()
@@ -479,7 +507,7 @@ async fn test_registration_validation() {
 
     let response = ctx
         .client
-        .post(&anyhow::anyhow!("{}/auth/register", ctx.base_url))
+        .post(&format!("{}/auth/register", ctx.base_url))
         .json(&invalid_payload)
         .send()
         .await
@@ -500,7 +528,7 @@ async fn test_registration_validation() {
 
     let response = ctx
         .client
-        .post(&anyhow::anyhow!("{}/auth/register", ctx.base_url))
+        .post(&format!("{}/auth/register", ctx.base_url))
         .json(&weak_password_payload)
         .send()
         .await
@@ -516,7 +544,7 @@ async fn test_registration_validation() {
 
 /// Test login scenarios and authentication
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_login_scenarios() {
     let ctx = AuthTestContext::new();
     ctx.wait_for_service()
@@ -561,7 +589,7 @@ async fn test_login_scenarios() {
 
 /// Test JWT token expiration and refresh
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_token_expiration_and_refresh() {
     let ctx = AuthTestContext::new();
     ctx.wait_for_service()
@@ -607,7 +635,7 @@ async fn test_token_expiration_and_refresh() {
 
 /// Test password reset flow
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_password_reset_flow() {
     let ctx = AuthTestContext::new();
     ctx.wait_for_service()
@@ -628,7 +656,7 @@ async fn test_password_reset_flow() {
     );
 
     // Test 2: Forgot password for non-existent user
-    let mut nonexistent_flow = AuthFlow::new("nonexistent_reset");
+    let nonexistent_flow = AuthFlow::new("nonexistent_reset");
     let nonexistent_forgot = nonexistent_flow.forgot_password(&ctx).await;
     // This might succeed for security reasons (not revealing if email exists)
     // But should not cause any errors
@@ -645,7 +673,7 @@ async fn test_password_reset_flow() {
 
 /// Test protected endpoints access control
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_protected_endpoints_access_control() {
     let ctx = AuthTestContext::new();
     ctx.wait_for_service()
@@ -709,7 +737,7 @@ async fn test_protected_endpoints_access_control() {
 
 /// Test concurrent authentication operations
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_concurrent_authentication() {
     let ctx = AuthTestContext::new();
     ctx.wait_for_service()
@@ -722,7 +750,7 @@ async fn test_concurrent_authentication() {
     for i in 0..CONCURRENT_USERS {
         let ctx = ctx.clone();
         let handle = tokio::spawn(async move {
-            let mut flow = AuthFlow::new(&anyhow::anyhow!("concurrent_{}", i));
+            let mut flow = AuthFlow::new(&format!("concurrent_{}", i));
 
             // Register
             let register_result = flow.register(&ctx).await;
