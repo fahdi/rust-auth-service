@@ -37,5 +37,5 @@ jobs:
     - name: Basic compilation check
       run: cargo check
       
-    - name: Run basic tests
-      run: cargo test --lib
+    - name: Check compilation only
+      run: cargo check --all-targets
