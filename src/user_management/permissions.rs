@@ -1,11 +1,10 @@
 use super::{
-    NotificationPreferences, Permission, PermissionCheckResult, PermissionConditions,
-    PrivacySettings, UserContext, UserGroup, UserManagementService, UserProfile, UserRole,
+    Permission, PermissionCheckResult, PermissionConditions,
+    UserContext, UserManagementService,
 };
 use anyhow::Result;
-use chrono::{DateTime, Datelike, Timelike, Utc};
+use chrono::{Datelike, Timelike, Utc};
 use regex::Regex;
-use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
 /// Permission evaluator for checking access control

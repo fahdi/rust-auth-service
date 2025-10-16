@@ -10,7 +10,7 @@ use std::time::Instant;
 use super::{AuthDatabase, DatabaseHealth};
 use crate::config::database::PoolConfig;
 use crate::models::user::{
-    CreateUserRequest, LoginAttempt, UpdateUserRequest, User, UserError, UserMetadata, UserRole,
+    LoginAttempt, User, UserError, UserMetadata, UserRole,
 };
 
 pub struct MySqlDatabase {

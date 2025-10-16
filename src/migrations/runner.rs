@@ -2,7 +2,6 @@
 
 use super::{
     calculate_migration_plan, Migration, MigrationLoader, MigrationPlan, MigrationProvider,
-    MigrationRecord,
 };
 use anyhow::{Context, Result};
 use std::sync::Arc;

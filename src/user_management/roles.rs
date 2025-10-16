@@ -420,8 +420,8 @@ impl<T: UserManagementService> RoleAssignmentManager<T> {
         &self,
         user_id: &str,
         role_id: &str,
-        assigned_by: &str,
-        expires_at: Option<DateTime<Utc>>,
+        _assigned_by: &str,
+        _expires_at: Option<DateTime<Utc>>,
     ) -> Result<()> {
         // Validate role exists
         self.service

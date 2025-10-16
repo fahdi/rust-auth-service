@@ -651,7 +651,7 @@ impl<T: MfaService> MfaManager<T> {
     async fn create_webauthn_challenge(
         &self,
         user_id: &str,
-        method: &MfaMethod,
+        _method: &MfaMethod,
     ) -> Result<MfaChallenge> {
         let challenge_id = uuid::Uuid::new_v4().to_string();
         let auth_request = crate::mfa::webauthn::WebAuthnAuthenticationRequest {

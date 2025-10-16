@@ -1,13 +1,8 @@
 use anyhow::{anyhow, Result};
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-use chrono::{DateTime, Duration, Utc};
-use rand::distributions::Alphanumeric;
-use sha2::Sha256;
-use std::collections::HashMap;
+use chrono::Utc;
 use std::sync::Arc;
-use uuid::Uuid;
 
-use super::scopes::{self, utils::parse_scope_string};
+use super::scopes::utils::parse_scope_string;
 use super::tokens::TokenManager;
 use super::*;
 use crate::models::user::User;
@@ -82,7 +77,7 @@ impl OAuth2Server {
     /// Handle authorization request for handlers
     pub async fn handle_authorization_request(
         &self,
-        response_type: &str,
+        _response_type: &str,
         client_id: &str,
         redirect_uri: Option<&str>,
         scope: Option<&str>,
@@ -115,7 +110,7 @@ impl OAuth2Server {
         validate_redirect_uri(redirect_uri)?;
 
         // Parse and validate scopes
-        let scope_manager = crate::oauth2::scopes::ScopeManager::new();
+        let _scope_manager = crate::oauth2::scopes::ScopeManager::new();
         let default_scopes = self.config.default_scopes.join(" ");
         let requested_scopes = scope.unwrap_or(&default_scopes);
         let scopes = parse_scope_string(requested_scopes);
@@ -402,7 +397,7 @@ impl OAuth2Server {
         }
 
         // Parse and validate scopes
-        let scope_manager = crate::oauth2::scopes::ScopeManager::new();
+        let _scope_manager = crate::oauth2::scopes::ScopeManager::new();
         let default_scopes = self.config.default_scopes.join(" ");
         let requested_scopes = scope.unwrap_or(&default_scopes);
         let scopes = parse_scope_string(requested_scopes);
@@ -491,7 +486,7 @@ impl OAuth2Server {
         }
 
         // Validate scopes (can't request more than original)
-        let scope_manager = crate::oauth2::scopes::ScopeManager::new();
+        let _scope_manager = crate::oauth2::scopes::ScopeManager::new();
         let scopes = if let Some(scope) = scope {
             let requested_scopes = parse_scope_string(scope);
             let original_scopes = &token_record.scopes;
@@ -595,7 +590,7 @@ impl OAuth2Server {
         }
 
         // Validate and process scopes
-        let scope_manager = crate::oauth2::scopes::ScopeManager::new();
+        let _scope_manager = crate::oauth2::scopes::ScopeManager::new();
         let default_scopes = self.config.default_scopes.join(" ");
         let requested_scopes = scope.unwrap_or(&default_scopes);
         let scopes = parse_scope_string(requested_scopes);
@@ -756,7 +751,7 @@ impl OAuth2Server {
             }
         }
 
-        if let Some(code_challenge) = &request.code_challenge {
+        if let Some(_code_challenge) = &request.code_challenge {
             let method = request.code_challenge_method.as_deref().unwrap_or("plain");
             if !["plain", "S256"].contains(&method) {
                 return Err(anyhow!("Unsupported code challenge method"));
@@ -920,10 +915,10 @@ impl OAuth2Server {
     pub async fn handle_device_verification(
         &self,
         user_code: String,
-        user: User,
+        _user: User,
     ) -> Result<DeviceVerificationResponse> {
         // Get device authorization
-        let mut auth = self
+        let auth = self
             .service
             .get_device_authorization_by_user_code(&user_code)
             .await?
@@ -965,7 +960,7 @@ impl OAuth2Server {
     pub async fn handle_revocation(
         &self,
         token: String,
-        token_type_hint: Option<String>,
+        _token_type_hint: Option<String>,
     ) -> Result<()> {
         // Try revoking as access token first
         if self.service.revoke_access_token(&token).await? {

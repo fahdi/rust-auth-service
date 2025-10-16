@@ -147,7 +147,7 @@ impl ThreatDetector {
     async fn analyze_location_risk(
         &self,
         location: &super::SessionLocation,
-        user_id: &str,
+        _user_id: &str,
     ) -> Result<Option<ThreatIndicator>> {
         // Check if country is allowed
         if let Some(allowed_countries) = &self.policy.allowed_countries {
@@ -180,7 +180,7 @@ impl ThreatDetector {
     }
 
     /// Analyze timing-based risk
-    async fn analyze_timing_risk(&self, session: &Session) -> Result<Option<ThreatIndicator>> {
+    async fn analyze_timing_risk(&self, _session: &Session) -> Result<Option<ThreatIndicator>> {
         let now = Utc::now();
         let hour = now.time().hour();
 
@@ -204,7 +204,7 @@ impl ThreatDetector {
     async fn analyze_device_risk(
         &self,
         device_info: &super::DeviceInfo,
-        user_id: &str,
+        _user_id: &str,
     ) -> Result<Option<ThreatIndicator>> {
         // Check for new device
         if !device_info.is_trusted {
@@ -233,7 +233,7 @@ impl ThreatDetector {
     }
 
     /// Analyze concurrent session patterns
-    async fn analyze_concurrent_sessions(&self, user_id: &str) -> Result<Option<ThreatIndicator>> {
+    async fn analyze_concurrent_sessions(&self, _user_id: &str) -> Result<Option<ThreatIndicator>> {
         // TODO: Get actual concurrent sessions from service
         // For now, return None as placeholder
         Ok(None)
