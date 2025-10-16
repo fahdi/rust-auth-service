@@ -121,6 +121,9 @@ impl ConfigValidator {
                         }
                     }
                 }
+                _ => {
+                    // Other database types don't require SSL validation
+                }
             }
 
             // Redis SSL
@@ -132,7 +135,7 @@ impl ConfigValidator {
         }
 
         // Rate limiting
-        if !config.rate_limiting.enabled && config.environment.name == "production" {
+        if !config.rate_limit.enabled && config.environment.name == "production" {
             errors.push("Rate limiting should be enabled in production".to_string());
         }
     }
@@ -184,6 +187,9 @@ impl ConfigValidator {
                         errors.push("MySQL URL cannot be empty".to_string());
                     }
                 }
+            }
+            _ => {
+                errors.push(format!("Unknown database type: {}", config.database.r#type));
             }
         }
     }
@@ -380,7 +386,7 @@ impl ConfigValidator {
         }
 
         // Check rate limiting
-        if config.rate_limiting.requests_per_minute > 1000 {
+        if config.rate_limit.requests_per_minute > 1000 {
             warnings.push(
                 "Very high rate limiting threshold may not provide adequate protection".to_string(),
             );
@@ -410,7 +416,7 @@ impl ConfigValidator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{AuthConfig, Config, DatabaseConfig, DatabaseType, ServerConfig};
+    use crate::config::{AuthConfig, Config, DatabaseConfig, ServerConfig};
 
     fn create_test_config() -> Config {
         Config {
@@ -419,23 +425,38 @@ mod tests {
                 port: 8090,
                 workers: 2,
                 max_connections: 100,
-                keep_alive: 60,
                 timeout: 30,
             },
             auth: AuthConfig {
+                jwt: crate::config::auth::JwtConfig {
+                    secret: "test-secret-key-with-sufficient-length".to_string(),
+                    expiration_days: 7,
+                },
+                password: crate::config::auth::PasswordConfig {
+                    bcrypt_rounds: 10,
+                    min_length: 8,
+                },
+                verification: crate::config::auth::VerificationConfig {
+                    token_expiry_hours: 24,
+                    required: true,
+                },
                 jwt_secret: "test-secret-key-with-sufficient-length".to_string(),
                 jwt_expiration: 3600,
                 jwt_refresh_expiration: 604800,
                 password_hash_rounds: 10,
                 max_failed_attempts: 5,
                 lockout_duration: 300,
-                require_email_verification: true,
-                allow_password_reset: true,
                 session_timeout: 7200,
             },
             database: DatabaseConfig {
                 r#type: "mongodb".to_string(),
-                mongodb: Some(crate::config::MongoDBConfig {
+                url: "mongodb://localhost:27017".to_string(),
+                pool: crate::config::database::PoolConfig {
+                    min_connections: 1,
+                    max_connections: 10,
+                    idle_timeout: 600,
+                },
+                mongodb: Some(crate::config::database::MongoDBConfig {
                     url: "mongodb://localhost:27017".to_string(),
                     database: "test".to_string(),
                     pool_size: 10,

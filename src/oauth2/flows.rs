@@ -1,12 +1,13 @@
-use anyhow::{anyhow, Result};
-use chrono::{Duration, Utc};
 use super::pkce::{verify_pkce, PKCEVerificationResult};
 use super::scopes::ScopeManager;
 use super::tokens::TokenManager;
 use super::{
     AuthorizationCode, DeviceAuthorization, GrantType, OAuth2Client, OAuth2Config, OAuth2Error,
-    OAuth2ErrorResponse, OAuth2Service, ResponseType, TokenResponse,
+    OAuth2ErrorResponse, OAuth2Service, ResponseType, TokenIntrospection, TokenResponse,
 };
+use anyhow::{anyhow, Result};
+use chrono::{Duration, Utc};
+use uuid::Uuid;
 
 /// OAuth2 flow handler for different authorization flows
 pub struct OAuth2FlowHandler<T: OAuth2Service> {

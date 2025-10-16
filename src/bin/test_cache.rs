@@ -1,7 +1,7 @@
 use anyhow::Result;
 use rust_auth_service::{
     cache::{create_cache_provider, CacheKey, CacheService},
-    config::cache::CacheConfig,
+    config::cache::{CacheConfig, MemoryConfig, RedisConfig},
 };
 use std::time::{Duration, Instant};
 use tracing::{error, info};
@@ -24,6 +24,8 @@ async fn main() -> Result<()> {
                 url: None,
                 ttl: 3600,
                 lru_size: 1000,
+                redis: None,
+                memory: MemoryConfig { max_size: 1000 },
             },
         ),
         (
@@ -33,6 +35,11 @@ async fn main() -> Result<()> {
                 url: Some("redis://localhost:6379".to_string()),
                 ttl: 3600,
                 lru_size: 1000,
+                redis: Some(RedisConfig {
+                    url: "redis://localhost:6379".to_string(),
+                    ssl: false,
+                }),
+                memory: MemoryConfig { max_size: 1000 },
             },
         ),
         (
@@ -42,6 +49,11 @@ async fn main() -> Result<()> {
                 url: Some("redis://localhost:6379".to_string()),
                 ttl: 3600,
                 lru_size: 1000,
+                redis: Some(RedisConfig {
+                    url: "redis://localhost:6379".to_string(),
+                    ssl: false,
+                }),
+                memory: MemoryConfig { max_size: 1000 },
             },
         ),
         (
@@ -51,6 +63,8 @@ async fn main() -> Result<()> {
                 url: None,
                 ttl: 3600,
                 lru_size: 1000,
+                redis: None,
+                memory: MemoryConfig { max_size: 1000 },
             },
         ),
     ];
@@ -200,6 +214,8 @@ async fn performance_test() -> Result<()> {
                 url: None,
                 ttl: 3600,
                 lru_size: 10000,
+                redis: None,
+                memory: MemoryConfig { max_size: 10000 },
             },
         ),
         (
@@ -209,6 +225,11 @@ async fn performance_test() -> Result<()> {
                 url: Some("redis://localhost:6379".to_string()),
                 ttl: 3600,
                 lru_size: 10000,
+                redis: Some(RedisConfig {
+                    url: "redis://localhost:6379".to_string(),
+                    ssl: false,
+                }),
+                memory: MemoryConfig { max_size: 10000 },
             },
         ),
     ];

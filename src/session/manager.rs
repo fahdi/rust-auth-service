@@ -77,7 +77,7 @@ impl<T: SessionService> SessionManager<T> {
             termination_reason: None,
         };
 
-        self.service.create_session(session).await
+        self.service.create_session(request).await
     }
 
     /// Validate session with comprehensive security checks

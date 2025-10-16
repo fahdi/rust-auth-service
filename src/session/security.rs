@@ -1,6 +1,6 @@
 use super::{SecurityWarning, SecurityWarningType, Session, SessionService, WarningSevertiy};
 use anyhow::Result;
-use chrono::{DateTime, Duration, Utc, Timelike};
+use chrono::{DateTime, Duration, Timelike, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
