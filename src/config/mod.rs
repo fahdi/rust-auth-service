@@ -149,17 +149,13 @@ impl Default for TracingConfig {
 
 impl Default for HealthChecksConfig {
     fn default() -> Self {
-        Self {
-            enabled: true,
-        }
+        Self { enabled: true }
     }
 }
 
 impl Default for AuditLoggingConfig {
     fn default() -> Self {
-        Self {
-            enabled: true,
-        }
+        Self { enabled: true }
     }
 }
 

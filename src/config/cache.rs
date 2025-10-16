@@ -36,8 +36,6 @@ impl Default for CacheConfig {
 
 impl Default for MemoryConfig {
     fn default() -> Self {
-        Self {
-            max_size: 1000,
-        }
+        Self { max_size: 1000 }
     }
 }
