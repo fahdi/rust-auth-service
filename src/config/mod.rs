@@ -48,6 +48,18 @@ pub struct MonitoringConfig {
     pub health_check_interval: u64,
     pub prometheus: PrometheusConfig,
     pub tracing: TracingConfig,
+    pub health_checks: HealthChecksConfig,
+    pub audit_logging: AuditLoggingConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HealthChecksConfig {
+    pub enabled: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuditLoggingConfig {
+    pub enabled: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -59,6 +71,7 @@ pub struct PrometheusConfig {
 pub struct TracingConfig {
     pub level: String,
     pub jaeger_endpoint: String,
+    pub sample_rate: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -112,6 +125,8 @@ impl Default for MonitoringConfig {
             health_check_interval: 30,
             prometheus: PrometheusConfig::default(),
             tracing: TracingConfig::default(),
+            health_checks: HealthChecksConfig::default(),
+            audit_logging: AuditLoggingConfig::default(),
         }
     }
 }
@@ -127,6 +142,23 @@ impl Default for TracingConfig {
         Self {
             level: "info".to_string(),
             jaeger_endpoint: "http://localhost:14268/api/traces".to_string(),
+            sample_rate: 0.1,
+        }
+    }
+}
+
+impl Default for HealthChecksConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+        }
+    }
+}
+
+impl Default for AuditLoggingConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
         }
     }
 }

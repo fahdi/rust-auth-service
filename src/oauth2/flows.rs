@@ -7,6 +7,7 @@ use super::{
 };
 use anyhow::{anyhow, Result};
 use chrono::{Duration, Utc};
+use uuid::Uuid;
 
 /// OAuth2 flow handler for different authorization flows
 pub struct OAuth2FlowHandler<T: OAuth2Service> {

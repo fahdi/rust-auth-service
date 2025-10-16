@@ -132,7 +132,7 @@ impl ConfigValidator {
         }
 
         // Rate limiting
-        if !config.rate_limiting.enabled && config.environment.name == "production" {
+        if !config.rate_limit.enabled && config.environment.name == "production" {
             errors.push("Rate limiting should be enabled in production".to_string());
         }
     }
@@ -184,6 +184,9 @@ impl ConfigValidator {
                         errors.push("MySQL URL cannot be empty".to_string());
                     }
                 }
+            }
+            _ => {
+                errors.push(format!("Unknown database type: {}", config.database.r#type));
             }
         }
     }
@@ -380,7 +383,7 @@ impl ConfigValidator {
         }
 
         // Check rate limiting
-        if config.rate_limiting.requests_per_minute > 1000 {
+        if config.rate_limit.requests_per_minute > 1000 {
             warnings.push(
                 "Very high rate limiting threshold may not provide adequate protection".to_string(),
             );

@@ -15,6 +15,8 @@ pub struct RateLimitConfig {
     pub memory_cache_size: usize,
     /// Window duration in seconds
     pub window_duration: u64,
+    /// Requests per minute limit
+    pub requests_per_minute: u32,
 }
 
 /// Rate limiting rules for different endpoint categories
@@ -54,6 +56,7 @@ impl Default for RateLimitConfig {
             redis_url: None,
             memory_cache_size: 10000,
             window_duration: 60, // 1 minute
+            requests_per_minute: 100,
         }
     }
 }
