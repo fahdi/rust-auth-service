@@ -1,6 +1,9 @@
+use super::{
+    SocialAuthUrl, SocialConfig, SocialLoginProvider, SocialLoginResult, SocialProvider,
+    SocialUserProfile,
+};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use super::{SocialProvider, SocialUserProfile, SocialAuthUrl, SocialLoginResult, SocialLoginProvider, SocialConfig};
 
 /// GitHub OAuth2 configuration
 #[derive(Debug, Clone)]
@@ -74,7 +77,7 @@ impl GitHubProvider {
     /// Get GitHub OAuth2 authorization URL
     fn get_auth_url(&self, state: &str) -> String {
         let scope_string = self.scopes.join(" ");
-        
+
         format!(
             "https://github.com/login/oauth/authorize?client_id={}&redirect_uri={}&scope={}&state={}",
             urlencoding::encode(&self.client_id),
@@ -102,7 +105,10 @@ impl GitHubProvider {
 
         if !response.status().is_success() {
             let error_text = response.text().await?;
-            return Err(anyhow::anyhow!("GitHub token exchange failed: {}", error_text));
+            return Err(anyhow::anyhow!(
+                "GitHub token exchange failed: {}",
+                error_text
+            ));
         }
 
         let token_response: GitHubTokenResponse = response.json().await?;
@@ -121,7 +127,10 @@ impl GitHubProvider {
 
         if !response.status().is_success() {
             let error_text = response.text().await?;
-            return Err(anyhow::anyhow!("Failed to get GitHub user info: {}", error_text));
+            return Err(anyhow::anyhow!(
+                "Failed to get GitHub user info: {}",
+                error_text
+            ));
         }
 
         let user_info: GitHubUser = response.json().await?;
@@ -148,11 +157,18 @@ impl GitHubProvider {
     }
 
     /// Convert GitHub user info to social user profile
-    async fn convert_to_profile(&self, user_info: GitHubUser, access_token: &str) -> Result<SocialUserProfile> {
+    async fn convert_to_profile(
+        &self,
+        user_info: GitHubUser,
+        access_token: &str,
+    ) -> Result<SocialUserProfile> {
         // Serialize raw profile first before any field moves
         let raw_profile = serde_json::to_value(&user_info).unwrap_or_default();
         let username = user_info.login.clone();
-        let display_name = user_info.name.clone().unwrap_or_else(|| user_info.login.clone());
+        let display_name = user_info
+            .name
+            .clone()
+            .unwrap_or_else(|| user_info.login.clone());
         let avatar_url = user_info.avatar_url.clone();
         let provider_user_id = user_info.id.to_string();
 
@@ -178,7 +194,7 @@ impl GitHubProvider {
                 verified_email = first_email.verified;
             }
         }
-        
+
         Ok(SocialUserProfile {
             provider: SocialProvider::GitHub,
             provider_user_id,
@@ -200,7 +216,7 @@ impl SocialLoginProvider for GitHubProvider {
 
     async fn get_authorization_url(&self, state: &str) -> Result<SocialAuthUrl> {
         let authorization_url = self.get_auth_url(state);
-        
+
         Ok(SocialAuthUrl {
             provider: SocialProvider::GitHub,
             authorization_url,
@@ -212,13 +228,15 @@ impl SocialLoginProvider for GitHubProvider {
     async fn exchange_code(&self, code: &str, _state: &str) -> Result<SocialLoginResult> {
         let token_response = self.exchange_code_for_token(code).await?;
         let user_info = self.get_user_info(&token_response.access_token).await?;
-        let user_profile = self.convert_to_profile(user_info, &token_response.access_token).await?;
+        let user_profile = self
+            .convert_to_profile(user_info, &token_response.access_token)
+            .await?;
 
         Ok(SocialLoginResult {
             user_profile,
             access_token: token_response.access_token,
             refresh_token: None, // GitHub doesn't provide refresh tokens
-            expires_in: None, // GitHub tokens don't expire
+            expires_in: None,    // GitHub tokens don't expire
         })
     }
 
@@ -264,7 +282,7 @@ mod tests {
     fn test_github_provider_creation() {
         let config = create_test_config();
         let provider = GitHubProvider::new(config).unwrap();
-        
+
         assert_eq!(provider.provider_type(), SocialProvider::GitHub);
     }
 
@@ -272,7 +290,7 @@ mod tests {
     fn test_github_provider_validation() {
         let config = create_test_config();
         let provider = GitHubProvider::new(config).unwrap();
-        
+
         assert!(provider.validate_config().is_ok());
     }
 
@@ -280,7 +298,7 @@ mod tests {
     fn test_github_provider_invalid_config() {
         let mut config = create_test_config();
         config.client_id = "".to_string();
-        
+
         let provider = GitHubProvider::new(config).unwrap();
         assert!(provider.validate_config().is_err());
     }
@@ -290,9 +308,9 @@ mod tests {
         let config = create_test_config();
         let provider = GitHubProvider::new(config).unwrap();
         let state = "test_state";
-        
+
         let auth_url = provider.get_auth_url(state);
-        
+
         assert!(auth_url.contains("github.com/login/oauth/authorize"));
         assert!(auth_url.contains("test_client_id"));
         assert!(auth_url.contains("test_state"));
@@ -303,7 +321,7 @@ mod tests {
     async fn test_convert_to_profile() {
         let config = create_test_config();
         let provider = GitHubProvider::new(config).unwrap();
-        
+
         let github_user = GitHubUser {
             id: 123456,
             login: "testuser".to_string(),
@@ -321,15 +339,21 @@ mod tests {
             created_at: Some("2020-01-01T00:00:00Z".to_string()),
             updated_at: Some("2023-01-01T00:00:00Z".to_string()),
         };
-        
-        let profile = provider.convert_to_profile(github_user, "fake_token").await.unwrap();
-        
+
+        let profile = provider
+            .convert_to_profile(github_user, "fake_token")
+            .await
+            .unwrap();
+
         assert_eq!(profile.provider, SocialProvider::GitHub);
         assert_eq!(profile.provider_user_id, "123456");
         assert_eq!(profile.email, "test@example.com");
         assert_eq!(profile.name, "Test User");
         assert!(profile.verified_email);
-        assert_eq!(profile.avatar_url, Some("https://github.com/avatar.jpg".to_string()));
+        assert_eq!(
+            profile.avatar_url,
+            Some("https://github.com/avatar.jpg".to_string())
+        );
         assert_eq!(profile.username, Some("testuser".to_string()));
     }
 }

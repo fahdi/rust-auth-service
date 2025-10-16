@@ -1,13 +1,13 @@
 use anyhow::Result;
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use chrono::{DateTime, Utc, Duration};
 use uuid::Uuid;
 
+pub mod analytics;
+pub mod device;
 pub mod manager;
 pub mod security;
-pub mod device;
-pub mod analytics;
 
 /// Session information
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -78,9 +78,9 @@ pub struct SessionLocation {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum SecurityLevel {
     Low = 1,     // Basic authentication
-    Medium = 2,   // Two-factor authentication
-    High = 3,     // Multi-factor + trusted device
-    Maximum = 4,  // Hardware security key + biometric
+    Medium = 2,  // Two-factor authentication
+    High = 3,    // Multi-factor + trusted device
+    Maximum = 4, // Hardware security key + biometric
 }
 
 /// Session security flags
@@ -195,43 +195,52 @@ pub struct SessionStatistics {
 pub trait SessionService: Send + Sync {
     /// Create a new session
     async fn create_session(&self, request: CreateSessionRequest) -> Result<Session>;
-    
+
     /// Get session by ID
     async fn get_session(&self, session_id: &str) -> Result<Option<Session>>;
-    
+
     /// Update session information
     async fn update_session(&self, session_id: &str, session: Session) -> Result<Session>;
-    
+
     /// Terminate session
     async fn terminate_session(&self, session_id: &str, reason: TerminationReason) -> Result<bool>;
-    
+
     /// Validate session and check security
-    async fn validate_session(&self, session_id: &str, ip_address: &str, user_agent: &str) -> Result<SessionValidationResult>;
-    
+    async fn validate_session(
+        &self,
+        session_id: &str,
+        ip_address: &str,
+        user_agent: &str,
+    ) -> Result<SessionValidationResult>;
+
     /// Refresh session tokens
     async fn refresh_session(&self, session_id: &str) -> Result<Session>;
-    
+
     /// Get all active sessions for a user
     async fn get_user_sessions(&self, user_id: &str) -> Result<Vec<Session>>;
-    
+
     /// Terminate all sessions for a user
-    async fn terminate_user_sessions(&self, user_id: &str, reason: TerminationReason) -> Result<u64>;
-    
+    async fn terminate_user_sessions(
+        &self,
+        user_id: &str,
+        reason: TerminationReason,
+    ) -> Result<u64>;
+
     /// Get sessions by device
     async fn get_device_sessions(&self, device_id: &str) -> Result<Vec<Session>>;
-    
+
     /// Mark device as trusted
     async fn trust_device(&self, device_id: &str, user_id: &str) -> Result<bool>;
-    
+
     /// Mark device as untrusted
     async fn untrust_device(&self, device_id: &str, user_id: &str) -> Result<bool>;
-    
+
     /// Get session statistics
     async fn get_session_statistics(&self) -> Result<SessionStatistics>;
-    
+
     /// Clean up expired sessions
     async fn cleanup_expired_sessions(&self) -> Result<u64>;
-    
+
     /// Force logout all sessions for security
     async fn emergency_logout_all(&self, reason: TerminationReason) -> Result<u64>;
 }
@@ -282,14 +291,14 @@ pub fn generate_session_id() -> String {
 /// Create device fingerprint from user agent and other factors
 pub fn generate_device_fingerprint(user_agent: &str, additional_data: &[&str]) -> String {
     use sha2::{Digest, Sha256};
-    
+
     let mut hasher = Sha256::new();
     hasher.update(user_agent.as_bytes());
-    
+
     for data in additional_data {
         hasher.update(data.as_bytes());
     }
-    
+
     format!("{:x}", hasher.finalize())
 }
 
@@ -297,14 +306,16 @@ pub fn generate_device_fingerprint(user_agent: &str, additional_data: &[&str]) -
 pub fn parse_user_agent(user_agent: &str) -> DeviceInfo {
     let device_id = generate_device_fingerprint(user_agent, &[]);
     let now = Utc::now();
-    
+
     // Basic user agent parsing (in production, use a proper user agent parser)
-    let is_mobile = user_agent.to_lowercase().contains("mobile") || 
-                   user_agent.to_lowercase().contains("android") ||
-                   user_agent.to_lowercase().contains("iphone");
-    
+    let is_mobile = user_agent.to_lowercase().contains("mobile")
+        || user_agent.to_lowercase().contains("android")
+        || user_agent.to_lowercase().contains("iphone");
+
     let device_type = if is_mobile {
-        if user_agent.to_lowercase().contains("tablet") || user_agent.to_lowercase().contains("ipad") {
+        if user_agent.to_lowercase().contains("tablet")
+            || user_agent.to_lowercase().contains("ipad")
+        {
             DeviceType::Tablet
         } else {
             DeviceType::Mobile
@@ -314,7 +325,7 @@ pub fn parse_user_agent(user_agent: &str) -> DeviceInfo {
     } else {
         DeviceType::Desktop
     };
-    
+
     // Extract OS information
     let os = if user_agent.contains("Windows") {
         Some("Windows".to_string())
@@ -329,7 +340,7 @@ pub fn parse_user_agent(user_agent: &str) -> DeviceInfo {
     } else {
         None
     };
-    
+
     // Extract browser information
     let browser = if user_agent.contains("Chrome") {
         Some("Chrome".to_string())
@@ -342,7 +353,7 @@ pub fn parse_user_agent(user_agent: &str) -> DeviceInfo {
     } else {
         None
     };
-    
+
     DeviceInfo {
         device_id: device_id.clone(),
         device_name: None,
@@ -362,16 +373,17 @@ pub fn parse_user_agent(user_agent: &str) -> DeviceInfo {
 /// Calculate distance between two geographic points (Haversine formula)
 pub fn calculate_distance_km(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
     let r = 6371.0; // Earth's radius in kilometers
-    
+
     let d_lat = (lat2 - lat1).to_radians();
     let d_lon = (lon2 - lon1).to_radians();
-    
+
     let lat1_rad = lat1.to_radians();
     let lat2_rad = lat2.to_radians();
-    
-    let a = (d_lat / 2.0).sin().powi(2) + lat1_rad.cos() * lat2_rad.cos() * (d_lon / 2.0).sin().powi(2);
+
+    let a =
+        (d_lat / 2.0).sin().powi(2) + lat1_rad.cos() * lat2_rad.cos() * (d_lon / 2.0).sin().powi(2);
     let c = 2.0 * a.sqrt().atan2((1.0 - a).sqrt());
-    
+
     r * c
 }
 
@@ -403,7 +415,7 @@ mod tests {
     fn test_generate_device_fingerprint() {
         let fingerprint1 = generate_device_fingerprint("Mozilla/5.0", &["additional"]);
         let fingerprint2 = generate_device_fingerprint("Mozilla/5.0", &["different"]);
-        
+
         assert_ne!(fingerprint1, fingerprint2);
         assert_eq!(fingerprint1.len(), 64); // SHA256 hex length
     }
@@ -412,7 +424,7 @@ mod tests {
     fn test_parse_user_agent() {
         let mobile_ua = "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)";
         let device = parse_user_agent(mobile_ua);
-        
+
         assert!(device.is_mobile);
         assert_eq!(device.device_type, DeviceType::Mobile);
         assert_eq!(device.os, Some("iOS".to_string()));

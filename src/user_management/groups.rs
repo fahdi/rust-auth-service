@@ -1,8 +1,8 @@
+use super::{UserGroup, UserManagementService, UserRole};
 use anyhow::Result;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use chrono::{DateTime, Utc};
-use super::{UserGroup, UserRole, UserManagementService};
 
 /// Group hierarchy resolver for nested group management
 pub struct GroupHierarchyResolver {
@@ -28,9 +28,9 @@ impl GroupHierarchyResolver {
     pub fn get_ancestor_groups(&self, group_id: &str) -> Result<Vec<String>> {
         let mut ancestors = Vec::new();
         let mut visited = HashSet::new();
-        
+
         self.collect_ancestors(group_id, &mut ancestors, &mut visited)?;
-        
+
         Ok(ancestors)
     }
 
@@ -42,10 +42,15 @@ impl GroupHierarchyResolver {
         visited: &mut HashSet<String>,
     ) -> Result<()> {
         if visited.contains(group_id) {
-            return Err(anyhow::anyhow!("Circular group hierarchy detected: {}", group_id));
+            return Err(anyhow::anyhow!(
+                "Circular group hierarchy detected: {}",
+                group_id
+            ));
         }
 
-        let group = self.groups.get(group_id)
+        let group = self
+            .groups
+            .get(group_id)
             .ok_or_else(|| anyhow::anyhow!("Group not found: {}", group_id))?;
 
         visited.insert(group_id.to_string());
@@ -63,9 +68,9 @@ impl GroupHierarchyResolver {
     pub fn get_descendant_groups(&self, group_id: &str) -> Result<Vec<String>> {
         let mut descendants = Vec::new();
         let mut visited = HashSet::new();
-        
+
         self.collect_descendants(group_id, &mut descendants, &mut visited)?;
-        
+
         Ok(descendants)
     }
 
@@ -77,10 +82,15 @@ impl GroupHierarchyResolver {
         visited: &mut HashSet<String>,
     ) -> Result<()> {
         if visited.contains(group_id) {
-            return Err(anyhow::anyhow!("Circular group hierarchy detected: {}", group_id));
+            return Err(anyhow::anyhow!(
+                "Circular group hierarchy detected: {}",
+                group_id
+            ));
         }
 
-        let group = self.groups.get(group_id)
+        let group = self
+            .groups
+            .get(group_id)
             .ok_or_else(|| anyhow::anyhow!("Group not found: {}", group_id))?;
 
         visited.insert(group_id.to_string());
@@ -98,9 +108,9 @@ impl GroupHierarchyResolver {
     pub fn get_effective_roles(&self, group_id: &str) -> Result<HashSet<String>> {
         let mut effective_roles = HashSet::new();
         let mut visited = HashSet::new();
-        
+
         self.collect_effective_roles(group_id, &mut effective_roles, &mut visited)?;
-        
+
         Ok(effective_roles)
     }
 
@@ -112,10 +122,15 @@ impl GroupHierarchyResolver {
         visited: &mut HashSet<String>,
     ) -> Result<()> {
         if visited.contains(group_id) {
-            return Err(anyhow::anyhow!("Circular group hierarchy detected: {}", group_id));
+            return Err(anyhow::anyhow!(
+                "Circular group hierarchy detected: {}",
+                group_id
+            ));
         }
 
-        let group = self.groups.get(group_id)
+        let group = self
+            .groups
+            .get(group_id)
             .ok_or_else(|| anyhow::anyhow!("Group not found: {}", group_id))?;
 
         visited.insert(group_id.to_string());
@@ -136,7 +151,7 @@ impl GroupHierarchyResolver {
     pub fn validate_hierarchy(&self, group_id: &str, new_parent_id: &str) -> Result<()> {
         // Check if adding this parent would create a cycle
         let descendants = self.get_descendant_groups(group_id)?;
-        
+
         if descendants.contains(&new_parent_id.to_string()) {
             return Err(anyhow::anyhow!(
                 "Cannot add parent group '{}' - it would create a circular hierarchy",
@@ -158,7 +173,9 @@ impl GroupHierarchyResolver {
             return Err(anyhow::anyhow!("Circular group hierarchy detected"));
         }
 
-        let group = self.groups.get(group_id)
+        let group = self
+            .groups
+            .get(group_id)
             .ok_or_else(|| anyhow::anyhow!("Group not found: {}", group_id))?;
 
         if group.parent_groups.is_empty() {
@@ -190,7 +207,7 @@ impl<T: UserManagementService> GroupManager<T> {
     pub fn new(service: T) -> Self {
         Self {
             service,
-            max_hierarchy_depth: 10, // Prevent overly deep hierarchies
+            max_hierarchy_depth: 10,      // Prevent overly deep hierarchies
             max_members_per_group: 10000, // Prevent performance issues
         }
     }
@@ -215,7 +232,8 @@ impl<T: UserManagementService> GroupManager<T> {
 
         // Update parent groups to include this group as a child
         for parent_id in &group.parent_groups {
-            self.add_child_to_parent(parent_id, &created_group.id).await?;
+            self.add_child_to_parent(parent_id, &created_group.id)
+                .await?;
         }
 
         Ok(created_group)
@@ -224,7 +242,10 @@ impl<T: UserManagementService> GroupManager<T> {
     /// Update group with hierarchy validation
     pub async fn update_group(&self, group_id: &str, mut group: UserGroup) -> Result<UserGroup> {
         // Get existing group
-        let existing_group = self.service.get_group(group_id).await?
+        let existing_group = self
+            .service
+            .get_group(group_id)
+            .await?
             .ok_or_else(|| anyhow::anyhow!("Group not found: {}", group_id))?;
 
         // Validate updated group data
@@ -262,14 +283,17 @@ impl<T: UserManagementService> GroupManager<T> {
 
     /// Delete group with dependency checking
     pub async fn delete_group(&self, group_id: &str) -> Result<bool> {
-        let group = self.service.get_group(group_id).await?
+        let group = self
+            .service
+            .get_group(group_id)
+            .await?
             .ok_or_else(|| anyhow::anyhow!("Group not found: {}", group_id))?;
 
         // Check if group has members
         if !group.members.is_empty() {
             return Err(anyhow::anyhow!(
-                "Cannot delete group '{}' - it has {} members", 
-                group_id, 
+                "Cannot delete group '{}' - it has {} members",
+                group_id,
                 group.members.len()
             ));
         }
@@ -277,8 +301,8 @@ impl<T: UserManagementService> GroupManager<T> {
         // Check if group has child groups
         if !group.child_groups.is_empty() {
             return Err(anyhow::anyhow!(
-                "Cannot delete group '{}' - it has {} child groups", 
-                group_id, 
+                "Cannot delete group '{}' - it has {} child groups",
+                group_id,
                 group.child_groups.len()
             ));
         }
@@ -293,21 +317,28 @@ impl<T: UserManagementService> GroupManager<T> {
 
     /// Add user to group with hierarchy consideration
     pub async fn add_user_to_group(&self, user_id: &str, group_id: &str) -> Result<()> {
-        let group = self.service.get_group(group_id).await?
+        let group = self
+            .service
+            .get_group(group_id)
+            .await?
             .ok_or_else(|| anyhow::anyhow!("Group not found: {}", group_id))?;
 
         // Check member limit
         if group.members.len() >= self.max_members_per_group {
             return Err(anyhow::anyhow!(
-                "Group '{}' has reached maximum member limit of {}", 
-                group_id, 
+                "Group '{}' has reached maximum member limit of {}",
+                group_id,
                 self.max_members_per_group
             ));
         }
 
         // Check if user is already a member
         if group.members.contains(user_id) {
-            return Err(anyhow::anyhow!("User '{}' is already a member of group '{}'", user_id, group_id));
+            return Err(anyhow::anyhow!(
+                "User '{}' is already a member of group '{}'",
+                user_id,
+                group_id
+            ));
         }
 
         self.service.add_user_to_group(user_id, group_id).await
@@ -315,19 +346,29 @@ impl<T: UserManagementService> GroupManager<T> {
 
     /// Remove user from group
     pub async fn remove_user_from_group(&self, user_id: &str, group_id: &str) -> Result<()> {
-        let group = self.service.get_group(group_id).await?
+        let group = self
+            .service
+            .get_group(group_id)
+            .await?
             .ok_or_else(|| anyhow::anyhow!("Group not found: {}", group_id))?;
 
         // Check if user is a member
         if !group.members.contains(user_id) {
-            return Err(anyhow::anyhow!("User '{}' is not a member of group '{}'", user_id, group_id));
+            return Err(anyhow::anyhow!(
+                "User '{}' is not a member of group '{}'",
+                user_id,
+                group_id
+            ));
         }
 
         self.service.remove_user_from_group(user_id, group_id).await
     }
 
     /// Get effective roles for user from all their groups
-    pub async fn get_user_effective_roles_from_groups(&self, user_id: &str) -> Result<HashSet<String>> {
+    pub async fn get_user_effective_roles_from_groups(
+        &self,
+        user_id: &str,
+    ) -> Result<HashSet<String>> {
         let user_groups = self.service.get_user_groups(user_id).await?;
         let mut effective_roles = HashSet::new();
 
@@ -352,7 +393,7 @@ impl<T: UserManagementService> GroupManager<T> {
         resolver.load_groups(all_groups.clone());
 
         let ancestor_ids = resolver.get_ancestor_groups(group_id)?;
-        
+
         let mut hierarchy_path = Vec::new();
         for ancestor_id in ancestor_ids {
             if let Some(group) = all_groups.iter().find(|g| g.id == ancestor_id) {
@@ -395,7 +436,7 @@ impl<T: UserManagementService> GroupManager<T> {
         // Create hierarchy resolver for validation
         let mut resolver = GroupHierarchyResolver::new();
         let mut all_groups = self.service.list_groups().await?;
-        
+
         // Add the new/updated group for validation
         all_groups.push(group.clone());
         resolver.load_groups(all_groups);
@@ -407,8 +448,8 @@ impl<T: UserManagementService> GroupManager<T> {
         let depth = resolver.get_group_depth(&group.id)?;
         if depth > self.max_hierarchy_depth {
             return Err(anyhow::anyhow!(
-                "Group hierarchy depth {} exceeds maximum allowed depth of {}", 
-                depth, 
+                "Group hierarchy depth {} exceeds maximum allowed depth of {}",
+                depth,
                 self.max_hierarchy_depth
             ));
         }
@@ -418,7 +459,10 @@ impl<T: UserManagementService> GroupManager<T> {
 
     /// Add child group reference to parent
     async fn add_child_to_parent(&self, parent_id: &str, child_id: &str) -> Result<()> {
-        let mut parent_group = self.service.get_group(parent_id).await?
+        let mut parent_group = self
+            .service
+            .get_group(parent_id)
+            .await?
             .ok_or_else(|| anyhow::anyhow!("Parent group not found: {}", parent_id))?;
 
         if !parent_group.child_groups.contains(&child_id.to_string()) {
@@ -432,7 +476,10 @@ impl<T: UserManagementService> GroupManager<T> {
 
     /// Remove child group reference from parent
     async fn remove_child_from_parent(&self, parent_id: &str, child_id: &str) -> Result<()> {
-        let mut parent_group = self.service.get_group(parent_id).await?
+        let mut parent_group = self
+            .service
+            .get_group(parent_id)
+            .await?
             .ok_or_else(|| anyhow::anyhow!("Parent group not found: {}", parent_id))?;
 
         parent_group.child_groups.retain(|id| id != child_id);
@@ -454,7 +501,11 @@ impl<T: UserManagementService> GroupMembershipManager<T> {
     }
 
     /// Add multiple users to a group
-    pub async fn add_users_to_group(&self, user_ids: &[String], group_id: &str) -> Result<Vec<String>> {
+    pub async fn add_users_to_group(
+        &self,
+        user_ids: &[String],
+        group_id: &str,
+    ) -> Result<Vec<String>> {
         let mut successful_additions = Vec::new();
 
         for user_id in user_ids {
@@ -471,7 +522,11 @@ impl<T: UserManagementService> GroupMembershipManager<T> {
     }
 
     /// Remove multiple users from a group
-    pub async fn remove_users_from_group(&self, user_ids: &[String], group_id: &str) -> Result<Vec<String>> {
+    pub async fn remove_users_from_group(
+        &self,
+        user_ids: &[String],
+        group_id: &str,
+    ) -> Result<Vec<String>> {
         let mut successful_removals = Vec::new();
 
         for user_id in user_ids {
@@ -488,14 +543,29 @@ impl<T: UserManagementService> GroupMembershipManager<T> {
     }
 
     /// Transfer users from one group to another
-    pub async fn transfer_users(&self, user_ids: &[String], from_group_id: &str, to_group_id: &str) -> Result<Vec<String>> {
+    pub async fn transfer_users(
+        &self,
+        user_ids: &[String],
+        from_group_id: &str,
+        to_group_id: &str,
+    ) -> Result<Vec<String>> {
         let mut successful_transfers = Vec::new();
 
         for user_id in user_ids {
             // Remove from source group
-            if self.service.remove_user_from_group(user_id, from_group_id).await.is_ok() {
+            if self
+                .service
+                .remove_user_from_group(user_id, from_group_id)
+                .await
+                .is_ok()
+            {
                 // Add to destination group
-                if self.service.add_user_to_group(user_id, to_group_id).await.is_ok() {
+                if self
+                    .service
+                    .add_user_to_group(user_id, to_group_id)
+                    .await
+                    .is_ok()
+                {
                     successful_transfers.push(user_id.clone());
                 } else {
                     // Re-add to source group if destination addition failed
@@ -509,7 +579,10 @@ impl<T: UserManagementService> GroupMembershipManager<T> {
 
     /// Get group membership statistics
     pub async fn get_membership_statistics(&self, group_id: &str) -> Result<GroupMembershipStats> {
-        let group = self.service.get_group(group_id).await?
+        let group = self
+            .service
+            .get_group(group_id)
+            .await?
             .ok_or_else(|| anyhow::anyhow!("Group not found: {}", group_id))?;
 
         // Create hierarchy resolver
@@ -519,10 +592,10 @@ impl<T: UserManagementService> GroupMembershipManager<T> {
 
         // Get effective roles count
         let effective_roles = resolver.get_effective_roles(group_id)?;
-        
+
         // Get descendant groups count
         let descendant_groups = resolver.get_descendant_groups(group_id)?;
-        
+
         Ok(GroupMembershipStats {
             direct_members: group.members.len(),
             total_roles: effective_roles.len(),
@@ -550,7 +623,7 @@ mod tests {
     #[test]
     fn test_group_hierarchy_resolver() {
         let mut resolver = GroupHierarchyResolver::new();
-        
+
         // Create test groups
         let root_group = UserGroup {
             id: "root".to_string(),
@@ -610,7 +683,7 @@ mod tests {
     #[test]
     fn test_circular_hierarchy_detection() {
         let mut resolver = GroupHierarchyResolver::new();
-        
+
         let group_a = UserGroup {
             id: "a".to_string(),
             name: "Group A".to_string(),

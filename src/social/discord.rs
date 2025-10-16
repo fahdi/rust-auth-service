@@ -1,6 +1,9 @@
+use super::{
+    SocialAuthUrl, SocialConfig, SocialLoginProvider, SocialLoginResult, SocialProvider,
+    SocialUserProfile,
+};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use super::{SocialProvider, SocialUserProfile, SocialAuthUrl, SocialLoginResult, SocialLoginProvider, SocialConfig};
 
 /// Discord OAuth2 configuration
 #[derive(Debug, Clone)]
@@ -68,7 +71,7 @@ impl DiscordProvider {
     /// Get Discord OAuth2 authorization URL
     fn get_auth_url(&self, state: &str) -> String {
         let scope_string = self.scopes.join(" ");
-        
+
         format!(
             "https://discord.com/api/oauth2/authorize?client_id={}&redirect_uri={}&response_type=code&scope={}&state={}",
             urlencoding::encode(&self.client_id),
@@ -98,7 +101,10 @@ impl DiscordProvider {
 
         if !response.status().is_success() {
             let error_text = response.text().await?;
-            return Err(anyhow::anyhow!("Discord token exchange failed: {}", error_text));
+            return Err(anyhow::anyhow!(
+                "Discord token exchange failed: {}",
+                error_text
+            ));
         }
 
         let token_response: DiscordTokenResponse = response.json().await?;
@@ -116,7 +122,10 @@ impl DiscordProvider {
 
         if !response.status().is_success() {
             let error_text = response.text().await?;
-            return Err(anyhow::anyhow!("Failed to get Discord user info: {}", error_text));
+            return Err(anyhow::anyhow!(
+                "Failed to get Discord user info: {}",
+                error_text
+            ));
         }
 
         let user_info: DiscordUser = response.json().await?;
@@ -149,9 +158,10 @@ impl DiscordProvider {
         });
 
         // Use global_name if available, otherwise use username
-        let display_name = user_info.global_name
+        let display_name = user_info
+            .global_name
             .unwrap_or_else(|| user_info.username.clone());
-        
+
         SocialUserProfile {
             provider: SocialProvider::Discord,
             provider_user_id,
@@ -183,7 +193,10 @@ impl DiscordProvider {
 
         if !response.status().is_success() {
             let error_text = response.text().await?;
-            return Err(anyhow::anyhow!("Discord token refresh failed: {}", error_text));
+            return Err(anyhow::anyhow!(
+                "Discord token refresh failed: {}",
+                error_text
+            ));
         }
 
         let token_response: DiscordTokenResponse = response.json().await?;
@@ -199,7 +212,7 @@ impl SocialLoginProvider for DiscordProvider {
 
     async fn get_authorization_url(&self, state: &str) -> Result<SocialAuthUrl> {
         let authorization_url = self.get_auth_url(state);
-        
+
         Ok(SocialAuthUrl {
             provider: SocialProvider::Discord,
             authorization_url,
@@ -272,7 +285,7 @@ mod tests {
     fn test_discord_provider_creation() {
         let config = create_test_config();
         let provider = DiscordProvider::new(config).unwrap();
-        
+
         assert_eq!(provider.provider_type(), SocialProvider::Discord);
     }
 
@@ -280,7 +293,7 @@ mod tests {
     fn test_discord_provider_validation() {
         let config = create_test_config();
         let provider = DiscordProvider::new(config).unwrap();
-        
+
         assert!(provider.validate_config().is_ok());
     }
 
@@ -288,7 +301,7 @@ mod tests {
     fn test_discord_provider_invalid_config() {
         let mut config = create_test_config();
         config.client_id = "".to_string();
-        
+
         let provider = DiscordProvider::new(config).unwrap();
         assert!(provider.validate_config().is_err());
     }
@@ -298,9 +311,9 @@ mod tests {
         let config = create_test_config();
         let provider = DiscordProvider::new(config).unwrap();
         let state = "test_state";
-        
+
         let auth_url = provider.get_auth_url(state);
-        
+
         assert!(auth_url.contains("discord.com/api/oauth2/authorize"));
         assert!(auth_url.contains("test_client_id"));
         assert!(auth_url.contains("test_state"));
@@ -312,7 +325,7 @@ mod tests {
     fn test_convert_to_profile_legacy_format() {
         let config = create_test_config();
         let provider = DiscordProvider::new(config).unwrap();
-        
+
         let discord_user = DiscordUser {
             id: "123456789012345678".to_string(),
             username: "testuser".to_string(),
@@ -331,15 +344,21 @@ mod tests {
             premium_type: Some(0),
             public_flags: Some(0),
         };
-        
+
         let profile = provider.convert_to_profile(discord_user);
-        
+
         assert_eq!(profile.provider, SocialProvider::Discord);
         assert_eq!(profile.provider_user_id, "123456789012345678");
         assert_eq!(profile.email, "test@example.com");
         assert_eq!(profile.name, "Test User");
         assert!(profile.verified_email);
-        assert_eq!(profile.avatar_url, Some("https://cdn.discordapp.com/avatars/123456789012345678/avatar_hash_123.png".to_string()));
+        assert_eq!(
+            profile.avatar_url,
+            Some(
+                "https://cdn.discordapp.com/avatars/123456789012345678/avatar_hash_123.png"
+                    .to_string()
+            )
+        );
         assert_eq!(profile.username, Some("testuser#1234".to_string()));
     }
 
@@ -347,7 +366,7 @@ mod tests {
     fn test_convert_to_profile_new_format() {
         let config = create_test_config();
         let provider = DiscordProvider::new(config).unwrap();
-        
+
         let discord_user = DiscordUser {
             id: "123456789012345678".to_string(),
             username: "testuser".to_string(),
@@ -366,15 +385,21 @@ mod tests {
             premium_type: Some(0),
             public_flags: Some(0),
         };
-        
+
         let profile = provider.convert_to_profile(discord_user);
-        
+
         assert_eq!(profile.provider, SocialProvider::Discord);
         assert_eq!(profile.provider_user_id, "123456789012345678");
         assert_eq!(profile.email, "test@example.com");
         assert_eq!(profile.name, "Test User");
         assert!(profile.verified_email);
-        assert_eq!(profile.avatar_url, Some("https://cdn.discordapp.com/avatars/123456789012345678/avatar_hash_123.png".to_string()));
+        assert_eq!(
+            profile.avatar_url,
+            Some(
+                "https://cdn.discordapp.com/avatars/123456789012345678/avatar_hash_123.png"
+                    .to_string()
+            )
+        );
         assert_eq!(profile.username, Some("testuser".to_string())); // No discriminator in new format
     }
 }

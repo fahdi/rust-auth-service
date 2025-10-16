@@ -27,9 +27,9 @@ mod utils;
 use cache::CacheService;
 use config::Config;
 use database::AuthDatabase;
-use oauth2::{OAuth2Config, OAuth2Service};
 use oauth2::server::OAuth2Server;
 use oauth2::tokens::TokenManager;
+use oauth2::{OAuth2Config, OAuth2Service};
 
 // Application state shared across handlers
 #[derive(Clone)]
@@ -75,25 +75,33 @@ async fn main() -> Result<()> {
 
     // Initialize OAuth2 components
     let oauth2_config = OAuth2Config::default(); // TODO: Load from config
-    
+
     // Create a default JWT signing key for HMAC
-    let jwt_key = oauth2_config.jwt_signing_key
+    let jwt_key = oauth2_config
+        .jwt_signing_key
         .as_ref()
         .map(|k| k.as_bytes())
         .unwrap_or(b"default-secret-key-change-in-production");
-        
+
     let token_manager = TokenManager::new(oauth2_config.clone(), jwt_key, None)?;
-    
+
     // Create OAuth2Service from database
     let oauth2_service: Arc<dyn oauth2::OAuth2Service> = match config.database.r#type.as_str() {
         "mongodb" => {
             // Create a new MongoDB connection specifically for OAuth2Service
-            let mongodb = database::mongodb::MongoDatabase::new(&config.database.url, &config.database.pool).await?;
+            let mongodb =
+                database::mongodb::MongoDatabase::new(&config.database.url, &config.database.pool)
+                    .await?;
             Arc::new(mongodb)
         }
-        _ => return Err(anyhow::anyhow!("OAuth2Service not implemented for database type: {}", config.database.r#type)),
+        _ => {
+            return Err(anyhow::anyhow!(
+                "OAuth2Service not implemented for database type: {}",
+                config.database.r#type
+            ))
+        }
     };
-    
+
     let oauth2_server = OAuth2Server::new(oauth2_config, oauth2_service, token_manager.clone());
     info!("OAuth2 server initialized");
 
@@ -168,12 +176,24 @@ async fn main() -> Result<()> {
         .route("/mfa/status", get(handlers::get_mfa_status))
         .route("/mfa/methods", get(handlers::list_mfa_methods))
         .route("/mfa/methods", post(handlers::setup_mfa_method))
-        .route("/mfa/methods/:method_id/verify", post(handlers::verify_mfa_setup))
-        .route("/mfa/methods/:method_id/primary", put(handlers::set_primary_mfa_method))
-        .route("/mfa/methods/:method_id", delete(handlers::remove_mfa_method))
+        .route(
+            "/mfa/methods/:method_id/verify",
+            post(handlers::verify_mfa_setup),
+        )
+        .route(
+            "/mfa/methods/:method_id/primary",
+            put(handlers::set_primary_mfa_method),
+        )
+        .route(
+            "/mfa/methods/:method_id",
+            delete(handlers::remove_mfa_method),
+        )
         // MFA challenges and verification
         .route("/mfa/challenge", post(handlers::create_mfa_challenge))
-        .route("/mfa/challenge/:challenge_id/verify", post(handlers::verify_mfa_challenge))
+        .route(
+            "/mfa/challenge/:challenge_id/verify",
+            post(handlers::verify_mfa_challenge),
+        )
         // Backup codes
         .route("/mfa/backup-codes", post(handlers::generate_backup_codes))
         // MFA disable (with verification)

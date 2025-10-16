@@ -41,7 +41,9 @@ impl TotpProvider {
 
         // Generate QR code
         let qr_code = qrcode::QrCode::new(&uri)?;
-        let image = qr_code.render::<qrcode::render::unicode::Dense1x2>().build();
+        let image = qr_code
+            .render::<qrcode::render::unicode::Dense1x2>()
+            .build();
 
         Ok(TotpSetup {
             secret: secret.to_string(),
@@ -54,24 +56,24 @@ impl TotpProvider {
     pub fn generate_code(&self, secret: &str) -> Result<String> {
         let secret_bytes = base32::decode(Alphabet::Rfc4648 { padding: false }, secret)
             .ok_or_else(|| anyhow::anyhow!("Invalid base32 secret"))?;
-        
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)?
-            .as_secs();
-        
+
+        let timestamp = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+
         let code = totp::<Sha1>(&secret_bytes, timestamp / 30);
         // Pad to specified digits
-        Ok(format!("{:0width$}", code.parse::<u32>().unwrap_or(0) % 10_u32.pow(self.digits as u32), width = self.digits))
+        Ok(format!(
+            "{:0width$}",
+            code.parse::<u32>().unwrap_or(0) % 10_u32.pow(self.digits as u32),
+            width = self.digits
+        ))
     }
 
     /// Verify TOTP code
     pub fn verify_code(&self, secret: &str, code: &str) -> Result<bool> {
         let secret_bytes = base32::decode(Alphabet::Rfc4648 { padding: false }, secret)
             .ok_or_else(|| anyhow::anyhow!("Invalid base32 secret"))?;
-        
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)?
-            .as_secs();
+
+        let timestamp = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
 
         // Check current time window and adjacent windows for clock skew
         for window_offset in -self.window..=self.window {
@@ -79,9 +81,13 @@ impl TotpProvider {
             if adjusted_timestamp < 0 {
                 continue;
             }
-            
+
             let expected_code = totp::<Sha1>(&secret_bytes, adjusted_timestamp as u64 / 30);
-            let formatted_code = format!("{:0width$}", expected_code.parse::<u32>().unwrap_or(0) % 10_u32.pow(self.digits as u32), width = self.digits);
+            let formatted_code = format!(
+                "{:0width$}",
+                expected_code.parse::<u32>().unwrap_or(0) % 10_u32.pow(self.digits as u32),
+                width = self.digits
+            );
             if formatted_code == code {
                 return Ok(true);
             }
@@ -92,9 +98,9 @@ impl TotpProvider {
 
     /// Generate backup codes
     fn generate_backup_codes(&self) -> Vec<String> {
-        (0..8).map(|_| {
-            format!("{:08}", rand::random::<u32>() % 100_000_000)
-        }).collect()
+        (0..8)
+            .map(|_| format!("{:08}", rand::random::<u32>() % 100_000_000))
+            .collect()
     }
 
     /// Validate TOTP secret format
@@ -111,14 +117,14 @@ mod tests {
     fn test_totp_generation_and_verification() {
         let provider = TotpProvider::new(6, 1).unwrap();
         let secret = provider.generate_secret();
-        
+
         // Generate a code
         let code = provider.generate_code(&secret).unwrap();
         assert_eq!(code.len(), 6);
-        
+
         // Verify the code
         assert!(provider.verify_code(&secret, &code).unwrap());
-        
+
         // Verify invalid code fails
         assert!(!provider.verify_code(&secret, "123456").unwrap());
     }
@@ -127,8 +133,10 @@ mod tests {
     fn test_totp_setup() {
         let provider = TotpProvider::new(6, 1).unwrap();
         let secret = provider.generate_secret();
-        
-        let setup = provider.setup_totp(&secret, "user@example.com", "AuthService").unwrap();
+
+        let setup = provider
+            .setup_totp(&secret, "user@example.com", "AuthService")
+            .unwrap();
         assert_eq!(setup.secret, secret);
         assert!(!setup.qr_code.is_empty());
         assert_eq!(setup.backup_codes.len(), 8);
@@ -138,7 +146,7 @@ mod tests {
     fn test_secret_validation() {
         let provider = TotpProvider::new(6, 1).unwrap();
         let valid_secret = provider.generate_secret();
-        
+
         assert!(provider.validate_secret(&valid_secret));
         assert!(!provider.validate_secret("invalid-secret"));
     }

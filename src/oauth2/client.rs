@@ -5,39 +5,39 @@ use std::collections::HashSet;
 use uuid::Uuid;
 use validator::{Validate, ValidationError};
 
-use super::{GrantType, OAuth2Client, OAuth2Service};
 use super::flows::validate_redirect_uri;
+use super::{GrantType, OAuth2Client, OAuth2Service};
 
 /// Client registration request (RFC 7591)
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize, Validate)]
 pub struct ClientRegistrationRequest {
     #[validate(length(min = 1, max = 255))]
     pub client_name: String,
-    
+
     #[validate(length(max = 1000))]
     pub client_description: Option<String>,
-    
+
     #[validate(custom(function = "validate_redirect_uris"))]
     pub redirect_uris: Vec<String>,
-    
+
     #[validate(custom(function = "validate_grant_types"))]
     pub grant_types: Vec<String>,
-    
+
     #[validate(custom(function = "validate_scopes"))]
     pub scope: Option<String>,
-    
+
     #[validate(url)]
     pub logo_uri: Option<String>,
-    
+
     #[validate(email)]
     pub contact_email: Option<String>,
-    
+
     #[validate(url)]
     pub tos_uri: Option<String>,
-    
+
     #[validate(url)]
     pub policy_uri: Option<String>,
-    
+
     pub application_type: Option<String>, // "web" or "native"
     pub token_endpoint_auth_method: Option<String>,
     pub jwks_uri: Option<String>,
@@ -71,31 +71,31 @@ pub struct ClientRegistrationResponse {
 pub struct ClientUpdateRequest {
     #[validate(length(min = 1, max = 255))]
     pub client_name: Option<String>,
-    
+
     #[validate(length(max = 1000))]
     pub client_description: Option<String>,
-    
+
     #[validate(custom(function = "validate_redirect_uris"))]
     pub redirect_uris: Option<Vec<String>>,
-    
+
     #[validate(custom(function = "validate_grant_types"))]
     pub grant_types: Option<Vec<String>>,
-    
+
     #[validate(custom(function = "validate_scopes"))]
     pub scope: Option<String>,
-    
+
     #[validate(url)]
     pub logo_uri: Option<String>,
-    
+
     #[validate(email)]
     pub contact_email: Option<String>,
-    
+
     #[validate(url)]
     pub tos_uri: Option<String>,
-    
+
     #[validate(url)]
     pub policy_uri: Option<String>,
-    
+
     pub is_active: Option<bool>,
 }
 
@@ -140,9 +140,13 @@ impl<T: OAuth2Service> OAuth2ClientManager<T> {
     }
 
     /// Register a new OAuth2 client
-    pub async fn register_client(&self, request: ClientRegistrationRequest) -> Result<ClientRegistrationResponse> {
+    pub async fn register_client(
+        &self,
+        request: ClientRegistrationRequest,
+    ) -> Result<ClientRegistrationResponse> {
         // Validate request
-        request.validate()
+        request
+            .validate()
             .map_err(|e| anyhow!("Validation error: {}", e))?;
 
         // Generate client credentials
@@ -154,7 +158,8 @@ impl<T: OAuth2Service> OAuth2ClientManager<T> {
         };
 
         // Determine application type
-        let application_type = request.application_type
+        let application_type = request
+            .application_type
             .clone()
             .unwrap_or_else(|| self.infer_application_type(&request.redirect_uris));
 
@@ -167,15 +172,17 @@ impl<T: OAuth2Service> OAuth2ClientManager<T> {
         let grant_types = self.parse_and_validate_grant_types(&request.grant_types)?;
 
         // Determine token endpoint auth method
-        let token_endpoint_auth_method = request.token_endpoint_auth_method
-            .clone()
-            .unwrap_or_else(|| {
-                if is_public {
-                    "none".to_string()
-                } else {
-                    "client_secret_basic".to_string()
-                }
-            });
+        let token_endpoint_auth_method =
+            request
+                .token_endpoint_auth_method
+                .clone()
+                .unwrap_or_else(|| {
+                    if is_public {
+                        "none".to_string()
+                    } else {
+                        "client_secret_basic".to_string()
+                    }
+                });
 
         // Create client record
         let client = OAuth2Client {
@@ -225,13 +232,21 @@ impl<T: OAuth2Service> OAuth2ClientManager<T> {
     }
 
     /// Update an existing client
-    pub async fn update_client(&self, client_id: &str, request: ClientUpdateRequest) -> Result<OAuth2Client> {
+    pub async fn update_client(
+        &self,
+        client_id: &str,
+        request: ClientUpdateRequest,
+    ) -> Result<OAuth2Client> {
         // Validate request
-        request.validate()
+        request
+            .validate()
             .map_err(|e| anyhow!("Validation error: {}", e))?;
 
         // Get existing client
-        let mut client = self.service.get_client(client_id).await?
+        let mut client = self
+            .service
+            .get_client(client_id)
+            .await?
             .ok_or_else(|| anyhow!("Client not found"))?;
 
         // Update fields
@@ -285,7 +300,7 @@ impl<T: OAuth2Service> OAuth2ClientManager<T> {
     pub async fn delete_client(&self, client_id: &str) -> Result<bool> {
         // Revoke all client tokens before deletion
         self.service.revoke_all_client_tokens(client_id).await?;
-        
+
         // Delete client
         self.service.delete_client(client_id).await
     }
@@ -300,7 +315,11 @@ impl<T: OAuth2Service> OAuth2ClientManager<T> {
             .filter(|client| {
                 // Filter by name
                 if let Some(ref name_filter) = query.name {
-                    if !client.name.to_lowercase().contains(&name_filter.to_lowercase()) {
+                    if !client
+                        .name
+                        .to_lowercase()
+                        .contains(&name_filter.to_lowercase())
+                    {
                         return false;
                     }
                 }
@@ -332,7 +351,10 @@ impl<T: OAuth2Service> OAuth2ClientManager<T> {
 
     /// Regenerate client secret
     pub async fn regenerate_client_secret(&self, client_id: &str) -> Result<String> {
-        let mut client = self.service.get_client(client_id).await?
+        let mut client = self
+            .service
+            .get_client(client_id)
+            .await?
             .ok_or_else(|| anyhow!("Client not found"))?;
 
         if client.is_public {
@@ -349,7 +371,10 @@ impl<T: OAuth2Service> OAuth2ClientManager<T> {
 
     /// Activate/deactivate a client
     pub async fn set_client_status(&self, client_id: &str, active: bool) -> Result<OAuth2Client> {
-        let mut client = self.service.get_client(client_id).await?
+        let mut client = self
+            .service
+            .get_client(client_id)
+            .await?
             .ok_or_else(|| anyhow!("Client not found"))?;
 
         client.is_active = active;
@@ -364,7 +389,11 @@ impl<T: OAuth2Service> OAuth2ClientManager<T> {
     }
 
     /// Validate client for specific grant type
-    pub fn validate_client_for_grant_type(&self, client: &OAuth2Client, grant_type: &GrantType) -> Result<()> {
+    pub fn validate_client_for_grant_type(
+        &self,
+        client: &OAuth2Client,
+        grant_type: &GrantType,
+    ) -> Result<()> {
         if !client.is_active {
             return Err(anyhow!("Client is not active"));
         }
@@ -384,10 +413,10 @@ impl<T: OAuth2Service> OAuth2ClientManager<T> {
     /// Generate client secret
     fn generate_client_secret(&self) -> String {
         use rand::Rng;
-        
+
         let charset: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
         let mut rng = rand::thread_rng();
-        
+
         (0..self.client_secret_length)
             .map(|_| {
                 let idx = rng.gen_range(0..charset.len());
@@ -406,10 +435,11 @@ impl<T: OAuth2Service> OAuth2ClientManager<T> {
     /// Infer application type from redirect URIs
     fn infer_application_type(&self, redirect_uris: &[String]) -> String {
         for uri in redirect_uris {
-            if uri.starts_with("http://localhost") || 
-               uri.starts_with("http://127.0.0.1") ||
-               uri.starts_with("urn:") ||
-               uri.contains("://localhost") {
+            if uri.starts_with("http://localhost")
+                || uri.starts_with("http://127.0.0.1")
+                || uri.starts_with("urn:")
+                || uri.contains("://localhost")
+            {
                 return "native".to_string();
             }
         }
@@ -419,7 +449,10 @@ impl<T: OAuth2Service> OAuth2ClientManager<T> {
     /// Parse and validate scopes
     fn parse_and_validate_scopes(&self, scope: Option<&str>) -> Result<Vec<String>> {
         let scopes = if let Some(scope_str) = scope {
-            scope_str.split_whitespace().map(|s| s.to_string()).collect()
+            scope_str
+                .split_whitespace()
+                .map(|s| s.to_string())
+                .collect()
         } else {
             self.default_scopes.clone()
         };
@@ -440,7 +473,7 @@ impl<T: OAuth2Service> OAuth2ClientManager<T> {
 
         for grant_type_str in grant_types {
             let grant_type = self.parse_grant_type(grant_type_str)?;
-            
+
             if !self.supported_grant_types.contains(&grant_type) {
                 return Err(anyhow!("Unsupported grant type: {}", grant_type_str));
             }
@@ -471,7 +504,9 @@ impl<T: OAuth2Service> OAuth2ClientManager<T> {
 /// Validation functions
 fn validate_redirect_uris(redirect_uris: &[String]) -> Result<(), ValidationError> {
     if redirect_uris.is_empty() {
-        return Err(ValidationError::new("At least one redirect URI is required"));
+        return Err(ValidationError::new(
+            "At least one redirect URI is required",
+        ));
     }
 
     if redirect_uris.len() > 10 {
@@ -501,7 +536,7 @@ fn validate_grant_types(grant_types: &[String]) -> Result<(), ValidationError> {
 
     let valid_grant_types = [
         "authorization_code",
-        "client_credentials", 
+        "client_credentials",
         "refresh_token",
         "implicit",
         "urn:ietf:params:oauth:grant-type:device_code",
@@ -561,7 +596,9 @@ impl<T: OAuth2Service> OAuth2ClientManager<T> {
                     GrantType::Implicit => "implicit",
                     GrantType::DeviceCode => "device_code",
                 };
-                *clients_by_grant_type.entry(grant_type_str.to_string()).or_insert(0) += 1;
+                *clients_by_grant_type
+                    .entry(grant_type_str.to_string())
+                    .or_insert(0) += 1;
             }
         }
 
@@ -600,7 +637,10 @@ mod tests {
     #[async_trait]
     impl OAuth2Service for MockOAuth2Service {
         async fn create_client(&self, client: OAuth2Client) -> Result<OAuth2Client> {
-            self.clients.lock().unwrap().insert(client.client_id.clone(), client.clone());
+            self.clients
+                .lock()
+                .unwrap()
+                .insert(client.client_id.clone(), client.clone());
             Ok(client)
         }
 
@@ -609,7 +649,10 @@ mod tests {
         }
 
         async fn update_client(&self, client: OAuth2Client) -> Result<OAuth2Client> {
-            self.clients.lock().unwrap().insert(client.client_id.clone(), client.clone());
+            self.clients
+                .lock()
+                .unwrap()
+                .insert(client.client_id.clone(), client.clone());
             Ok(client)
         }
 
@@ -617,33 +660,99 @@ mod tests {
             Ok(self.clients.lock().unwrap().remove(client_id).is_some())
         }
 
-        async fn list_clients(&self, _limit: Option<u64>, _offset: Option<u64>) -> Result<Vec<OAuth2Client>> {
+        async fn list_clients(
+            &self,
+            _limit: Option<u64>,
+            _offset: Option<u64>,
+        ) -> Result<Vec<OAuth2Client>> {
             Ok(self.clients.lock().unwrap().values().cloned().collect())
         }
 
         // Other methods not needed for client tests
-        async fn create_auth_code(&self, _code: super::AuthorizationCode) -> Result<super::AuthorizationCode> { unimplemented!() }
-        async fn get_auth_code(&self, _code: &str) -> Result<Option<super::AuthorizationCode>> { unimplemented!() }
-        async fn use_auth_code(&self, _code: &str) -> Result<bool> { unimplemented!() }
-        async fn cleanup_expired_codes(&self) -> Result<u64> { unimplemented!() }
-        async fn create_access_token(&self, _token: super::AccessToken) -> Result<super::AccessToken> { unimplemented!() }
-        async fn get_access_token(&self, _token: &str) -> Result<Option<super::AccessToken>> { unimplemented!() }
-        async fn revoke_access_token(&self, _token: &str) -> Result<bool> { Ok(true) }
-        async fn cleanup_expired_tokens(&self) -> Result<u64> { unimplemented!() }
-        async fn create_refresh_token(&self, _token: super::RefreshToken) -> Result<super::RefreshToken> { unimplemented!() }
-        async fn get_refresh_token(&self, _token: &str) -> Result<Option<super::RefreshToken>> { unimplemented!() }
-        async fn use_refresh_token(&self, _token: &str) -> Result<bool> { unimplemented!() }
-        async fn revoke_refresh_token(&self, _token: &str) -> Result<bool> { unimplemented!() }
-        async fn create_device_authorization(&self, _auth: super::DeviceAuthorization) -> Result<super::DeviceAuthorization> { unimplemented!() }
-        async fn get_device_authorization_by_device_code(&self, _device_code: &str) -> Result<Option<super::DeviceAuthorization>> { unimplemented!() }
-        async fn get_device_authorization_by_user_code(&self, _user_code: &str) -> Result<Option<super::DeviceAuthorization>> { unimplemented!() }
-        async fn authorize_device(&self, _user_code: &str, _user_id: &str) -> Result<bool> { unimplemented!() }
-        async fn cleanup_expired_device_authorizations(&self) -> Result<u64> { unimplemented!() }
-        async fn introspect_token(&self, _token: &str) -> Result<super::TokenIntrospection> { unimplemented!() }
-        async fn revoke_all_user_tokens(&self, _user_id: &str) -> Result<u64> { Ok(0) }
-        async fn revoke_all_client_tokens(&self, _client_id: &str) -> Result<u64> { Ok(0) }
-        async fn get_user_tokens(&self, _user_id: &str) -> Result<Vec<super::AccessToken>> { unimplemented!() }
-        async fn get_client_tokens(&self, _client_id: &str) -> Result<Vec<super::AccessToken>> { unimplemented!() }
+        async fn create_auth_code(
+            &self,
+            _code: super::AuthorizationCode,
+        ) -> Result<super::AuthorizationCode> {
+            unimplemented!()
+        }
+        async fn get_auth_code(&self, _code: &str) -> Result<Option<super::AuthorizationCode>> {
+            unimplemented!()
+        }
+        async fn use_auth_code(&self, _code: &str) -> Result<bool> {
+            unimplemented!()
+        }
+        async fn cleanup_expired_codes(&self) -> Result<u64> {
+            unimplemented!()
+        }
+        async fn create_access_token(
+            &self,
+            _token: super::AccessToken,
+        ) -> Result<super::AccessToken> {
+            unimplemented!()
+        }
+        async fn get_access_token(&self, _token: &str) -> Result<Option<super::AccessToken>> {
+            unimplemented!()
+        }
+        async fn revoke_access_token(&self, _token: &str) -> Result<bool> {
+            Ok(true)
+        }
+        async fn cleanup_expired_tokens(&self) -> Result<u64> {
+            unimplemented!()
+        }
+        async fn create_refresh_token(
+            &self,
+            _token: super::RefreshToken,
+        ) -> Result<super::RefreshToken> {
+            unimplemented!()
+        }
+        async fn get_refresh_token(&self, _token: &str) -> Result<Option<super::RefreshToken>> {
+            unimplemented!()
+        }
+        async fn use_refresh_token(&self, _token: &str) -> Result<bool> {
+            unimplemented!()
+        }
+        async fn revoke_refresh_token(&self, _token: &str) -> Result<bool> {
+            unimplemented!()
+        }
+        async fn create_device_authorization(
+            &self,
+            _auth: super::DeviceAuthorization,
+        ) -> Result<super::DeviceAuthorization> {
+            unimplemented!()
+        }
+        async fn get_device_authorization_by_device_code(
+            &self,
+            _device_code: &str,
+        ) -> Result<Option<super::DeviceAuthorization>> {
+            unimplemented!()
+        }
+        async fn get_device_authorization_by_user_code(
+            &self,
+            _user_code: &str,
+        ) -> Result<Option<super::DeviceAuthorization>> {
+            unimplemented!()
+        }
+        async fn authorize_device(&self, _user_code: &str, _user_id: &str) -> Result<bool> {
+            unimplemented!()
+        }
+        async fn cleanup_expired_device_authorizations(&self) -> Result<u64> {
+            unimplemented!()
+        }
+        async fn introspect_token(&self, _token: &str) -> Result<super::TokenIntrospection> {
+            unimplemented!()
+        }
+        async fn revoke_all_user_tokens(&self, _user_id: &str) -> Result<u64> {
+            Ok(0)
+        }
+        async fn revoke_all_client_tokens(&self, _client_id: &str) -> Result<u64> {
+            Ok(0)
+        }
+        async fn get_user_tokens(&self, _user_id: &str) -> Result<Vec<super::AccessToken>> {
+            unimplemented!()
+        }
+        async fn get_client_tokens(&self, _client_id: &str) -> Result<Vec<super::AccessToken>> {
+            unimplemented!()
+        }
     }
 
     fn create_test_client_manager() -> OAuth2ClientManager<MockOAuth2Service> {
@@ -673,7 +782,10 @@ mod tests {
             client_name: "Test App".to_string(),
             client_description: Some("A test application".to_string()),
             redirect_uris: vec!["https://example.com/callback".to_string()],
-            grant_types: vec!["authorization_code".to_string(), "refresh_token".to_string()],
+            grant_types: vec![
+                "authorization_code".to_string(),
+                "refresh_token".to_string(),
+            ],
             scope: Some("read write".to_string()),
             logo_uri: None,
             contact_email: Some("test@example.com".to_string()),
@@ -731,7 +843,9 @@ mod tests {
     fn test_validate_redirect_uris() {
         // Valid URIs
         assert!(validate_redirect_uris(&vec!["https://example.com/callback".to_string()]).is_ok());
-        assert!(validate_redirect_uris(&vec!["http://localhost:3000/callback".to_string()]).is_ok());
+        assert!(
+            validate_redirect_uris(&vec!["http://localhost:3000/callback".to_string()]).is_ok()
+        );
 
         // Invalid cases
         assert!(validate_redirect_uris(&vec![]).is_err()); // Empty
@@ -739,18 +853,24 @@ mod tests {
         assert!(validate_redirect_uris(&vec![
             "https://example.com/callback".to_string(),
             "https://example.com/callback".to_string()
-        ]).is_err()); // Duplicates
+        ])
+        .is_err()); // Duplicates
     }
 
     #[test]
     fn test_validate_grant_types() {
         // Valid grant types
         assert!(validate_grant_types(&vec!["authorization_code".to_string()]).is_ok());
-        assert!(validate_grant_types(&vec!["client_credentials".to_string(), "refresh_token".to_string()]).is_ok());
+        assert!(validate_grant_types(&vec![
+            "client_credentials".to_string(),
+            "refresh_token".to_string()
+        ])
+        .is_ok());
 
         // Invalid cases
         assert!(validate_grant_types(&vec![]).is_err()); // Empty
-        assert!(validate_grant_types(&vec!["invalid_grant".to_string()]).is_err()); // Invalid grant type
+        assert!(validate_grant_types(&vec!["invalid_grant".to_string()]).is_err());
+        // Invalid grant type
     }
 
     #[test]

@@ -77,14 +77,17 @@ impl PKCEChallenge {
 
     /// Verify that a code verifier matches this challenge
     pub fn verify(&self, code_verifier: &str) -> bool {
-        let computed_challenge = Self::generate_code_challenge(code_verifier, &self.code_challenge_method);
+        let computed_challenge =
+            Self::generate_code_challenge(code_verifier, &self.code_challenge_method);
         computed_challenge == self.code_challenge
     }
 
     /// Validate code verifier format (RFC 7636 Section 4.1)
     pub fn validate_code_verifier(code_verifier: &str) -> Result<()> {
         if code_verifier.len() < 43 || code_verifier.len() > 128 {
-            return Err(anyhow!("Code verifier length must be between 43 and 128 characters"));
+            return Err(anyhow!(
+                "Code verifier length must be between 43 and 128 characters"
+            ));
         }
 
         // Check that code verifier only contains unreserved characters
@@ -99,11 +102,12 @@ impl PKCEChallenge {
     }
 
     /// Validate code challenge format
-    pub fn validate_code_challenge(code_challenge: &str, method: &CodeChallengeMethod) -> Result<()> {
+    pub fn validate_code_challenge(
+        code_challenge: &str,
+        method: &CodeChallengeMethod,
+    ) -> Result<()> {
         match method {
-            CodeChallengeMethod::Plain => {
-                Self::validate_code_verifier(code_challenge)
-            }
+            CodeChallengeMethod::Plain => Self::validate_code_verifier(code_challenge),
             CodeChallengeMethod::S256 => {
                 // S256 challenges should be 43 characters (256 bits base64url encoded)
                 if code_challenge.len() != 43 {
@@ -140,14 +144,15 @@ pub fn verify_pkce(
     match (code_verifier, code_challenge, code_challenge_method) {
         (Some(verifier), Some(challenge), method) => {
             let method = method.unwrap_or("plain");
-            
+
             let challenge_method = match CodeChallengeMethod::from_str(method) {
                 Ok(method) => method,
                 Err(_) => return PKCEVerificationResult::MethodMismatch,
             };
 
-            let computed_challenge = PKCEChallenge::generate_code_challenge(verifier, &challenge_method);
-            
+            let computed_challenge =
+                PKCEChallenge::generate_code_challenge(verifier, &challenge_method);
+
             if computed_challenge == challenge {
                 PKCEVerificationResult::Valid
             } else {
@@ -199,15 +204,16 @@ impl PKCEClient {
     pub fn authorization_params(&self) -> Vec<(&str, &str)> {
         vec![
             ("code_challenge", &self.challenge.code_challenge),
-            ("code_challenge_method", self.challenge.code_challenge_method.as_str()),
+            (
+                "code_challenge_method",
+                self.challenge.code_challenge_method.as_str(),
+            ),
         ]
     }
 
     /// Get token request parameters
     pub fn token_params(&self) -> Vec<(&str, &str)> {
-        vec![
-            ("code_verifier", &self.challenge.code_verifier),
-        ]
+        vec![("code_verifier", &self.challenge.code_verifier)]
     }
 }
 
@@ -224,10 +230,10 @@ mod tests {
     #[test]
     fn test_generate_code_verifier() {
         let verifier = PKCEChallenge::generate_code_verifier();
-        
+
         // Should be between 43 and 128 characters
         assert!(verifier.len() >= 43 && verifier.len() <= 128);
-        
+
         // Should contain only unreserved characters
         assert!(PKCEChallenge::validate_code_verifier(&verifier).is_ok());
     }
@@ -236,25 +242,27 @@ mod tests {
     fn test_code_challenge_s256() {
         let verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
         let expected_challenge = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM";
-        
-        let challenge = PKCEChallenge::generate_code_challenge(verifier, &CodeChallengeMethod::S256);
+
+        let challenge =
+            PKCEChallenge::generate_code_challenge(verifier, &CodeChallengeMethod::S256);
         assert_eq!(challenge, expected_challenge);
     }
 
     #[test]
     fn test_code_challenge_plain() {
         let verifier = "test_code_verifier_12345";
-        let challenge = PKCEChallenge::generate_code_challenge(verifier, &CodeChallengeMethod::Plain);
+        let challenge =
+            PKCEChallenge::generate_code_challenge(verifier, &CodeChallengeMethod::Plain);
         assert_eq!(challenge, verifier);
     }
 
     #[test]
     fn test_pkce_verification() {
         let pkce = PKCEChallenge::generate();
-        
+
         // Should verify with correct verifier
         assert!(pkce.verify(&pkce.code_verifier));
-        
+
         // Should not verify with incorrect verifier
         assert!(!pkce.verify("wrong_verifier"));
     }
@@ -263,44 +271,41 @@ mod tests {
     fn test_verify_pkce_function() {
         let verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
         let challenge = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM";
-        
+
         // Valid S256 verification
         assert_eq!(
             verify_pkce(Some(verifier), Some(challenge), Some("S256")),
             PKCEVerificationResult::Valid
         );
-        
+
         // Invalid verifier
         assert_eq!(
             verify_pkce(Some("wrong"), Some(challenge), Some("S256")),
             PKCEVerificationResult::Invalid
         );
-        
+
         // Missing verifier
         assert_eq!(
             verify_pkce(None, Some(challenge), Some("S256")),
             PKCEVerificationResult::MissingVerifier
         );
-        
+
         // No PKCE
-        assert_eq!(
-            verify_pkce(None, None, None),
-            PKCEVerificationResult::Valid
-        );
+        assert_eq!(verify_pkce(None, None, None), PKCEVerificationResult::Valid);
     }
 
     #[test]
     fn test_pkce_client() {
         let client = PKCEClient::new();
-        
+
         // Should generate valid challenge
         assert!(client.code_challenge().len() > 0);
         assert_eq!(client.code_challenge_method(), "S256");
-        
+
         // Verifier should match challenge
         let computed = PKCEChallenge::generate_code_challenge(
-            client.code_verifier(), 
-            &CodeChallengeMethod::S256
+            client.code_verifier(),
+            &CodeChallengeMethod::S256,
         );
         assert_eq!(computed, client.code_challenge());
     }
@@ -308,43 +313,55 @@ mod tests {
     #[test]
     fn test_validate_code_verifier() {
         // Valid verifiers
-        assert!(PKCEChallenge::validate_code_verifier("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk").is_ok());
+        assert!(PKCEChallenge::validate_code_verifier(
+            "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+        )
+        .is_ok());
         assert!(PKCEChallenge::validate_code_verifier(&"a".repeat(43)).is_ok());
         assert!(PKCEChallenge::validate_code_verifier(&"a".repeat(128)).is_ok());
-        
+
         // Invalid verifiers
         assert!(PKCEChallenge::validate_code_verifier(&"a".repeat(42)).is_err()); // Too short
         assert!(PKCEChallenge::validate_code_verifier(&"a".repeat(129)).is_err()); // Too long
-        assert!(PKCEChallenge::validate_code_verifier("invalid@character").is_err()); // Invalid char
+        assert!(PKCEChallenge::validate_code_verifier("invalid@character").is_err());
+        // Invalid char
     }
 
     #[test]
     fn test_validate_code_challenge() {
         // Valid S256 challenge
         assert!(PKCEChallenge::validate_code_challenge(
-            "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM", 
+            "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
             &CodeChallengeMethod::S256
-        ).is_ok());
-        
+        )
+        .is_ok());
+
         // Invalid S256 challenge (wrong length)
-        assert!(PKCEChallenge::validate_code_challenge(
-            "too_short", 
-            &CodeChallengeMethod::S256
-        ).is_err());
-        
+        assert!(
+            PKCEChallenge::validate_code_challenge("too_short", &CodeChallengeMethod::S256)
+                .is_err()
+        );
+
         // Valid plain challenge
         assert!(PKCEChallenge::validate_code_challenge(
-            "valid_plain_challenge_123", 
+            "valid_plain_challenge_123",
             &CodeChallengeMethod::Plain
-        ).is_ok());
+        )
+        .is_ok());
     }
 
     #[test]
     fn test_code_challenge_method_conversion() {
-        assert_eq!(CodeChallengeMethod::from_str("plain").unwrap(), CodeChallengeMethod::Plain);
-        assert_eq!(CodeChallengeMethod::from_str("S256").unwrap(), CodeChallengeMethod::S256);
+        assert_eq!(
+            CodeChallengeMethod::from_str("plain").unwrap(),
+            CodeChallengeMethod::Plain
+        );
+        assert_eq!(
+            CodeChallengeMethod::from_str("S256").unwrap(),
+            CodeChallengeMethod::S256
+        );
         assert!(CodeChallengeMethod::from_str("invalid").is_err());
-        
+
         assert_eq!(CodeChallengeMethod::Plain.as_str(), "plain");
         assert_eq!(CodeChallengeMethod::S256.as_str(), "S256");
     }

@@ -1,15 +1,15 @@
 use anyhow::Result;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
-pub mod server;
 pub mod client;
-pub mod scopes;
-pub mod tokens;
-pub mod pkce;
 pub mod flows;
+pub mod pkce;
+pub mod scopes;
+pub mod server;
+pub mod tokens;
 
 /// OAuth2 grant types supported by the server
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -107,7 +107,7 @@ pub struct DeviceAuthorization {
     pub client_id: String,
     pub scopes: Vec<String>,
     pub expires_at: DateTime<Utc>,
-    pub interval: u32, // Polling interval in seconds
+    pub interval: u32,           // Polling interval in seconds
     pub user_id: Option<String>, // Set when user authorizes
     pub authorized: bool,
 }
@@ -185,11 +185,11 @@ pub struct AuthorizeRequest {
     pub state: Option<String>,
     pub code_challenge: Option<String>,
     pub code_challenge_method: Option<String>,
-    pub nonce: Option<String>, // OpenID Connect
-    pub prompt: Option<String>, // OpenID Connect
-    pub max_age: Option<u64>, // OpenID Connect
+    pub nonce: Option<String>,         // OpenID Connect
+    pub prompt: Option<String>,        // OpenID Connect
+    pub max_age: Option<u64>,          // OpenID Connect
     pub id_token_hint: Option<String>, // OpenID Connect
-    pub login_hint: Option<String>, // OpenID Connect
+    pub login_hint: Option<String>,    // OpenID Connect
 }
 
 /// Token request parameters
@@ -236,11 +236,11 @@ pub struct ClientCredentials {
 /// Client authentication methods
 #[derive(Debug, Clone, PartialEq)]
 pub enum ClientAuthMethod {
-    ClientSecretBasic,    // HTTP Basic Auth
-    ClientSecretPost,     // POST parameters
-    ClientSecretJwt,      // JWT assertion
-    PrivateKeyJwt,        // JWT with private key
-    None,                 // Public clients
+    ClientSecretBasic, // HTTP Basic Auth
+    ClientSecretPost,  // POST parameters
+    ClientSecretJwt,   // JWT assertion
+    PrivateKeyJwt,     // JWT with private key
+    None,              // Public clients
 }
 
 /// OAuth2 configuration/metadata (RFC 8414)
@@ -336,10 +336,7 @@ impl Default for OAuth2Metadata {
                 "client_secret_basic".to_string(),
                 "client_secret_post".to_string(),
             ],
-            code_challenge_methods_supported: vec![
-                "plain".to_string(),
-                "S256".to_string(),
-            ],
+            code_challenge_methods_supported: vec!["plain".to_string(), "S256".to_string()],
             subject_types_supported: vec!["public".to_string(), "pairwise".to_string()],
             id_token_signing_alg_values_supported: vec![
                 "RS256".to_string(),
@@ -375,7 +372,11 @@ pub trait OAuth2Service: Send + Sync {
     async fn get_client(&self, client_id: &str) -> Result<Option<OAuth2Client>>;
     async fn update_client(&self, client: OAuth2Client) -> Result<OAuth2Client>;
     async fn delete_client(&self, client_id: &str) -> Result<bool>;
-    async fn list_clients(&self, limit: Option<u64>, offset: Option<u64>) -> Result<Vec<OAuth2Client>>;
+    async fn list_clients(
+        &self,
+        limit: Option<u64>,
+        offset: Option<u64>,
+    ) -> Result<Vec<OAuth2Client>>;
 
     // Authorization codes
     async fn create_auth_code(&self, code: AuthorizationCode) -> Result<AuthorizationCode>;
@@ -396,9 +397,18 @@ pub trait OAuth2Service: Send + Sync {
     async fn revoke_refresh_token(&self, token: &str) -> Result<bool>;
 
     // Device authorization
-    async fn create_device_authorization(&self, auth: DeviceAuthorization) -> Result<DeviceAuthorization>;
-    async fn get_device_authorization_by_device_code(&self, device_code: &str) -> Result<Option<DeviceAuthorization>>;
-    async fn get_device_authorization_by_user_code(&self, user_code: &str) -> Result<Option<DeviceAuthorization>>;
+    async fn create_device_authorization(
+        &self,
+        auth: DeviceAuthorization,
+    ) -> Result<DeviceAuthorization>;
+    async fn get_device_authorization_by_device_code(
+        &self,
+        device_code: &str,
+    ) -> Result<Option<DeviceAuthorization>>;
+    async fn get_device_authorization_by_user_code(
+        &self,
+        user_code: &str,
+    ) -> Result<Option<DeviceAuthorization>>;
     async fn authorize_device(&self, user_code: &str, user_id: &str) -> Result<bool>;
     async fn cleanup_expired_device_authorizations(&self) -> Result<u64>;
 
@@ -418,7 +428,7 @@ pub struct OAuth2Config {
     pub issuer: String,
     pub base_url: String,
     pub authorization_code_lifetime: u64,    // seconds
-    pub access_token_lifetime: u64,          // seconds  
+    pub access_token_lifetime: u64,          // seconds
     pub refresh_token_lifetime: Option<u64>, // seconds, None = never expires
     pub device_code_lifetime: u64,           // seconds
     pub device_code_interval: u32,           // polling interval
@@ -429,8 +439,8 @@ pub struct OAuth2Config {
     pub enable_device_flow: bool,
     pub enable_client_credentials: bool,
     pub enable_refresh_tokens: bool,
-    pub jwt_signing_algorithm: String,       // RS256, ES256, HS256
-    pub jwt_signing_key: Option<String>,     // for HMAC algorithms
+    pub jwt_signing_algorithm: String,   // RS256, ES256, HS256
+    pub jwt_signing_key: Option<String>, // for HMAC algorithms
 }
 
 impl Default for OAuth2Config {
@@ -438,11 +448,11 @@ impl Default for OAuth2Config {
         Self {
             issuer: "https://auth.example.com".to_string(),
             base_url: "https://auth.example.com".to_string(),
-            authorization_code_lifetime: 600,       // 10 minutes
-            access_token_lifetime: 3600,            // 1 hour
-            refresh_token_lifetime: Some(604800),   // 7 days
-            device_code_lifetime: 600,              // 10 minutes
-            device_code_interval: 5,                // 5 seconds
+            authorization_code_lifetime: 600,     // 10 minutes
+            access_token_lifetime: 3600,          // 1 hour
+            refresh_token_lifetime: Some(604800), // 7 days
+            device_code_lifetime: 600,            // 10 minutes
+            device_code_interval: 5,              // 5 seconds
             require_pkce: true,
             enforce_redirect_uri: true,
             supported_scopes: vec![

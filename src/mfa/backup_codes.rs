@@ -16,8 +16,8 @@ pub struct BackupCodeConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BackupCodeFormat {
-    Numeric,       // 12345678
-    Alphanumeric,  // AB12CD34
+    Numeric,      // 12345678
+    Alphanumeric, // AB12CD34
     Hex,          // A1B2C3D4
 }
 
@@ -44,14 +44,14 @@ impl Default for BackupCodeConfig {
 pub fn generate_backup_codes(count: usize, length: usize) -> Vec<String> {
     let mut codes = Vec::with_capacity(count);
     let mut used_codes = HashSet::new();
-    
+
     while codes.len() < count {
         let code = generate_single_code(length, &BackupCodeFormat::Alphanumeric);
         if used_codes.insert(code.clone()) {
             codes.push(code);
         }
     }
-    
+
     codes
 }
 
@@ -59,7 +59,7 @@ pub fn generate_backup_codes(count: usize, length: usize) -> Vec<String> {
 pub fn generate_backup_codes_with_config(config: &BackupCodeConfig) -> Vec<BackupCode> {
     let mut codes = Vec::with_capacity(config.count);
     let mut used_codes = HashSet::new();
-    
+
     while codes.len() < config.count {
         let code = generate_single_code(config.length, &config.format);
         if used_codes.insert(code.clone()) {
@@ -72,20 +72,18 @@ pub fn generate_backup_codes_with_config(config: &BackupCodeConfig) -> Vec<Backu
             });
         }
     }
-    
+
     codes
 }
 
 /// Generate a single backup code
 fn generate_single_code(length: usize, format: &BackupCodeFormat) -> String {
     let mut rng = rand::thread_rng();
-    
+
     match format {
-        BackupCodeFormat::Numeric => {
-            (0..length)
-                .map(|_| rng.gen_range(0..10).to_string())
-                .collect()
-        }
+        BackupCodeFormat::Numeric => (0..length)
+            .map(|_| rng.gen_range(0..10).to_string())
+            .collect(),
         BackupCodeFormat::Alphanumeric => {
             const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
             (0..length)
@@ -144,14 +142,14 @@ pub fn format_backup_codes_for_display(codes: &[String]) -> Vec<String> {
 /// Validate backup code format
 pub fn validate_backup_code_format(code: &str, config: &BackupCodeConfig) -> Result<()> {
     let cleaned_code = code.replace(['-', ' '], "");
-    
+
     if cleaned_code.len() != config.length {
         return Err(anyhow::anyhow!(
             "Backup code must be {} characters long",
             config.length
         ));
     }
-    
+
     match config.format {
         BackupCodeFormat::Numeric => {
             if !cleaned_code.chars().all(|c| c.is_ascii_digit()) {
@@ -160,16 +158,20 @@ pub fn validate_backup_code_format(code: &str, config: &BackupCodeConfig) -> Res
         }
         BackupCodeFormat::Alphanumeric => {
             if !cleaned_code.chars().all(|c| c.is_ascii_alphanumeric()) {
-                return Err(anyhow::anyhow!("Backup code must contain only letters and numbers"));
+                return Err(anyhow::anyhow!(
+                    "Backup code must contain only letters and numbers"
+                ));
             }
         }
         BackupCodeFormat::Hex => {
             if !cleaned_code.chars().all(|c| c.is_ascii_hexdigit()) {
-                return Err(anyhow::anyhow!("Backup code must contain only hexadecimal characters"));
+                return Err(anyhow::anyhow!(
+                    "Backup code must contain only hexadecimal characters"
+                ));
             }
         }
     }
-    
+
     Ok(())
 }
 
@@ -186,11 +188,11 @@ mod tests {
     fn test_backup_code_generation() {
         let codes = generate_backup_codes(8, 8);
         assert_eq!(codes.len(), 8);
-        
+
         // All codes should be unique
         let unique_codes: HashSet<_> = codes.iter().collect();
         assert_eq!(unique_codes.len(), 8);
-        
+
         // All codes should be 8 characters
         for code in &codes {
             assert_eq!(code.len(), 8);
@@ -204,10 +206,10 @@ mod tests {
             length: 12,
             format: BackupCodeFormat::Numeric,
         };
-        
+
         let codes = generate_backup_codes_with_config(&config);
         assert_eq!(codes.len(), 10);
-        
+
         for backup_code in &codes {
             assert_eq!(backup_code.code.len(), 12);
             assert!(backup_code.code.chars().all(|c| c.is_ascii_digit()));
@@ -220,7 +222,7 @@ mod tests {
     fn test_backup_code_hashing_and_verification() {
         let code = "ABC12345";
         let hash = hash_backup_code(code);
-        
+
         assert!(verify_backup_code(code, &hash));
         assert!(!verify_backup_code("wrong", &hash));
     }
@@ -229,7 +231,7 @@ mod tests {
     fn test_backup_code_formatting() {
         let codes = vec!["ABC12345".to_string(), "XYZ98765".to_string()];
         let formatted = format_backup_codes_for_display(&codes);
-        
+
         assert_eq!(formatted[0], "ABC1-2345");
         assert_eq!(formatted[1], "XYZ9-8765");
     }
@@ -237,11 +239,11 @@ mod tests {
     #[test]
     fn test_backup_code_validation() {
         let config = BackupCodeConfig::default();
-        
+
         assert!(validate_backup_code_format("ABC12345", &config).is_ok());
         assert!(validate_backup_code_format("ABC1-2345", &config).is_ok());
         assert!(validate_backup_code_format("ABC1 2345", &config).is_ok());
-        
+
         assert!(validate_backup_code_format("ABC123", &config).is_err()); // Too short
         assert!(validate_backup_code_format("ABC12345XYZ", &config).is_err()); // Too long
     }

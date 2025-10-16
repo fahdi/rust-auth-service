@@ -1,6 +1,8 @@
 use anyhow::{anyhow, Result};
 use chrono::{Duration, Utc};
-use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, TokenData, Validation};
+use jsonwebtoken::{
+    decode, encode, Algorithm, DecodingKey, EncodingKey, Header, TokenData, Validation,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -10,53 +12,53 @@ use super::{AccessToken, OAuth2Config, RefreshToken};
 /// JWT claims for OAuth2 access tokens
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AccessTokenClaims {
-    pub sub: String,                    // User ID
-    pub aud: Vec<String>,               // Audience (client IDs)
-    pub iss: String,                    // Issuer
-    pub exp: i64,                       // Expiration time
-    pub iat: i64,                       // Issued at
-    pub nbf: i64,                       // Not before
-    pub jti: String,                    // JWT ID (token ID)
-    pub scope: String,                  // Space-separated scopes
-    pub client_id: String,              // OAuth2 client ID
-    pub token_type: String,             // "access_token"
-    pub azp: Option<String>,            // Authorized party
-    pub auth_time: Option<i64>,         // Authentication time
-    pub acr: Option<String>,            // Authentication context class reference
-    pub amr: Option<Vec<String>>,       // Authentication methods references
-    pub sid: Option<String>,            // Session ID
+    pub sub: String,              // User ID
+    pub aud: Vec<String>,         // Audience (client IDs)
+    pub iss: String,              // Issuer
+    pub exp: i64,                 // Expiration time
+    pub iat: i64,                 // Issued at
+    pub nbf: i64,                 // Not before
+    pub jti: String,              // JWT ID (token ID)
+    pub scope: String,            // Space-separated scopes
+    pub client_id: String,        // OAuth2 client ID
+    pub token_type: String,       // "access_token"
+    pub azp: Option<String>,      // Authorized party
+    pub auth_time: Option<i64>,   // Authentication time
+    pub acr: Option<String>,      // Authentication context class reference
+    pub amr: Option<Vec<String>>, // Authentication methods references
+    pub sid: Option<String>,      // Session ID
 }
 
 /// JWT claims for OAuth2 refresh tokens
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RefreshTokenClaims {
-    pub sub: String,                    // User ID
-    pub aud: Vec<String>,               // Audience (client IDs)
-    pub iss: String,                    // Issuer
-    pub exp: Option<i64>,               // Expiration time (None = never expires)
-    pub iat: i64,                       // Issued at
-    pub nbf: i64,                       // Not before
-    pub jti: String,                    // JWT ID (token ID)
-    pub scope: String,                  // Space-separated scopes
-    pub client_id: String,              // OAuth2 client ID
-    pub token_type: String,             // "refresh_token"
-    pub access_token_id: String,        // Associated access token ID
+    pub sub: String,             // User ID
+    pub aud: Vec<String>,        // Audience (client IDs)
+    pub iss: String,             // Issuer
+    pub exp: Option<i64>,        // Expiration time (None = never expires)
+    pub iat: i64,                // Issued at
+    pub nbf: i64,                // Not before
+    pub jti: String,             // JWT ID (token ID)
+    pub scope: String,           // Space-separated scopes
+    pub client_id: String,       // OAuth2 client ID
+    pub token_type: String,      // "refresh_token"
+    pub access_token_id: String, // Associated access token ID
 }
 
 /// ID token claims for OpenID Connect
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IdTokenClaims {
-    pub sub: String,                    // User ID
-    pub aud: Vec<String>,               // Audience (client IDs)
-    pub iss: String,                    // Issuer
-    pub exp: i64,                       // Expiration time
-    pub iat: i64,                       // Issued at
-    pub auth_time: i64,                 // Authentication time
-    pub nonce: Option<String>,          // Nonce from authorization request
-    pub azp: Option<String>,            // Authorized party
-    pub at_hash: Option<String>,        // Access token hash
-    pub c_hash: Option<String>,         // Code hash
-    
+    pub sub: String,             // User ID
+    pub aud: Vec<String>,        // Audience (client IDs)
+    pub iss: String,             // Issuer
+    pub exp: i64,                // Expiration time
+    pub iat: i64,                // Issued at
+    pub auth_time: i64,          // Authentication time
+    pub nonce: Option<String>,   // Nonce from authorization request
+    pub azp: Option<String>,     // Authorized party
+    pub at_hash: Option<String>, // Access token hash
+    pub c_hash: Option<String>,  // Code hash
+
     // Standard claims
     pub name: Option<String>,
     pub given_name: Option<String>,
@@ -90,7 +92,11 @@ pub struct TokenManager {
 
 impl TokenManager {
     /// Create new token manager with configuration
-    pub fn new(config: OAuth2Config, private_key: &[u8], public_key: Option<&[u8]>) -> Result<Self> {
+    pub fn new(
+        config: OAuth2Config,
+        private_key: &[u8],
+        public_key: Option<&[u8]>,
+    ) -> Result<Self> {
         let algorithm = match config.jwt_signing_algorithm.as_str() {
             "HS256" => Algorithm::HS256,
             "HS384" => Algorithm::HS384,
@@ -100,7 +106,12 @@ impl TokenManager {
             "RS512" => Algorithm::RS512,
             "ES256" => Algorithm::ES256,
             "ES384" => Algorithm::ES384,
-            _ => return Err(anyhow!("Unsupported JWT algorithm: {}", config.jwt_signing_algorithm)),
+            _ => {
+                return Err(anyhow!(
+                    "Unsupported JWT algorithm: {}",
+                    config.jwt_signing_algorithm
+                ))
+            }
         };
 
         let encoding_key = match algorithm {
@@ -110,9 +121,7 @@ impl TokenManager {
             Algorithm::RS256 | Algorithm::RS384 | Algorithm::RS512 => {
                 EncodingKey::from_rsa_pem(private_key)?
             }
-            Algorithm::ES256 | Algorithm::ES384 => {
-                EncodingKey::from_ec_pem(private_key)?
-            }
+            Algorithm::ES256 | Algorithm::ES384 => EncodingKey::from_ec_pem(private_key)?,
             _ => return Err(anyhow!("Unsupported algorithm for encoding key")),
         };
 
@@ -198,7 +207,9 @@ impl TokenManager {
         audience: Option<Vec<String>>,
     ) -> Result<(String, RefreshToken)> {
         let now = Utc::now();
-        let expires_at = self.config.refresh_token_lifetime
+        let expires_at = self
+            .config
+            .refresh_token_lifetime
             .map(|lifetime| now + Duration::seconds(lifetime as i64));
         let token_id = Uuid::new_v4().to_string();
 
@@ -303,13 +314,16 @@ impl TokenManager {
             if let Some(email) = user_data.get("email").and_then(|v| v.as_str()) {
                 claims.email = Some(email.to_string());
             }
-            if let Some(email_verified) = user_data.get("email_verified").and_then(|v| v.as_bool()) {
+            if let Some(email_verified) = user_data.get("email_verified").and_then(|v| v.as_bool())
+            {
                 claims.email_verified = Some(email_verified);
             }
             if let Some(picture) = user_data.get("picture").and_then(|v| v.as_str()) {
                 claims.picture = Some(picture.to_string());
             }
-            if let Some(preferred_username) = user_data.get("preferred_username").and_then(|v| v.as_str()) {
+            if let Some(preferred_username) =
+                user_data.get("preferred_username").and_then(|v| v.as_str())
+            {
                 claims.preferred_username = Some(preferred_username.to_string());
             }
         }
@@ -370,12 +384,15 @@ impl TokenManager {
     /// Generate hash for ID token (at_hash, c_hash)
     fn generate_hash(&self, input: &str) -> Result<String> {
         use sha2::{Digest, Sha256};
-        
+
         let hash = Sha256::digest(input.as_bytes());
         let half_length = hash.len() / 2;
         let truncated = &hash[..half_length];
-        
-        Ok(base64::Engine::encode(&base64::engine::general_purpose::URL_SAFE_NO_PAD, truncated))
+
+        Ok(base64::Engine::encode(
+            &base64::engine::general_purpose::URL_SAFE_NO_PAD,
+            truncated,
+        ))
     }
 
     /// Get JWT header for key discovery
@@ -430,7 +447,11 @@ impl TokenIntrospector {
     /// Extract scopes from token
     pub fn extract_scopes(&self, token: &str) -> Result<Vec<String>> {
         let claims = self.introspect_access_token(token)?;
-        Ok(claims.scope.split_whitespace().map(|s| s.to_string()).collect())
+        Ok(claims
+            .scope
+            .split_whitespace()
+            .map(|s| s.to_string())
+            .collect())
     }
 
     /// Check if token has specific scope
@@ -475,15 +496,17 @@ mod tests {
     #[test]
     fn test_generate_access_token() {
         let token_manager = create_test_token_manager();
-        
-        let (token, access_token) = token_manager.generate_access_token(
-            "user123",
-            "client456",
-            &["read".to_string(), "write".to_string()],
-            None,
-            None,
-            None,
-        ).unwrap();
+
+        let (token, access_token) = token_manager
+            .generate_access_token(
+                "user123",
+                "client456",
+                &["read".to_string(), "write".to_string()],
+                None,
+                None,
+                None,
+            )
+            .unwrap();
 
         assert!(!token.is_empty());
         assert_eq!(access_token.client_id, "client456");
@@ -495,18 +518,20 @@ mod tests {
     #[test]
     fn test_validate_access_token() {
         let token_manager = create_test_token_manager();
-        
-        let (token, _) = token_manager.generate_access_token(
-            "user123",
-            "client456",
-            &["read".to_string()],
-            None,
-            None,
-            None,
-        ).unwrap();
+
+        let (token, _) = token_manager
+            .generate_access_token(
+                "user123",
+                "client456",
+                &["read".to_string()],
+                None,
+                None,
+                None,
+            )
+            .unwrap();
 
         let token_data = token_manager.validate_access_token(&token).unwrap();
-        
+
         assert_eq!(token_data.claims.sub, "user123");
         assert_eq!(token_data.claims.client_id, "client456");
         assert_eq!(token_data.claims.scope, "read");
@@ -515,14 +540,16 @@ mod tests {
     #[test]
     fn test_generate_refresh_token() {
         let token_manager = create_test_token_manager();
-        
-        let (token, refresh_token) = token_manager.generate_refresh_token(
-            "access123",
-            "user123",
-            "client456",
-            &["read".to_string()],
-            None,
-        ).unwrap();
+
+        let (token, refresh_token) = token_manager
+            .generate_refresh_token(
+                "access123",
+                "user123",
+                "client456",
+                &["read".to_string()],
+                None,
+            )
+            .unwrap();
 
         assert!(!token.is_empty());
         assert_eq!(refresh_token.access_token, "access123");
@@ -533,27 +560,38 @@ mod tests {
     #[test]
     fn test_generate_id_token() {
         let token_manager = create_test_token_manager();
-        
-        let mut user_claims = HashMap::new();
-        user_claims.insert("email".to_string(), serde_json::Value::String("user@example.com".to_string()));
-        user_claims.insert("name".to_string(), serde_json::Value::String("Test User".to_string()));
 
-        let token = token_manager.generate_id_token(
-            "user123",
-            "client456",
-            Utc::now().timestamp(),
-            Some("nonce123".to_string()),
-            None,
-            None,
-            Some(user_claims),
-        ).unwrap();
+        let mut user_claims = HashMap::new();
+        user_claims.insert(
+            "email".to_string(),
+            serde_json::Value::String("user@example.com".to_string()),
+        );
+        user_claims.insert(
+            "name".to_string(),
+            serde_json::Value::String("Test User".to_string()),
+        );
+
+        let token = token_manager
+            .generate_id_token(
+                "user123",
+                "client456",
+                Utc::now().timestamp(),
+                Some("nonce123".to_string()),
+                None,
+                None,
+                Some(user_claims),
+            )
+            .unwrap();
 
         assert!(!token.is_empty());
-        
+
         let token_data = token_manager.validate_id_token(&token).unwrap();
         assert_eq!(token_data.claims.sub, "user123");
         assert_eq!(token_data.claims.nonce, Some("nonce123".to_string()));
-        assert_eq!(token_data.claims.email, Some("user@example.com".to_string()));
+        assert_eq!(
+            token_data.claims.email,
+            Some("user@example.com".to_string())
+        );
         assert_eq!(token_data.claims.name, Some("Test User".to_string()));
     }
 
@@ -571,16 +609,18 @@ mod tests {
     fn test_token_introspection() {
         let token_manager = create_test_token_manager();
         let introspector = TokenIntrospector::new(token_manager);
-        
+
         let token_manager = create_test_token_manager();
-        let (token, _) = token_manager.generate_access_token(
-            "user123",
-            "client456",
-            &["read".to_string(), "write".to_string()],
-            None,
-            None,
-            None,
-        ).unwrap();
+        let (token, _) = token_manager
+            .generate_access_token(
+                "user123",
+                "client456",
+                &["read".to_string(), "write".to_string()],
+                None,
+                None,
+                None,
+            )
+            .unwrap();
 
         let scopes = introspector.extract_scopes(&token).unwrap();
         assert_eq!(scopes, vec!["read", "write"]);
@@ -588,8 +628,14 @@ mod tests {
         assert!(introspector.has_scope(&token, "read").unwrap());
         assert!(!introspector.has_scope(&token, "admin").unwrap());
 
-        assert!(introspector.has_any_scope(&token, &["read".to_string(), "admin".to_string()]).unwrap());
-        assert!(introspector.has_all_scopes(&token, &["read".to_string(), "write".to_string()]).unwrap());
-        assert!(!introspector.has_all_scopes(&token, &["read".to_string(), "admin".to_string()]).unwrap());
+        assert!(introspector
+            .has_any_scope(&token, &["read".to_string(), "admin".to_string()])
+            .unwrap());
+        assert!(introspector
+            .has_all_scopes(&token, &["read".to_string(), "write".to_string()])
+            .unwrap());
+        assert!(!introspector
+            .has_all_scopes(&token, &["read".to_string(), "admin".to_string()])
+            .unwrap());
     }
 }

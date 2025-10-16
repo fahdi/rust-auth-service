@@ -63,9 +63,12 @@ impl WebAuthnProvider {
     }
 
     /// Start WebAuthn registration ceremony
-    pub fn start_registration(&self, request: &WebAuthnRegistrationRequest) -> Result<WebAuthnRegistrationResponse> {
+    pub fn start_registration(
+        &self,
+        request: &WebAuthnRegistrationRequest,
+    ) -> Result<WebAuthnRegistrationResponse> {
         let challenge = self.generate_challenge();
-        
+
         // Store challenge for verification
         {
             let mut challenges = self.challenges.lock().unwrap();
@@ -90,7 +93,7 @@ impl WebAuthnProvider {
                     "alg": -7  // ES256
                 },
                 {
-                    "type": "public-key", 
+                    "type": "public-key",
                     "alg": -257 // RS256
                 }
             ],
@@ -107,15 +110,19 @@ impl WebAuthnProvider {
     }
 
     /// Finish WebAuthn registration ceremony
-    pub fn finish_registration(&self, user_id: &str, response: &Value) -> Result<WebAuthnCredential> {
+    pub fn finish_registration(
+        &self,
+        user_id: &str,
+        response: &Value,
+    ) -> Result<WebAuthnCredential> {
         // Verify challenge
         let stored_challenge = {
             let mut challenges = self.challenges.lock().unwrap();
             challenges.remove(user_id)
         };
 
-        let _challenge = stored_challenge
-            .ok_or_else(|| anyhow::anyhow!("No challenge found for user"))?;
+        let _challenge =
+            stored_challenge.ok_or_else(|| anyhow::anyhow!("No challenge found for user"))?;
 
         // TODO: Implement actual WebAuthn verification
         // For now, create a mock credential
@@ -126,7 +133,8 @@ impl WebAuthnProvider {
             counter: 0,
             created_at: chrono::Utc::now(),
             last_used: None,
-            nickname: response.get("nickname")
+            nickname: response
+                .get("nickname")
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string()),
         };
@@ -136,9 +144,12 @@ impl WebAuthnProvider {
     }
 
     /// Start WebAuthn authentication ceremony
-    pub fn start_authentication(&self, request: &WebAuthnAuthenticationRequest) -> Result<WebAuthnAuthenticationResponse> {
+    pub fn start_authentication(
+        &self,
+        request: &WebAuthnAuthenticationRequest,
+    ) -> Result<WebAuthnAuthenticationResponse> {
         let challenge = self.generate_challenge();
-        
+
         // Store challenge for verification
         {
             let mut challenges = self.challenges.lock().unwrap();
@@ -165,12 +176,12 @@ impl WebAuthnProvider {
             challenges.remove(user_id)
         };
 
-        let _challenge = stored_challenge
-            .ok_or_else(|| anyhow::anyhow!("No challenge found for user"))?;
+        let _challenge =
+            stored_challenge.ok_or_else(|| anyhow::anyhow!("No challenge found for user"))?;
 
         // TODO: Implement actual WebAuthn verification
         // For now, return success if response contains required fields
-        let has_required_fields = response.get("id").is_some() 
+        let has_required_fields = response.get("id").is_some()
             && response.get("type").is_some()
             && response.get("rawId").is_some()
             && response.get("response").is_some();
@@ -196,15 +207,15 @@ impl WebAuthnProvider {
         if credential.id.is_empty() {
             return Err(anyhow::anyhow!("Credential ID cannot be empty"));
         }
-        
+
         if credential.user_id.is_empty() {
             return Err(anyhow::anyhow!("User ID cannot be empty"));
         }
-        
+
         if credential.public_key.is_empty() {
             return Err(anyhow::anyhow!("Public key cannot be empty"));
         }
-        
+
         Ok(())
     }
 
@@ -251,7 +262,9 @@ mod tests {
             }
         });
 
-        let credential = provider.finish_registration(&request.user_id, &credential_response).unwrap();
+        let credential = provider
+            .finish_registration(&request.user_id, &credential_response)
+            .unwrap();
         assert_eq!(credential.user_id, request.user_id);
         assert!(!credential.id.is_empty());
     }
@@ -279,14 +292,16 @@ mod tests {
             }
         });
 
-        let result = provider.finish_authentication(&request.user_id, &auth_credential).unwrap();
+        let result = provider
+            .finish_authentication(&request.user_id, &auth_credential)
+            .unwrap();
         assert!(result);
     }
 
     #[test]
     fn test_credential_validation() {
         let provider = create_test_provider();
-        
+
         let valid_credential = WebAuthnCredential {
             id: "cred_123".to_string(),
             user_id: "user_123".to_string(),

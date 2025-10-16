@@ -1,26 +1,26 @@
-use std::time::{Duration, Instant};
-use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
-use uuid::Uuid;
-use tokio::time::sleep;
+use futures::future::join_all;
 use reqwest::Client;
 use serde_json::{json, Value};
-use futures::future::join_all;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+use tokio::time::sleep;
+use uuid::Uuid;
 
-use rust_auth_service::config::{database::DatabaseConfig, cache::CacheConfig};
-use rust_auth_service::database::{AuthDatabase, create_database};
-use rust_auth_service::cache::{CacheService, create_cache_provider};
-use rust_auth_service::models::user::{User, UserRole, UserMetadata};
+use rust_auth_service::cache::{create_cache_provider, CacheService};
+use rust_auth_service::config::{cache::CacheConfig, database::DatabaseConfig};
+use rust_auth_service::database::{create_database, AuthDatabase};
+use rust_auth_service::models::user::{User, UserMetadata, UserRole};
 
 /// Performance and Load Testing Suite
-/// 
+///
 /// This test suite measures performance characteristics of:
 /// - Database operations (CRUD, authentication flows)
 /// - Cache operations (set, get, multi-level performance)
 /// - Authentication service load testing (concurrent users, RPS)
 /// - Memory usage and resource consumption
 /// - Response time distribution and percentiles
-/// 
+///
 /// Run with: cargo test --test performance_load_testing -- --include-ignored
 
 const SERVICE_URL: &str = "http://localhost:8090";
@@ -63,14 +63,14 @@ impl PerformanceMetrics {
         }
 
         durations.sort();
-        
+
         self.total_operations = durations.len() as u64;
         self.total_duration_ms = durations.iter().sum();
         self.min_duration_ms = *durations.first().unwrap();
         self.max_duration_ms = *durations.last().unwrap();
         self.avg_duration_ms = self.total_duration_ms as f64 / self.total_operations as f64;
         self.operations_per_second = self.total_operations as f64 / total_duration.as_secs_f64();
-        
+
         // Calculate percentiles
         let len = durations.len();
         self.p50_duration_ms = durations[len * 50 / 100];
@@ -85,16 +85,26 @@ impl PerformanceMetrics {
         println!("   Failed: {}", self.failed_operations);
         println!("   Operations/sec: {:.2}", self.operations_per_second);
         println!("   Average: {:.2}ms", self.avg_duration_ms);
-        println!("   Min: {}ms, Max: {}ms", self.min_duration_ms, self.max_duration_ms);
-        println!("   P50: {}ms, P95: {}ms, P99: {}ms", 
-                self.p50_duration_ms, self.p95_duration_ms, self.p99_duration_ms);
+        println!(
+            "   Min: {}ms, Max: {}ms",
+            self.min_duration_ms, self.max_duration_ms
+        );
+        println!(
+            "   P50: {}ms, P95: {}ms, P99: {}ms",
+            self.p50_duration_ms, self.p95_duration_ms, self.p99_duration_ms
+        );
     }
 }
 
 /// Generate unique test user for performance testing
 fn generate_perf_test_user(prefix: &str, index: usize) -> User {
-    let email = format!("{}+{}+{}@example.com", prefix, index, Uuid::new_v4().to_string()[..8].to_string());
-    
+    let email = format!(
+        "{}+{}+{}@example.com",
+        prefix,
+        index,
+        Uuid::new_v4().to_string()[..8].to_string()
+    );
+
     User {
         id: None,
         user_id: Uuid::new_v4().to_string(),
@@ -138,7 +148,7 @@ async fn create_performance_test_databases() -> Vec<(String, Box<dyn AuthDatabas
                 url: mongo_url,
                 pool: Default::default(),
             };
-            
+
             if let Ok(adapter) = create_database(&config).await {
                 databases.push(("mongodb".to_string(), adapter));
                 println!("✅ MongoDB performance test database ready");
@@ -155,7 +165,7 @@ async fn create_performance_test_databases() -> Vec<(String, Box<dyn AuthDatabas
                 url: pg_url,
                 pool: Default::default(),
             };
-            
+
             if let Ok(adapter) = create_database(&config).await {
                 databases.push(("postgresql".to_string(), adapter));
                 println!("✅ PostgreSQL performance test database ready");
@@ -172,7 +182,7 @@ async fn create_performance_test_databases() -> Vec<(String, Box<dyn AuthDatabas
                 url: mysql_url,
                 pool: Default::default(),
             };
-            
+
             if let Ok(adapter) = create_database(&config).await {
                 databases.push(("mysql".to_string(), adapter));
                 println!("✅ MySQL performance test database ready");
@@ -199,7 +209,7 @@ async fn test_database_operation_performance() {
 
         for i in 0..OPERATIONS_COUNT {
             let user = generate_perf_test_user(&format!("create_perf_{}", db_type), i);
-            
+
             let op_start = Instant::now();
             match db.create_user(user).await {
                 Ok(_) => create_durations.push(op_start.elapsed().as_millis() as u64),
@@ -211,17 +221,23 @@ async fn test_database_operation_performance() {
         let mut create_metrics = PerformanceMetrics::new();
         create_metrics.calculate_from_durations(&mut create_durations, create_total);
         create_metrics.successful_operations = create_durations.len() as u64;
-        create_metrics.failed_operations = OPERATIONS_COUNT as u64 - create_metrics.successful_operations;
+        create_metrics.failed_operations =
+            OPERATIONS_COUNT as u64 - create_metrics.successful_operations;
         create_metrics.print_summary(&format!("{} User Creation", db_type));
 
         // Test user lookup performance using created users
         let mut lookup_durations = Vec::new();
         let lookup_start = Instant::now();
 
-        for i in 0..std::cmp::min(OPERATIONS_COUNT, 50) { // Lookup subset to avoid overwhelming
-            let email = format!("create_perf_{}+{}+{}@example.com", 
-                              db_type, i, Uuid::new_v4().to_string()[..8].to_string());
-            
+        for i in 0..std::cmp::min(OPERATIONS_COUNT, 50) {
+            // Lookup subset to avoid overwhelming
+            let email = format!(
+                "create_perf_{}+{}+{}@example.com",
+                db_type,
+                i,
+                Uuid::new_v4().to_string()[..8].to_string()
+            );
+
             let op_start = Instant::now();
             match db.find_user_by_email(&email).await {
                 Ok(_) => lookup_durations.push(op_start.elapsed().as_millis() as u64),
@@ -237,12 +253,21 @@ async fn test_database_operation_performance() {
         lookup_metrics.print_summary(&format!("{} User Lookup", db_type));
 
         // Performance thresholds (lenient for CI environments)
-        assert!(create_metrics.operations_per_second > 5.0, 
-               "{} create performance should be > 5 ops/sec", db_type);
-        assert!(lookup_metrics.operations_per_second > 20.0, 
-               "{} lookup performance should be > 20 ops/sec", db_type);
-        assert!(create_metrics.p95_duration_ms < 2000, 
-               "{} create P95 should be < 2000ms", db_type);
+        assert!(
+            create_metrics.operations_per_second > 5.0,
+            "{} create performance should be > 5 ops/sec",
+            db_type
+        );
+        assert!(
+            lookup_metrics.operations_per_second > 20.0,
+            "{} lookup performance should be > 20 ops/sec",
+            db_type
+        );
+        assert!(
+            create_metrics.p95_duration_ms < 2000,
+            "{} create P95 should be < 2000ms",
+            db_type
+        );
 
         println!("✅ {} database performance test passed\n", db_type);
     }
@@ -253,18 +278,24 @@ async fn test_database_operation_performance() {
 #[ignore]
 async fn test_cache_operation_performance() {
     let cache_configs = vec![
-        ("memory", CacheConfig {
-            r#type: "memory".to_string(),
-            url: None,
-            ttl: 3600,
-            lru_size: 1000,
-        }),
-        ("redis", CacheConfig {
-            r#type: "redis".to_string(),
-            url: std::env::var("REDIS_TEST_URL").ok(),
-            ttl: 3600,
-            lru_size: 1000,
-        }),
+        (
+            "memory",
+            CacheConfig {
+                r#type: "memory".to_string(),
+                url: None,
+                ttl: 3600,
+                lru_size: 1000,
+            },
+        ),
+        (
+            "redis",
+            CacheConfig {
+                r#type: "redis".to_string(),
+                url: std::env::var("REDIS_TEST_URL").ok(),
+                ttl: 3600,
+                lru_size: 1000,
+            },
+        ),
     ];
 
     const CACHE_OPERATIONS: usize = 1000;
@@ -297,7 +328,7 @@ async fn test_cache_operation_performance() {
         for i in 0..CACHE_OPERATIONS {
             let key = format!("perf_test_{}_{}", cache_type, i);
             let value = format!("test_value_{}", i);
-            
+
             let op_start = Instant::now();
             match cache_service.set(&key, &value).await {
                 Ok(_) => set_durations.push(op_start.elapsed().as_millis() as u64),
@@ -317,7 +348,7 @@ async fn test_cache_operation_performance() {
 
         for i in 0..CACHE_OPERATIONS {
             let key = format!("perf_test_{}_{}", cache_type, i);
-            
+
             let op_start = Instant::now();
             match cache_service.get(&key).await {
                 Ok(_) => get_durations.push(op_start.elapsed().as_millis() as u64),
@@ -332,10 +363,16 @@ async fn test_cache_operation_performance() {
         get_metrics.print_summary(&format!("{} Cache Get", cache_type));
 
         // Performance thresholds
-        assert!(set_metrics.operations_per_second > 100.0, 
-               "{} cache set should be > 100 ops/sec", cache_type);
-        assert!(get_metrics.operations_per_second > 500.0, 
-               "{} cache get should be > 500 ops/sec", cache_type);
+        assert!(
+            set_metrics.operations_per_second > 100.0,
+            "{} cache set should be > 100 ops/sec",
+            cache_type
+        );
+        assert!(
+            get_metrics.operations_per_second > 500.0,
+            "{} cache get should be > 500 ops/sec",
+            cache_type
+        );
 
         println!("✅ {} cache performance test passed\n", cache_type);
     }
@@ -371,7 +408,9 @@ async fn wait_for_auth_service() -> Result<(), Box<dyn std::error::Error + Send 
 #[tokio::test]
 #[ignore]
 async fn test_authentication_service_load() {
-    wait_for_auth_service().await.expect("Service should be ready");
+    wait_for_auth_service()
+        .await
+        .expect("Service should be ready");
 
     const CONCURRENT_USERS: usize = 50;
     const REQUESTS_PER_USER: usize = 10;
@@ -379,7 +418,10 @@ async fn test_authentication_service_load() {
     println!("🚀 Starting authentication service load test");
     println!("   Concurrent Users: {}", CONCURRENT_USERS);
     println!("   Requests per User: {}", REQUESTS_PER_USER);
-    println!("   Total Requests: {}", CONCURRENT_USERS * REQUESTS_PER_USER);
+    println!(
+        "   Total Requests: {}",
+        CONCURRENT_USERS * REQUESTS_PER_USER
+    );
 
     let client = Arc::new(Client::new());
     let success_counter = Arc::new(AtomicU64::new(0));
@@ -426,7 +468,8 @@ async fn test_authentication_service_load() {
 
                     // Extract access token
                     if let Ok(result) = response.json::<Value>().await {
-                        result.get("access_token")
+                        result
+                            .get("access_token")
                             .and_then(|t| t.as_str())
                             .map(|s| s.to_string())
                     } else {
@@ -441,7 +484,8 @@ async fn test_authentication_service_load() {
 
             if let Some(token) = access_token {
                 // Perform multiple authenticated requests per user
-                for _ in 0..REQUESTS_PER_USER - 1 { // -1 because registration counts as one request
+                for _ in 0..REQUESTS_PER_USER - 1 {
+                    // -1 because registration counts as one request
                     let request_start = Instant::now();
                     let profile_response = client
                         .get(&format!("{}/auth/me", SERVICE_URL))
@@ -490,18 +534,32 @@ async fn test_authentication_service_load() {
 
     println!("📊 Load Test Results:");
     println!("   Total Requests: {}", total_requests);
-    println!("   Success Rate: {:.1}%", 
-             (successful_requests as f64 / total_requests as f64) * 100.0);
-    println!("   Test Duration: {:.2}s", total_test_duration.as_secs_f64());
-    println!("   Overall RPS: {:.2}", total_requests as f64 / total_test_duration.as_secs_f64());
+    println!(
+        "   Success Rate: {:.1}%",
+        (successful_requests as f64 / total_requests as f64) * 100.0
+    );
+    println!(
+        "   Test Duration: {:.2}s",
+        total_test_duration.as_secs_f64()
+    );
+    println!(
+        "   Overall RPS: {:.2}",
+        total_requests as f64 / total_test_duration.as_secs_f64()
+    );
 
     // Performance assertions
-    assert!(load_metrics.operations_per_second > 50.0, 
-           "Service should handle > 50 RPS under load");
-    assert!((successful_requests as f64 / total_requests as f64) > 0.95, 
-           "Success rate should be > 95%");
-    assert!(load_metrics.p95_duration_ms < 1000, 
-           "P95 response time should be < 1000ms");
+    assert!(
+        load_metrics.operations_per_second > 50.0,
+        "Service should handle > 50 RPS under load"
+    );
+    assert!(
+        (successful_requests as f64 / total_requests as f64) > 0.95,
+        "Success rate should be > 95%"
+    );
+    assert!(
+        load_metrics.p95_duration_ms < 1000,
+        "P95 response time should be < 1000ms"
+    );
 
     println!("✅ Authentication service load test passed");
 }
@@ -510,10 +568,15 @@ async fn test_authentication_service_load() {
 #[tokio::test]
 #[ignore]
 async fn test_concurrent_user_registration_performance() {
-    wait_for_auth_service().await.expect("Service should be ready");
+    wait_for_auth_service()
+        .await
+        .expect("Service should be ready");
 
     const CONCURRENT_REGISTRATIONS: usize = 100;
-    println!("🚀 Testing concurrent user registration performance ({} users)", CONCURRENT_REGISTRATIONS);
+    println!(
+        "🚀 Testing concurrent user registration performance ({} users)",
+        CONCURRENT_REGISTRATIONS
+    );
 
     let client = Arc::new(Client::new());
     let success_counter = Arc::new(AtomicU64::new(0));
@@ -568,14 +631,25 @@ async fn test_concurrent_user_registration_performance() {
     println!("   Total Registrations: {}", total);
     println!("   Successful: {}", successful);
     println!("   Failed: {}", failed);
-    println!("   Success Rate: {:.1}%", (successful as f64 / total as f64) * 100.0);
+    println!(
+        "   Success Rate: {:.1}%",
+        (successful as f64 / total as f64) * 100.0
+    );
     println!("   Duration: {:.2}s", test_duration.as_secs_f64());
-    println!("   Registration Rate: {:.2}/sec", total as f64 / test_duration.as_secs_f64());
+    println!(
+        "   Registration Rate: {:.2}/sec",
+        total as f64 / test_duration.as_secs_f64()
+    );
 
     // Performance assertions
-    assert!(successful >= total * 90 / 100, "At least 90% should succeed");
-    assert!(total as f64 / test_duration.as_secs_f64() > 10.0, 
-           "Should handle > 10 registrations/sec");
+    assert!(
+        successful >= total * 90 / 100,
+        "At least 90% should succeed"
+    );
+    assert!(
+        total as f64 / test_duration.as_secs_f64() > 10.0,
+        "Should handle > 10 registrations/sec"
+    );
 
     println!("✅ Concurrent registration performance test passed");
 }
@@ -588,7 +662,7 @@ async fn test_memory_and_resource_consumption() {
 
     // Memory usage test for database operations
     let databases = create_performance_test_databases().await;
-    
+
     if let Some((db_type, db)) = databases.first() {
         println!("🔍 Testing {} memory usage patterns", db_type);
 
@@ -620,10 +694,17 @@ async fn test_memory_and_resource_consumption() {
         println!("   Initial: {} MB", initial_memory);
         println!("   Final: {} MB", final_memory);
         println!("   Growth: {} MB", memory_growth);
-        println!("   Per Operation: {:.2} KB", memory_growth as f64 * 1024.0 / MEMORY_TEST_USERS as f64);
+        println!(
+            "   Per Operation: {:.2} KB",
+            memory_growth as f64 * 1024.0 / MEMORY_TEST_USERS as f64
+        );
 
         // Memory growth should be reasonable (< 100MB for 500 operations)
-        assert!(memory_growth < 100, "Memory growth should be < 100MB for {} operations", MEMORY_TEST_USERS);
+        assert!(
+            memory_growth < 100,
+            "Memory growth should be < 100MB for {} operations",
+            MEMORY_TEST_USERS
+        );
 
         println!("✅ Memory and resource consumption test passed");
     } else {
@@ -643,11 +724,13 @@ fn get_memory_usage() -> Option<u64> {
 #[tokio::test]
 #[ignore]
 async fn test_sustained_load_stress_test() {
-    wait_for_auth_service().await.expect("Service should be ready");
+    wait_for_auth_service()
+        .await
+        .expect("Service should be ready");
 
     const STRESS_DURATION_SECONDS: u64 = 30;
     const REQUESTS_PER_SECOND: usize = 20;
-    
+
     println!("🚀 Starting sustained load stress test");
     println!("   Duration: {}s", STRESS_DURATION_SECONDS);
     println!("   Target RPS: {}", REQUESTS_PER_SECOND);
@@ -671,10 +754,7 @@ async fn test_sustained_load_stress_test() {
             let error_counter = Arc::clone(&error_counter);
 
             let task = tokio::spawn(async move {
-                let response = client
-                    .get(&format!("{}/health", SERVICE_URL))
-                    .send()
-                    .await;
+                let response = client.get(&format!("{}/health", SERVICE_URL)).send().await;
 
                 match response {
                     Ok(resp) if resp.status().is_success() => {
@@ -698,11 +778,16 @@ async fn test_sustained_load_stress_test() {
             sleep(Duration::from_secs(1) - elapsed).await;
         }
 
-        let total_requests = success_counter.load(Ordering::Relaxed) + error_counter.load(Ordering::Relaxed);
+        let total_requests =
+            success_counter.load(Ordering::Relaxed) + error_counter.load(Ordering::Relaxed);
         let current_rps = total_requests as f64 / test_start.elapsed().as_secs_f64();
-        
-        print!("\r   Progress: {:.1}s, Requests: {}, Current RPS: {:.1}    ", 
-               test_start.elapsed().as_secs_f64(), total_requests, current_rps);
+
+        print!(
+            "\r   Progress: {:.1}s, Requests: {}, Current RPS: {:.1}    ",
+            test_start.elapsed().as_secs_f64(),
+            total_requests,
+            current_rps
+        );
         std::io::Write::flush(&mut std::io::stdout()).unwrap();
     }
 
@@ -718,13 +803,24 @@ async fn test_sustained_load_stress_test() {
     println!("   Total Requests: {}", total);
     println!("   Successful: {}", successful);
     println!("   Failed: {}", failed);
-    println!("   Success Rate: {:.1}%", (successful as f64 / total as f64) * 100.0);
-    println!("   Average RPS: {:.2}", total as f64 / test_duration.as_secs_f64());
+    println!(
+        "   Success Rate: {:.1}%",
+        (successful as f64 / total as f64) * 100.0
+    );
+    println!(
+        "   Average RPS: {:.2}",
+        total as f64 / test_duration.as_secs_f64()
+    );
 
     // Stress test assertions
-    assert!((successful as f64 / total as f64) > 0.98, "Success rate should be > 98% under sustained load");
-    assert!(total as f64 / test_duration.as_secs_f64() > REQUESTS_PER_SECOND as f64 * 0.8, 
-           "Should maintain > 80% of target RPS");
+    assert!(
+        (successful as f64 / total as f64) > 0.98,
+        "Success rate should be > 98% under sustained load"
+    );
+    assert!(
+        total as f64 / test_duration.as_secs_f64() > REQUESTS_PER_SECOND as f64 * 0.8,
+        "Should maintain > 80% of target RPS"
+    );
 
     println!("✅ Sustained load stress test passed");
 }
@@ -744,7 +840,7 @@ async fn test_performance_regression_baseline() {
     let databases = create_performance_test_databases().await;
     for (db_type, db) in databases {
         let user = generate_perf_test_user(&format!("baseline_{}", db_type), 0);
-        
+
         let start = Instant::now();
         match db.create_user(user).await {
             Ok(_) => {
@@ -768,7 +864,11 @@ async fn test_performance_regression_baseline() {
             let cache_service = CacheService::new(cache_provider, 3600);
 
             let start = Instant::now();
-            if cache_service.set("baseline_test", "baseline_value").await.is_ok() {
+            if cache_service
+                .set("baseline_test", "baseline_value")
+                .await
+                .is_ok()
+            {
                 let set_duration = start.elapsed().as_millis();
                 baseline_results.insert("redis_set_ms".to_string(), set_duration);
 
@@ -801,10 +901,14 @@ async fn test_performance_regression_baseline() {
     // Baseline assertions (these should be updated based on actual performance)
     for (metric, &value) in &baseline_results {
         match metric.as_str() {
-            s if s.contains("create_user") => assert!(value < 1000, "{} should be < 1000ms", metric),
+            s if s.contains("create_user") => {
+                assert!(value < 1000, "{} should be < 1000ms", metric)
+            }
             s if s.contains("redis_set") => assert!(value < 100, "{} should be < 100ms", metric),
             s if s.contains("redis_get") => assert!(value < 50, "{} should be < 50ms", metric),
-            s if s.contains("service_health") => assert!(value < 200, "{} should be < 200ms", metric),
+            s if s.contains("service_health") => {
+                assert!(value < 200, "{} should be < 200ms", metric)
+            }
             _ => {}
         }
     }

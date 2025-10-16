@@ -1,15 +1,15 @@
-use std::collections::HashMap;
-use std::sync::Arc;
 use anyhow::{anyhow, Result};
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use chrono::{DateTime, Duration, Utc};
 use rand::distributions::Alphanumeric;
 use sha2::Sha256;
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use std::collections::HashMap;
+use std::sync::Arc;
 use uuid::Uuid;
 
-use super::*;
-use super::tokens::TokenManager;
 use super::scopes::{self, utils::parse_scope_string};
+use super::tokens::TokenManager;
+use super::*;
 use crate::models::user::User;
 
 /// OAuth2 server implementation
@@ -22,7 +22,11 @@ pub struct OAuth2Server {
 
 impl OAuth2Server {
     /// Create new OAuth2 server
-    pub fn new(config: OAuth2Config, service: Arc<dyn OAuth2Service>, token_manager: TokenManager) -> Self {
+    pub fn new(
+        config: OAuth2Config,
+        service: Arc<dyn OAuth2Service>,
+        token_manager: TokenManager,
+    ) -> Self {
         let mut metadata = OAuth2Metadata::default();
         metadata.issuer = config.issuer.clone();
         metadata.authorization_endpoint = format!("{}/oauth2/authorize", config.base_url);
@@ -91,7 +95,10 @@ impl OAuth2Server {
         use crate::oauth2::flows::validate_redirect_uri;
 
         // Get and validate client
-        let client = self.service.get_client(client_id).await?
+        let client = self
+            .service
+            .get_client(client_id)
+            .await?
             .ok_or_else(|| anyhow::anyhow!("Invalid client_id"))?;
 
         if !client.is_active {
@@ -112,9 +119,10 @@ impl OAuth2Server {
         let default_scopes = self.config.default_scopes.join(" ");
         let requested_scopes = scope.unwrap_or(&default_scopes);
         let scopes = parse_scope_string(requested_scopes);
-        
+
         // Filter scopes to only include those allowed for the client
-        let validated_scopes: Vec<String> = scopes.into_iter()
+        let validated_scopes: Vec<String> = scopes
+            .into_iter()
             .filter(|scope| client.allowed_scopes.contains(scope))
             .collect();
 
@@ -127,7 +135,8 @@ impl OAuth2Server {
 
         // Generate authorization code
         let code = uuid::Uuid::new_v4().to_string();
-        let expires_at = chrono::Utc::now() + chrono::Duration::seconds(self.config.authorization_code_lifetime as i64);
+        let expires_at = chrono::Utc::now()
+            + chrono::Duration::seconds(self.config.authorization_code_lifetime as i64);
 
         let auth_code = AuthorizationCode {
             code: code.clone(),
@@ -158,29 +167,53 @@ impl OAuth2Server {
         match request.grant_type.as_str() {
             "authorization_code" => {
                 self.handle_authorization_code_grant(
-                    request.code.as_ref().ok_or_else(|| anyhow::anyhow!("Missing authorization code"))?,
-                    request.client_id.as_ref().ok_or_else(|| anyhow::anyhow!("Missing client_id"))?,
+                    request
+                        .code
+                        .as_ref()
+                        .ok_or_else(|| anyhow::anyhow!("Missing authorization code"))?,
+                    request
+                        .client_id
+                        .as_ref()
+                        .ok_or_else(|| anyhow::anyhow!("Missing client_id"))?,
                     request.client_secret.as_deref(),
-                    request.redirect_uri.as_ref().ok_or_else(|| anyhow::anyhow!("Missing redirect_uri"))?,
+                    request
+                        .redirect_uri
+                        .as_ref()
+                        .ok_or_else(|| anyhow::anyhow!("Missing redirect_uri"))?,
                     request.code_verifier.as_deref(),
-                ).await
+                )
+                .await
             }
             "client_credentials" => {
                 self.handle_client_credentials_grant(
-                    request.client_id.as_ref().ok_or_else(|| anyhow::anyhow!("Missing client_id"))?,
+                    request
+                        .client_id
+                        .as_ref()
+                        .ok_or_else(|| anyhow::anyhow!("Missing client_id"))?,
                     request.client_secret.as_deref(),
                     request.scope.as_deref(),
-                ).await
+                )
+                .await
             }
             "refresh_token" => {
                 self.handle_refresh_token_grant(
-                    request.refresh_token.as_ref().ok_or_else(|| anyhow::anyhow!("Missing refresh token"))?,
-                    request.client_id.as_ref().ok_or_else(|| anyhow::anyhow!("Missing client_id"))?,
+                    request
+                        .refresh_token
+                        .as_ref()
+                        .ok_or_else(|| anyhow::anyhow!("Missing refresh token"))?,
+                    request
+                        .client_id
+                        .as_ref()
+                        .ok_or_else(|| anyhow::anyhow!("Missing client_id"))?,
                     request.client_secret.as_deref(),
                     request.scope.as_deref(),
-                ).await
+                )
+                .await
             }
-            _ => Err(anyhow::anyhow!("Unsupported grant type: {}", request.grant_type))
+            _ => Err(anyhow::anyhow!(
+                "Unsupported grant type: {}",
+                request.grant_type
+            )),
         }
     }
 
@@ -196,7 +229,10 @@ impl OAuth2Server {
         use crate::oauth2::pkce::{verify_pkce, PKCEVerificationResult};
 
         // Get and validate authorization code
-        let auth_code = self.service.get_auth_code(code).await?
+        let auth_code = self
+            .service
+            .get_auth_code(code)
+            .await?
             .ok_or_else(|| anyhow::anyhow!("Invalid authorization code"))?;
 
         if auth_code.used {
@@ -216,13 +252,19 @@ impl OAuth2Server {
         }
 
         // Get and validate client
-        let client = self.service.get_client(client_id).await?
+        let client = self
+            .service
+            .get_client(client_id)
+            .await?
             .ok_or_else(|| anyhow::anyhow!("Invalid client"))?;
 
         // Authenticate client
         if !client.is_public {
-            let provided_secret = client_secret.ok_or_else(|| anyhow::anyhow!("Client secret required"))?;
-            let expected_secret = client.client_secret.as_ref()
+            let provided_secret =
+                client_secret.ok_or_else(|| anyhow::anyhow!("Client secret required"))?;
+            let expected_secret = client
+                .client_secret
+                .as_ref()
                 .ok_or_else(|| anyhow::anyhow!("Client secret not configured"))?;
 
             if provided_secret != expected_secret {
@@ -238,19 +280,23 @@ impl OAuth2Server {
         );
 
         match pkce_result {
-            PKCEVerificationResult::Valid => {},
-            PKCEVerificationResult::Invalid => return Err(anyhow::anyhow!("PKCE verification failed")),
-            PKCEVerificationResult::MethodMismatch => return Err(anyhow::anyhow!("PKCE method mismatch")),
+            PKCEVerificationResult::Valid => {}
+            PKCEVerificationResult::Invalid => {
+                return Err(anyhow::anyhow!("PKCE verification failed"))
+            }
+            PKCEVerificationResult::MethodMismatch => {
+                return Err(anyhow::anyhow!("PKCE method mismatch"))
+            }
             PKCEVerificationResult::MissingVerifier => {
                 if auth_code.code_challenge.is_some() {
                     return Err(anyhow::anyhow!("PKCE verifier required"));
                 }
-            },
+            }
             PKCEVerificationResult::MissingChallenge => {
                 if code_verifier.is_some() {
                     return Err(anyhow::anyhow!("PKCE not used in authorization"));
                 }
-            },
+            }
         }
 
         // Mark authorization code as used
@@ -267,7 +313,9 @@ impl OAuth2Server {
         )?;
 
         // Store access token
-        self.service.create_access_token(access_token_record).await?;
+        self.service
+            .create_access_token(access_token_record)
+            .await?;
 
         let mut response = TokenResponse {
             access_token,
@@ -288,7 +336,9 @@ impl OAuth2Server {
                 None,
             )?;
 
-            self.service.create_refresh_token(refresh_token_record).await?;
+            self.service
+                .create_refresh_token(refresh_token_record)
+                .await?;
             response.refresh_token = Some(refresh_token);
         }
 
@@ -322,17 +372,28 @@ impl OAuth2Server {
         }
 
         // Get and validate client
-        let client = self.service.get_client(client_id).await?
+        let client = self
+            .service
+            .get_client(client_id)
+            .await?
             .ok_or_else(|| anyhow::anyhow!("Invalid client"))?;
 
-        if !client.allowed_grant_types.contains(&GrantType::ClientCredentials) {
-            return Err(anyhow::anyhow!("Client credentials grant not allowed for this client"));
+        if !client
+            .allowed_grant_types
+            .contains(&GrantType::ClientCredentials)
+        {
+            return Err(anyhow::anyhow!(
+                "Client credentials grant not allowed for this client"
+            ));
         }
 
         // Authenticate client
         if !client.is_public {
-            let provided_secret = client_secret.ok_or_else(|| anyhow::anyhow!("Client secret required"))?;
-            let expected_secret = client.client_secret.as_ref()
+            let provided_secret =
+                client_secret.ok_or_else(|| anyhow::anyhow!("Client secret required"))?;
+            let expected_secret = client
+                .client_secret
+                .as_ref()
                 .ok_or_else(|| anyhow::anyhow!("Client secret not configured"))?;
 
             if provided_secret != expected_secret {
@@ -345,7 +406,8 @@ impl OAuth2Server {
         let default_scopes = self.config.default_scopes.join(" ");
         let requested_scopes = scope.unwrap_or(&default_scopes);
         let scopes = parse_scope_string(requested_scopes);
-        let validated_scopes: Vec<String> = scopes.into_iter()
+        let validated_scopes: Vec<String> = scopes
+            .into_iter()
             .filter(|scope| client.allowed_scopes.contains(scope))
             .collect();
 
@@ -360,7 +422,9 @@ impl OAuth2Server {
         )?;
 
         // Store access token
-        self.service.create_access_token(access_token_record).await?;
+        self.service
+            .create_access_token(access_token_record)
+            .await?;
 
         Ok(TokenResponse {
             access_token,
@@ -385,7 +449,10 @@ impl OAuth2Server {
         }
 
         // Get and validate refresh token
-        let token_record = self.service.get_refresh_token(refresh_token).await?
+        let token_record = self
+            .service
+            .get_refresh_token(refresh_token)
+            .await?
             .ok_or_else(|| anyhow::anyhow!("Invalid refresh token"))?;
 
         if token_record.used {
@@ -403,13 +470,19 @@ impl OAuth2Server {
         }
 
         // Get and validate client
-        let client = self.service.get_client(client_id).await?
+        let client = self
+            .service
+            .get_client(client_id)
+            .await?
             .ok_or_else(|| anyhow::anyhow!("Invalid client"))?;
 
         // Authenticate client
         if !client.is_public {
-            let provided_secret = client_secret.ok_or_else(|| anyhow::anyhow!("Client secret required"))?;
-            let expected_secret = client.client_secret.as_ref()
+            let provided_secret =
+                client_secret.ok_or_else(|| anyhow::anyhow!("Client secret required"))?;
+            let expected_secret = client
+                .client_secret
+                .as_ref()
                 .ok_or_else(|| anyhow::anyhow!("Client secret not configured"))?;
 
             if provided_secret != expected_secret {
@@ -422,11 +495,14 @@ impl OAuth2Server {
         let scopes = if let Some(scope) = scope {
             let requested_scopes = parse_scope_string(scope);
             let original_scopes = &token_record.scopes;
-            
+
             // Ensure requested scopes are subset of original
             for requested_scope in &requested_scopes {
                 if !original_scopes.contains(requested_scope) {
-                    return Err(anyhow::anyhow!("Cannot request scope not in original token: {}", requested_scope));
+                    return Err(anyhow::anyhow!(
+                        "Cannot request scope not in original token: {}",
+                        requested_scope
+                    ));
                 }
             }
             requested_scopes
@@ -438,7 +514,9 @@ impl OAuth2Server {
         self.service.use_refresh_token(refresh_token).await?;
 
         // Revoke old access token
-        self.service.revoke_access_token(&token_record.access_token).await?;
+        self.service
+            .revoke_access_token(&token_record.access_token)
+            .await?;
 
         // Generate new tokens
         let user_id = token_record.user_id.as_deref().unwrap_or("");
@@ -452,7 +530,9 @@ impl OAuth2Server {
         )?;
 
         // Store new access token
-        self.service.create_access_token(access_token_record).await?;
+        self.service
+            .create_access_token(access_token_record)
+            .await?;
 
         let mut response = TokenResponse {
             access_token,
@@ -464,15 +544,13 @@ impl OAuth2Server {
         };
 
         // Generate new refresh token
-        let (new_refresh_token, new_refresh_token_record) = self.token_manager.generate_refresh_token(
-            &response.access_token,
-            user_id,
-            client_id,
-            &scopes,
-            None,
-        )?;
+        let (new_refresh_token, new_refresh_token_record) = self
+            .token_manager
+            .generate_refresh_token(&response.access_token, user_id, client_id, &scopes, None)?;
 
-        self.service.create_refresh_token(new_refresh_token_record).await?;
+        self.service
+            .create_refresh_token(new_refresh_token_record)
+            .await?;
         response.refresh_token = Some(new_refresh_token);
 
         // Generate ID token if openid scope present
@@ -494,17 +572,26 @@ impl OAuth2Server {
     }
 
     /// Handle device authorization for handlers
-    pub async fn handle_device_authorization(&self, client_id: &str, scope: Option<&str>) -> Result<DeviceAuthorizationResponse> {
+    pub async fn handle_device_authorization(
+        &self,
+        client_id: &str,
+        scope: Option<&str>,
+    ) -> Result<DeviceAuthorizationResponse> {
         if !self.config.enable_device_flow {
             return Err(anyhow::anyhow!("Device flow not enabled"));
         }
 
         // Get and validate client
-        let client = self.service.get_client(client_id).await?
+        let client = self
+            .service
+            .get_client(client_id)
+            .await?
             .ok_or_else(|| anyhow::anyhow!("Invalid client"))?;
 
         if !client.allowed_grant_types.contains(&GrantType::DeviceCode) {
-            return Err(anyhow::anyhow!("Device code grant not allowed for this client"));
+            return Err(anyhow::anyhow!(
+                "Device code grant not allowed for this client"
+            ));
         }
 
         // Validate and process scopes
@@ -512,7 +599,8 @@ impl OAuth2Server {
         let default_scopes = self.config.default_scopes.join(" ");
         let requested_scopes = scope.unwrap_or(&default_scopes);
         let scopes = parse_scope_string(requested_scopes);
-        let validated_scopes: Vec<String> = scopes.into_iter()
+        let validated_scopes: Vec<String> = scopes
+            .into_iter()
             .filter(|scope| client.allowed_scopes.contains(scope))
             .collect();
 
@@ -529,14 +617,18 @@ impl OAuth2Server {
             verification_uri_complete: verification_uri_complete.clone(),
             client_id: client_id.to_string(),
             scopes: validated_scopes,
-            expires_at: (chrono::Utc::now() + chrono::Duration::seconds(self.config.device_code_lifetime as i64)).into(),
+            expires_at: (chrono::Utc::now()
+                + chrono::Duration::seconds(self.config.device_code_lifetime as i64))
+            .into(),
             interval: self.config.device_code_interval,
             user_id: None,
             authorized: false,
         };
 
         // Store device authorization
-        self.service.create_device_authorization(device_auth).await?;
+        self.service
+            .create_device_authorization(device_auth)
+            .await?;
 
         Ok(DeviceAuthorizationResponse {
             device_code,
@@ -556,11 +648,11 @@ impl OAuth2Server {
     /// Generate user-friendly device code
     fn generate_user_code(&self) -> String {
         use rand::Rng;
-        
+
         // Generate 8-character alphanumeric code (excluding confusing characters)
         let charset: &[u8] = b"ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
         let mut rng = rand::thread_rng();
-        
+
         (0..8)
             .map(|_| {
                 let idx = rng.gen_range(0..charset.len());
@@ -577,12 +669,20 @@ impl OAuth2Server {
     /// Revoke token for handlers
     pub async fn revoke_token(&self, token: &str) -> Result<bool> {
         // Try to revoke as access token first, then refresh token
-        let access_revoked = self.service.revoke_access_token(token).await.unwrap_or(false);
+        let access_revoked = self
+            .service
+            .revoke_access_token(token)
+            .await
+            .unwrap_or(false);
         if access_revoked {
             return Ok(true);
         }
-        
-        let refresh_revoked = self.service.revoke_refresh_token(token).await.unwrap_or(false);
+
+        let refresh_revoked = self
+            .service
+            .revoke_refresh_token(token)
+            .await
+            .unwrap_or(false);
         Ok(refresh_revoked)
     }
 
@@ -602,7 +702,10 @@ impl OAuth2Server {
         user: Option<User>,
     ) -> Result<AuthorizeResponse> {
         // Validate client
-        let client = self.service.get_client(&request.client_id).await?
+        let client = self
+            .service
+            .get_client(&request.client_id)
+            .await?
             .ok_or_else(|| anyhow!("Invalid client"))?;
 
         if !client.is_active {
@@ -621,7 +724,10 @@ impl OAuth2Server {
         for response_type in &response_types {
             match *response_type {
                 "code" => {
-                    if !client.allowed_grant_types.contains(&GrantType::AuthorizationCode) {
+                    if !client
+                        .allowed_grant_types
+                        .contains(&GrantType::AuthorizationCode)
+                    {
                         return Err(anyhow!("Authorization code flow not allowed for client"));
                     }
                 }
@@ -638,7 +744,8 @@ impl OAuth2Server {
         let default_scopes = self.config.default_scopes.join(" ");
         let requested_scopes = request.scope.as_deref().unwrap_or(&default_scopes);
         let scopes = parse_scope_string(requested_scopes);
-        let allowed_scopes: Vec<String> = scopes.into_iter()
+        let allowed_scopes: Vec<String> = scopes
+            .into_iter()
             .filter(|scope| client.allowed_scopes.contains(scope))
             .collect();
 
@@ -662,8 +769,10 @@ impl OAuth2Server {
             None => {
                 // User needs to authenticate
                 return Ok(AuthorizeResponse::LoginRequired {
-                    login_url: format!("/auth/login?return_url={}", 
-                        urlencoding::encode(&format!("/oauth2/authorize?{}", 
+                    login_url: format!(
+                        "/auth/login?return_url={}",
+                        urlencoding::encode(&format!(
+                            "/oauth2/authorize?{}",
                             serde_urlencoded::to_string(&request)?
                         ))
                     ),
@@ -672,9 +781,13 @@ impl OAuth2Server {
         };
 
         // Check if consent is required
-        if self.requires_consent(&client, &allowed_scopes, &user).await? {
+        if self
+            .requires_consent(&client, &allowed_scopes, &user)
+            .await?
+        {
             return Ok(AuthorizeResponse::ConsentRequired {
-                consent_url: format!("/oauth2/consent?client_id={}&scopes={}&state={}", 
+                consent_url: format!(
+                    "/oauth2/consent?client_id={}&scopes={}&state={}",
                     client.client_id,
                     allowed_scopes.join(","),
                     request.state.as_deref().unwrap_or("")
@@ -686,9 +799,11 @@ impl OAuth2Server {
 
         // Generate response based on response type
         if response_types.contains(&"code") {
-            self.generate_authorization_code_response(request, client, user, allowed_scopes).await
+            self.generate_authorization_code_response(request, client, user, allowed_scopes)
+                .await
         } else {
-            self.generate_implicit_response(request, client, user, allowed_scopes).await
+            self.generate_implicit_response(request, client, user, allowed_scopes)
+                .await
         }
     }
 
@@ -696,40 +811,67 @@ impl OAuth2Server {
     pub async fn handle_token(&self, request: TokenRequest) -> Result<TokenResponse> {
         match request.grant_type.as_str() {
             "authorization_code" => {
-                let code = request.code.as_deref().ok_or_else(|| anyhow!("Missing authorization code"))?;
-                let client_id = request.client_id.as_deref().ok_or_else(|| anyhow!("Missing client ID"))?;
-                let redirect_uri = request.redirect_uri.as_deref().ok_or_else(|| anyhow!("Missing redirect URI"))?;
+                let code = request
+                    .code
+                    .as_deref()
+                    .ok_or_else(|| anyhow!("Missing authorization code"))?;
+                let client_id = request
+                    .client_id
+                    .as_deref()
+                    .ok_or_else(|| anyhow!("Missing client ID"))?;
+                let redirect_uri = request
+                    .redirect_uri
+                    .as_deref()
+                    .ok_or_else(|| anyhow!("Missing redirect URI"))?;
                 self.handle_authorization_code_grant(
                     code,
-                    client_id, 
+                    client_id,
                     request.client_secret.as_deref(),
                     redirect_uri,
-                    request.code_verifier.as_deref()
-                ).await
-            },
+                    request.code_verifier.as_deref(),
+                )
+                .await
+            }
             "client_credentials" => {
-                let client_id = request.client_id.as_deref().ok_or_else(|| anyhow!("Missing client ID"))?;
+                let client_id = request
+                    .client_id
+                    .as_deref()
+                    .ok_or_else(|| anyhow!("Missing client ID"))?;
                 self.handle_client_credentials_grant(
                     client_id,
                     request.client_secret.as_deref(),
-                    request.scope.as_deref()
-                ).await
-            },
+                    request.scope.as_deref(),
+                )
+                .await
+            }
             "refresh_token" => {
-                let refresh_token = request.refresh_token.as_deref().ok_or_else(|| anyhow!("Missing refresh token"))?;
-                let client_id = request.client_id.as_deref().ok_or_else(|| anyhow!("Missing client ID"))?;
+                let refresh_token = request
+                    .refresh_token
+                    .as_deref()
+                    .ok_or_else(|| anyhow!("Missing refresh token"))?;
+                let client_id = request
+                    .client_id
+                    .as_deref()
+                    .ok_or_else(|| anyhow!("Missing client ID"))?;
                 self.handle_refresh_token_grant(
                     refresh_token,
                     client_id,
                     request.client_secret.as_deref(),
-                    request.scope.as_deref()
-                ).await
-            },
+                    request.scope.as_deref(),
+                )
+                .await
+            }
             "urn:ietf:params:oauth:grant-type:device_code" => {
-                let device_code = request.code.as_deref().ok_or_else(|| anyhow!("Missing device code"))?;
-                
+                let device_code = request
+                    .code
+                    .as_deref()
+                    .ok_or_else(|| anyhow!("Missing device code"))?;
+
                 // Get device authorization
-                let auth = self.service.get_device_authorization_by_device_code(device_code).await?
+                let auth = self
+                    .service
+                    .get_device_authorization_by_device_code(device_code)
+                    .await?
                     .ok_or_else(|| anyhow!("Invalid device code"))?;
 
                 if auth.expires_at < Utc::now() {
@@ -740,10 +882,15 @@ impl OAuth2Server {
                     return Err(anyhow!("Device not yet authorized by user"));
                 }
 
-                let user_id = auth.user_id.ok_or_else(|| anyhow!("Device authorization missing user"))?;
+                let user_id = auth
+                    .user_id
+                    .ok_or_else(|| anyhow!("Device authorization missing user"))?;
 
                 // Get client
-                let client = self.service.get_client(&auth.client_id).await?
+                let client = self
+                    .service
+                    .get_client(&auth.client_id)
+                    .await?
                     .ok_or_else(|| anyhow!("Client not found"))?;
 
                 // Generate tokens
@@ -764,11 +911,10 @@ impl OAuth2Server {
                     scope: Some(auth.scopes.join(" ")),
                     id_token: None,
                 })
-            },
+            }
             _ => Err(anyhow!("Unsupported grant type")),
         }
     }
-
 
     /// Handle device verification (GET/POST /oauth2/device)
     pub async fn handle_device_verification(
@@ -777,7 +923,10 @@ impl OAuth2Server {
         user: User,
     ) -> Result<DeviceVerificationResponse> {
         // Get device authorization
-        let mut auth = self.service.get_device_authorization_by_user_code(&user_code).await?
+        let mut auth = self
+            .service
+            .get_device_authorization_by_user_code(&user_code)
+            .await?
             .ok_or_else(|| anyhow!("Invalid user code"))?;
 
         if auth.expires_at < Utc::now() {
@@ -789,7 +938,10 @@ impl OAuth2Server {
         }
 
         // Get client information
-        let client = self.service.get_client(&auth.client_id).await?
+        let client = self
+            .service
+            .get_client(&auth.client_id)
+            .await?
             .ok_or_else(|| anyhow!("Client not found"))?;
 
         Ok(DeviceVerificationResponse {
@@ -801,13 +953,20 @@ impl OAuth2Server {
 
     /// Authorize device (POST /oauth2/device/authorize)
     pub async fn authorize_device(&self, user_code: String, user: User) -> Result<()> {
-        let user_id = user.id.map(|id| id.to_string()).unwrap_or_else(|| user.email.clone());
+        let user_id = user
+            .id
+            .map(|id| id.to_string())
+            .unwrap_or_else(|| user.email.clone());
         self.service.authorize_device(&user_code, &user_id).await?;
         Ok(())
     }
 
     /// Handle token revocation (POST /oauth2/revoke)
-    pub async fn handle_revocation(&self, token: String, token_type_hint: Option<String>) -> Result<()> {
+    pub async fn handle_revocation(
+        &self,
+        token: String,
+        token_type_hint: Option<String>,
+    ) -> Result<()> {
         // Try revoking as access token first
         if self.service.revoke_access_token(&token).await? {
             return Ok(());
@@ -829,14 +988,19 @@ impl OAuth2Server {
 
     /// Get user info (GET /oauth2/userinfo)
     pub async fn handle_userinfo(&self, access_token: String) -> Result<UserInfo> {
-        let token = self.service.get_access_token(&access_token).await?
+        let token = self
+            .service
+            .get_access_token(&access_token)
+            .await?
             .ok_or_else(|| anyhow!("Invalid access token"))?;
 
         if token.revoked || token.expires_at < Utc::now() {
             return Err(anyhow!("Token expired or revoked"));
         }
 
-        let user_id = token.user_id.ok_or_else(|| anyhow!("Token not associated with user"))?;
+        let user_id = token
+            .user_id
+            .ok_or_else(|| anyhow!("Token not associated with user"))?;
 
         // This would need to get user from user service
         // For now, return basic user info
@@ -853,7 +1017,12 @@ impl OAuth2Server {
     }
 
     /// Check if user consent is required for the given client and scopes
-    async fn requires_consent(&self, _client: &OAuth2Client, _scopes: &[String], _user: &User) -> Result<bool> {
+    async fn requires_consent(
+        &self,
+        _client: &OAuth2Client,
+        _scopes: &[String],
+        _user: &User,
+    ) -> Result<bool> {
         // For now, always require consent for non-first-party apps
         // In a real implementation, you'd check if user has already consented to these scopes
         Ok(true)
@@ -868,15 +1037,21 @@ impl OAuth2Server {
         scopes: Vec<String>,
     ) -> Result<AuthorizeResponse> {
         let code = self.generate_authorization_code();
-        let redirect_uri = request.redirect_uri.unwrap_or_else(|| client.redirect_uris[0].clone());
+        let redirect_uri = request
+            .redirect_uri
+            .unwrap_or_else(|| client.redirect_uris[0].clone());
 
         let auth_code = AuthorizationCode {
             code: code.clone(),
             client_id: client.client_id,
-            user_id: user.id.map(|id| id.to_string()).unwrap_or_else(|| user.email.clone()),
+            user_id: user
+                .id
+                .map(|id| id.to_string())
+                .unwrap_or_else(|| user.email.clone()),
             redirect_uri: redirect_uri.clone(),
             scopes,
-            expires_at: Utc::now() + chrono::Duration::seconds(self.config.authorization_code_lifetime as i64),
+            expires_at: Utc::now()
+                + chrono::Duration::seconds(self.config.authorization_code_lifetime as i64),
             code_challenge: request.code_challenge,
             code_challenge_method: request.code_challenge_method,
             nonce: request.nonce,
@@ -916,7 +1091,6 @@ impl OAuth2Server {
         self.generate_random_token(40)
     }
 
-
     /// Generate random token
     fn generate_random_token(&self, length: usize) -> String {
         use rand::{distributions::Alphanumeric, Rng};
@@ -926,18 +1100,21 @@ impl OAuth2Server {
             .map(char::from)
             .collect()
     }
-
 }
 
 /// Authorization response types
 #[derive(Debug)]
 pub enum AuthorizeResponse {
-    Redirect { url: String },
-    LoginRequired { login_url: String },
-    ConsentRequired { 
-        consent_url: String, 
-        client: OAuth2Client, 
-        scopes: Vec<String> 
+    Redirect {
+        url: String,
+    },
+    LoginRequired {
+        login_url: String,
+    },
+    ConsentRequired {
+        consent_url: String,
+        client: OAuth2Client,
+        scopes: Vec<String>,
     },
 }
 
@@ -983,7 +1160,11 @@ impl OAuth2Service for StubOAuth2Service {
         Ok(false)
     }
 
-    async fn list_clients(&self, _limit: Option<u64>, _offset: Option<u64>) -> Result<Vec<OAuth2Client>> {
+    async fn list_clients(
+        &self,
+        _limit: Option<u64>,
+        _offset: Option<u64>,
+    ) -> Result<Vec<OAuth2Client>> {
         Ok(Vec::new())
     }
 
@@ -1035,15 +1216,24 @@ impl OAuth2Service for StubOAuth2Service {
         Ok(false)
     }
 
-    async fn create_device_authorization(&self, _auth: DeviceAuthorization) -> Result<DeviceAuthorization> {
+    async fn create_device_authorization(
+        &self,
+        _auth: DeviceAuthorization,
+    ) -> Result<DeviceAuthorization> {
         Err(anyhow!("OAuth2Service not implemented"))
     }
 
-    async fn get_device_authorization_by_device_code(&self, _device_code: &str) -> Result<Option<DeviceAuthorization>> {
+    async fn get_device_authorization_by_device_code(
+        &self,
+        _device_code: &str,
+    ) -> Result<Option<DeviceAuthorization>> {
         Ok(None)
     }
 
-    async fn get_device_authorization_by_user_code(&self, _user_code: &str) -> Result<Option<DeviceAuthorization>> {
+    async fn get_device_authorization_by_user_code(
+        &self,
+        _user_code: &str,
+    ) -> Result<Option<DeviceAuthorization>> {
         Ok(None)
     }
 

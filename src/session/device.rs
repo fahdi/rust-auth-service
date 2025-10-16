@@ -1,8 +1,8 @@
+use super::{DeviceInfo, DeviceType, SessionService};
 use anyhow::Result;
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use chrono::{DateTime, Utc, Duration};
-use super::{DeviceInfo, DeviceType, SessionService};
 
 /// Device management service
 pub struct DeviceManager<T: SessionService> {
@@ -20,20 +20,32 @@ impl<T: SessionService> DeviceManager<T> {
     }
 
     /// Register a new device
-    pub async fn register_device(&self, request: DeviceRegistrationRequest) -> Result<RegisteredDevice> {
-        let device_id = super::generate_device_fingerprint(&request.user_agent, &[
-            &request.ip_address,
-            &request.additional_fingerprint_data.unwrap_or_default(),
-        ]);
+    pub async fn register_device(
+        &self,
+        request: DeviceRegistrationRequest,
+    ) -> Result<RegisteredDevice> {
+        let device_id = super::generate_device_fingerprint(
+            &request.user_agent,
+            &[
+                &request.ip_address,
+                &request.additional_fingerprint_data.unwrap_or_default(),
+            ],
+        );
 
         let device_info = super::parse_user_agent(&request.user_agent);
-        
+
         let registered_device = RegisteredDevice {
             device_id: device_id.clone(),
             user_id: request.user_id.clone(),
-            device_name: request.device_name.or_else(|| self.generate_device_name(&device_info)),
+            device_name: request
+                .device_name
+                .or_else(|| self.generate_device_name(&device_info)),
             device_info,
-            trust_level: if request.auto_trust { DeviceTrustLevel::Trusted } else { DeviceTrustLevel::Pending },
+            trust_level: if request.auto_trust {
+                DeviceTrustLevel::Trusted
+            } else {
+                DeviceTrustLevel::Pending
+            },
             registration_method: request.registration_method,
             registered_at: Utc::now(),
             last_used_at: Utc::now(),
@@ -56,7 +68,7 @@ impl<T: SessionService> DeviceManager<T> {
         // 2. Check verification token
         // 3. Update verification status
         // 4. Set trust level appropriately
-        
+
         Ok(true) // Placeholder
     }
 
@@ -67,7 +79,9 @@ impl<T: SessionService> DeviceManager<T> {
 
     /// Untrust a device
     pub async fn untrust_device(&self, device_id: &str, user_id: &str) -> Result<bool> {
-        self.session_service.untrust_device(device_id, user_id).await
+        self.session_service
+            .untrust_device(device_id, user_id)
+            .await
     }
 
     /// Get all devices for a user
@@ -78,7 +92,11 @@ impl<T: SessionService> DeviceManager<T> {
     }
 
     /// Analyze device for security risks
-    pub async fn analyze_device_security(&self, device_info: &DeviceInfo, user_id: &str) -> Result<DeviceSecurityAnalysis> {
+    pub async fn analyze_device_security(
+        &self,
+        device_info: &DeviceInfo,
+        user_id: &str,
+    ) -> Result<DeviceSecurityAnalysis> {
         let mut risk_factors = Vec::new();
         let mut risk_score = 0.0;
 
@@ -135,7 +153,8 @@ impl<T: SessionService> DeviceManager<T> {
         }
 
         let security_level = self.calculate_device_security_level(risk_score);
-        let recommendations = self.get_device_security_recommendations(&security_level, &risk_factors);
+        let recommendations =
+            self.get_device_security_recommendations(&security_level, &risk_factors);
 
         Ok(DeviceSecurityAnalysis {
             device_id: device_info.device_id.clone(),
@@ -150,14 +169,22 @@ impl<T: SessionService> DeviceManager<T> {
     /// Generate device statistics
     pub async fn get_device_statistics(&self, user_id: &str) -> Result<DeviceStatistics> {
         let devices = self.get_user_devices(user_id).await?;
-        
+
         let total_devices = devices.len();
-        let trusted_devices = devices.iter().filter(|d| d.trust_level == DeviceTrustLevel::Trusted).count();
-        let verified_devices = devices.iter().filter(|d| d.verification_status == DeviceVerificationStatus::Verified).count();
-        
+        let trusted_devices = devices
+            .iter()
+            .filter(|d| d.trust_level == DeviceTrustLevel::Trusted)
+            .count();
+        let verified_devices = devices
+            .iter()
+            .filter(|d| d.verification_status == DeviceVerificationStatus::Verified)
+            .count();
+
         let mut device_types = HashMap::new();
         for device in &devices {
-            *device_types.entry(device.device_info.device_type.clone()).or_insert(0) += 1;
+            *device_types
+                .entry(device.device_info.device_type.clone())
+                .or_insert(0) += 1;
         }
 
         let most_recent_device = devices.iter().max_by_key(|d| d.last_used_at).cloned();
@@ -176,7 +203,7 @@ impl<T: SessionService> DeviceManager<T> {
     pub async fn cleanup_old_devices(&self, user_id: &str) -> Result<u32> {
         let devices = self.get_user_devices(user_id).await?;
         let cutoff = Utc::now() - self.config.device_retention_period;
-        
+
         let mut removed_count = 0;
         for device in devices {
             if device.last_used_at < cutoff && device.trust_level != DeviceTrustLevel::Trusted {
@@ -238,9 +265,9 @@ impl<T: SessionService> DeviceManager<T> {
 
     /// Get device security recommendations
     fn get_device_security_recommendations(
-        &self, 
+        &self,
         security_level: &DeviceSecurityLevel,
-        risk_factors: &[DeviceRiskFactor]
+        risk_factors: &[DeviceRiskFactor],
     ) -> Vec<DeviceSecurityRecommendation> {
         let mut recommendations = Vec::new();
 
@@ -276,7 +303,11 @@ impl<T: SessionService> DeviceManager<T> {
             }
         }
 
-        recommendations.into_iter().collect::<std::collections::HashSet<_>>().into_iter().collect()
+        recommendations
+            .into_iter()
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
+            .collect()
     }
 }
 
@@ -443,30 +474,30 @@ impl DeviceFingerprintingService {
     /// Generate enhanced device fingerprint
     pub fn generate_enhanced_fingerprint(&self, request: &EnhancedFingerprintRequest) -> String {
         use sha2::{Digest, Sha256};
-        
+
         let mut hasher = Sha256::new();
-        
+
         // Basic browser fingerprinting
         hasher.update(request.user_agent.as_bytes());
         hasher.update(request.screen_resolution.as_bytes());
         hasher.update(request.timezone.as_bytes());
         hasher.update(request.language.as_bytes());
-        
+
         // Optional canvas fingerprinting
         if let Some(canvas) = &request.canvas_fingerprint {
             hasher.update(canvas.as_bytes());
         }
-        
+
         // Optional WebGL fingerprinting
         if let Some(webgl) = &request.webgl_fingerprint {
             hasher.update(webgl.as_bytes());
         }
-        
+
         // Browser features
         for feature in &request.browser_features {
             hasher.update(feature.as_bytes());
         }
-        
+
         format!("{:x}", hasher.finalize())
     }
 
@@ -580,19 +611,73 @@ mod tests {
 
     #[async_trait::async_trait]
     impl SessionService for MockSessionService {
-        async fn create_session(&self, _request: super::super::CreateSessionRequest) -> Result<super::super::Session> { unimplemented!() }
-        async fn get_session(&self, _session_id: &str) -> Result<Option<super::super::Session>> { unimplemented!() }
-        async fn update_session(&self, _session_id: &str, _session: super::super::Session) -> Result<super::super::Session> { unimplemented!() }
-        async fn terminate_session(&self, _session_id: &str, _reason: super::super::TerminationReason) -> Result<bool> { unimplemented!() }
-        async fn validate_session(&self, _session_id: &str, _ip_address: &str, _user_agent: &str) -> Result<super::super::SessionValidationResult> { unimplemented!() }
-        async fn refresh_session(&self, _session_id: &str) -> Result<super::super::Session> { unimplemented!() }
-        async fn get_user_sessions(&self, _user_id: &str) -> Result<Vec<super::super::Session>> { unimplemented!() }
-        async fn terminate_user_sessions(&self, _user_id: &str, _reason: super::super::TerminationReason) -> Result<u64> { unimplemented!() }
-        async fn get_device_sessions(&self, _device_id: &str) -> Result<Vec<super::super::Session>> { unimplemented!() }
-        async fn trust_device(&self, _device_id: &str, _user_id: &str) -> Result<bool> { Ok(true) }
-        async fn untrust_device(&self, _device_id: &str, _user_id: &str) -> Result<bool> { Ok(true) }
-        async fn get_session_statistics(&self) -> Result<super::super::SessionStatistics> { unimplemented!() }
-        async fn cleanup_expired_sessions(&self) -> Result<u64> { unimplemented!() }
-        async fn emergency_logout_all(&self, _reason: super::super::TerminationReason) -> Result<u64> { unimplemented!() }
+        async fn create_session(
+            &self,
+            _request: super::super::CreateSessionRequest,
+        ) -> Result<super::super::Session> {
+            unimplemented!()
+        }
+        async fn get_session(&self, _session_id: &str) -> Result<Option<super::super::Session>> {
+            unimplemented!()
+        }
+        async fn update_session(
+            &self,
+            _session_id: &str,
+            _session: super::super::Session,
+        ) -> Result<super::super::Session> {
+            unimplemented!()
+        }
+        async fn terminate_session(
+            &self,
+            _session_id: &str,
+            _reason: super::super::TerminationReason,
+        ) -> Result<bool> {
+            unimplemented!()
+        }
+        async fn validate_session(
+            &self,
+            _session_id: &str,
+            _ip_address: &str,
+            _user_agent: &str,
+        ) -> Result<super::super::SessionValidationResult> {
+            unimplemented!()
+        }
+        async fn refresh_session(&self, _session_id: &str) -> Result<super::super::Session> {
+            unimplemented!()
+        }
+        async fn get_user_sessions(&self, _user_id: &str) -> Result<Vec<super::super::Session>> {
+            unimplemented!()
+        }
+        async fn terminate_user_sessions(
+            &self,
+            _user_id: &str,
+            _reason: super::super::TerminationReason,
+        ) -> Result<u64> {
+            unimplemented!()
+        }
+        async fn get_device_sessions(
+            &self,
+            _device_id: &str,
+        ) -> Result<Vec<super::super::Session>> {
+            unimplemented!()
+        }
+        async fn trust_device(&self, _device_id: &str, _user_id: &str) -> Result<bool> {
+            Ok(true)
+        }
+        async fn untrust_device(&self, _device_id: &str, _user_id: &str) -> Result<bool> {
+            Ok(true)
+        }
+        async fn get_session_statistics(&self) -> Result<super::super::SessionStatistics> {
+            unimplemented!()
+        }
+        async fn cleanup_expired_sessions(&self) -> Result<u64> {
+            unimplemented!()
+        }
+        async fn emergency_logout_all(
+            &self,
+            _reason: super::super::TerminationReason,
+        ) -> Result<u64> {
+            unimplemented!()
+        }
     }
 }

@@ -8,9 +8,9 @@ use serde_json::Value;
 
 use crate::errors::AppError;
 use crate::models::user::User;
-use rust_auth_service::mfa::MfaType;
 use crate::utils::response::ApiResponse;
 use crate::AppState;
+use rust_auth_service::mfa::MfaType;
 
 /// MFA setup request
 #[derive(Debug, Deserialize)]
@@ -95,11 +95,14 @@ pub async fn setup_mfa_method(
     // TODO: Get MFA manager from app state once integrated
     // For now, return a mock response based on MFA type
     let method_id = uuid::Uuid::new_v4().to_string();
-    
+
     let (setup_data, backup_codes) = match request.mfa_type {
         MfaType::Totp => {
             let secret = "JBSWY3DPEHPK3PXP"; // Mock secret
-            let qr_code = format!("otpauth://totp/AuthService:{}?secret={}&issuer=AuthService", user.email, secret);
+            let qr_code = format!(
+                "otpauth://totp/AuthService:{}?secret={}&issuer=AuthService",
+                user.email, secret
+            );
             (
                 serde_json::json!({
                     "secret": secret,
@@ -115,33 +118,34 @@ pub async fn setup_mfa_method(
                     "44332211".to_string(),
                     "66778899".to_string(),
                     "33445566".to_string(),
-                ])
+                ]),
             )
         }
         MfaType::Sms => {
-            let phone_number = request.config
+            let phone_number = request
+                .config
                 .as_ref()
                 .and_then(|c| c.get("phone_number"))
                 .and_then(|p| p.as_str())
-                .ok_or_else(|| AppError::Validation { message: "Phone number required for SMS MFA".to_string() })?;
-                
+                .ok_or_else(|| AppError::Validation {
+                    message: "Phone number required for SMS MFA".to_string(),
+                })?;
+
             (
                 serde_json::json!({
                     "phone_number": phone_number,
                     "message": "SMS MFA method configured. You will receive verification codes on this number.",
                 }),
-                None
+                None,
             )
         }
-        MfaType::Email => {
-            (
-                serde_json::json!({
-                    "email": user.email,
-                    "message": "Email MFA method configured. You will receive verification codes via email.",
-                }),
-                None
-            )
-        }
+        MfaType::Email => (
+            serde_json::json!({
+                "email": user.email,
+                "message": "Email MFA method configured. You will receive verification codes via email.",
+            }),
+            None,
+        ),
         MfaType::BackupCodes => {
             let backup_codes = vec![
                 "12345678".to_string(),
@@ -158,38 +162,34 @@ pub async fn setup_mfa_method(
                     "message": "Backup codes generated. Store these securely.",
                     "codes": backup_codes.clone(),
                 }),
-                Some(backup_codes)
+                Some(backup_codes),
             )
         }
-        MfaType::WebAuthn => {
-            (
-                serde_json::json!({
-                    "challenge": "mock_challenge_data",
-                    "options": {
-                        "challenge": "mock_challenge",
-                        "rp": {
-                            "name": "AuthService",
-                            "id": "localhost"
-                        },
-                        "user": {
-                            "id": user.id,
-                            "name": user.email,
-                            "displayName": user.email
-                        }
+        MfaType::WebAuthn => (
+            serde_json::json!({
+                "challenge": "mock_challenge_data",
+                "options": {
+                    "challenge": "mock_challenge",
+                    "rp": {
+                        "name": "AuthService",
+                        "id": "localhost"
+                    },
+                    "user": {
+                        "id": user.id,
+                        "name": user.email,
+                        "displayName": user.email
                     }
-                }),
-                None
-            )
-        }
-        MfaType::Push => {
-            (
-                serde_json::json!({
-                    "message": "Push notification MFA method configured.",
-                    "device_id": "mock_device_id",
-                }),
-                None
-            )
-        }
+                }
+            }),
+            None,
+        ),
+        MfaType::Push => (
+            serde_json::json!({
+                "message": "Push notification MFA method configured.",
+                "device_id": "mock_device_id",
+            }),
+            None,
+        ),
     };
 
     let response = MfaSetupResponse {
@@ -243,7 +243,7 @@ pub async fn create_mfa_challenge(
     // TODO: Get actual MFA method and create real challenge
     let challenge_id = uuid::Uuid::new_v4().to_string();
     let mfa_type = MfaType::Totp; // Mock - should be determined from method_id
-    
+
     let challenge_data = match mfa_type {
         MfaType::Totp => serde_json::json!({
             "message": "Enter the 6-digit code from your authenticator app"

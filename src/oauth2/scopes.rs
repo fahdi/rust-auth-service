@@ -1,5 +1,5 @@
-use std::collections::{HashMap, HashSet};
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 
 /// OAuth2 scope management system
 /// Handles scope validation, hierarchy, and permissions
@@ -118,11 +118,11 @@ impl ScopeManager {
     /// Expand scopes to include implied scopes
     pub fn expand_scopes(&self, scopes: &[String]) -> Vec<String> {
         let mut expanded = HashSet::new();
-        
+
         for scope in scopes {
             if self.scope_exists(scope) {
                 expanded.insert(scope.clone());
-                
+
                 // Add implied scopes
                 if let Some(implied) = self.hierarchy.get(scope) {
                     expanded.extend(implied.iter().cloned());
@@ -348,7 +348,11 @@ impl ScopeManager {
             implies: vec![app::READ.to_string(), app::WRITE.to_string()],
             conflicts: vec![],
             resources: vec!["data".to_string()],
-            actions: vec!["read".to_string(), "write".to_string(), "delete".to_string()],
+            actions: vec![
+                "read".to_string(),
+                "write".to_string(),
+                "delete".to_string(),
+            ],
         });
 
         self.register_scope(ScopeDefinition {
@@ -356,7 +360,11 @@ impl ScopeManager {
             description: "Full administrative access".to_string(),
             sensitive: true,
             admin_only: true,
-            implies: vec![app::READ.to_string(), app::WRITE.to_string(), app::DELETE.to_string()],
+            implies: vec![
+                app::READ.to_string(),
+                app::WRITE.to_string(),
+                app::DELETE.to_string(),
+            ],
             conflicts: vec![],
             resources: vec!["*".to_string()],
             actions: vec!["*".to_string()],
@@ -393,7 +401,12 @@ impl ScopeManager {
             implies: vec![app::USER_READ.to_string(), app::USER_WRITE.to_string()],
             conflicts: vec![],
             resources: vec!["users".to_string()],
-            actions: vec!["read".to_string(), "write".to_string(), "delete".to_string(), "manage".to_string()],
+            actions: vec![
+                "read".to_string(),
+                "write".to_string(),
+                "delete".to_string(),
+                "manage".to_string(),
+            ],
         });
 
         // API access scopes
@@ -422,7 +435,7 @@ impl ScopeManager {
 
     fn build_hierarchy(&mut self) {
         self.hierarchy.clear();
-        
+
         for (scope_name, _scope_def) in &self.scopes {
             let mut implied = HashSet::new();
             self.collect_implied_scopes(scope_name, &mut implied);
@@ -532,9 +545,26 @@ pub mod utils {
         // OAuth2 scope names should contain only ASCII characters
         // and specific symbols: !#$&'*+-.0-9A-Z^_`a-z|~
         scope.chars().all(|c| {
-            c.is_ascii_alphanumeric() 
-                || matches!(c, '!' | '#' | '$' | '&' | '\'' | '*' | '+' | '-' | '.' | '^' | '_' | '`' | '|' | '~' | ':')
-        }) && !scope.is_empty() && scope.len() <= 128
+            c.is_ascii_alphanumeric()
+                || matches!(
+                    c,
+                    '!' | '#'
+                        | '$'
+                        | '&'
+                        | '\''
+                        | '*'
+                        | '+'
+                        | '-'
+                        | '.'
+                        | '^'
+                        | '_'
+                        | '`'
+                        | '|'
+                        | '~'
+                        | ':'
+                )
+        }) && !scope.is_empty()
+            && scope.len() <= 128
     }
 }
 
@@ -545,7 +575,7 @@ mod tests {
     #[test]
     fn test_scope_manager_creation() {
         let manager = ScopeManager::new();
-        
+
         // Should have standard scopes
         assert!(manager.scope_exists(standard::OPENID));
         assert!(manager.scope_exists(standard::EMAIL));
@@ -556,13 +586,13 @@ mod tests {
     #[test]
     fn test_scope_validation() {
         let manager = ScopeManager::new();
-        
+
         let result = manager.validate_scopes(&[
             app::READ.to_string(),
             "invalid_scope".to_string(),
             standard::EMAIL.to_string(),
         ]);
-        
+
         assert_eq!(result.valid.len(), 2);
         assert_eq!(result.invalid.len(), 1);
         assert_eq!(result.invalid[0], "invalid_scope");
@@ -571,9 +601,9 @@ mod tests {
     #[test]
     fn test_scope_expansion() {
         let manager = ScopeManager::new();
-        
+
         let expanded = manager.expand_scopes(&[app::WRITE.to_string()]);
-        
+
         // Write should imply read
         assert!(expanded.contains(&app::WRITE.to_string()));
         assert!(expanded.contains(&app::READ.to_string()));
@@ -582,15 +612,15 @@ mod tests {
     #[test]
     fn test_sensitive_scopes() {
         let manager = ScopeManager::new();
-        
+
         let scopes = vec![
             standard::EMAIL.to_string(),
             app::READ.to_string(),
             app::DELETE.to_string(),
         ];
-        
+
         let sensitive = manager.get_sensitive_scopes(&scopes);
-        
+
         assert!(sensitive.contains(&standard::EMAIL.to_string()));
         assert!(sensitive.contains(&app::DELETE.to_string()));
         assert!(!sensitive.contains(&app::READ.to_string()));
@@ -599,14 +629,11 @@ mod tests {
     #[test]
     fn test_admin_only_scopes() {
         let manager = ScopeManager::new();
-        
-        let scopes = vec![
-            app::READ.to_string(),
-            app::ADMIN.to_string(),
-        ];
-        
+
+        let scopes = vec![app::READ.to_string(), app::ADMIN.to_string()];
+
         let admin_only = manager.get_admin_only_scopes(&scopes);
-        
+
         assert!(admin_only.contains(&app::ADMIN.to_string()));
         assert!(!admin_only.contains(&app::READ.to_string()));
     }
@@ -614,17 +641,14 @@ mod tests {
     #[test]
     fn test_user_grant_permissions() {
         let manager = ScopeManager::new();
-        
-        let scopes = vec![
-            app::READ.to_string(),
-            app::ADMIN.to_string(),
-        ];
-        
+
+        let scopes = vec![app::READ.to_string(), app::ADMIN.to_string()];
+
         // Non-admin user
         let non_admin_allowed = manager.can_user_grant_scopes(&scopes, false);
         assert!(non_admin_allowed.contains(&app::READ.to_string()));
         assert!(!non_admin_allowed.contains(&app::ADMIN.to_string()));
-        
+
         // Admin user
         let admin_allowed = manager.can_user_grant_scopes(&scopes, true);
         assert_eq!(admin_allowed.len(), 2);
@@ -635,13 +659,13 @@ mod tests {
         let scope_str = "read write email";
         let scopes = utils::parse_scope_string(scope_str);
         assert_eq!(scopes, vec!["read", "write", "email"]);
-        
+
         let joined = utils::join_scopes(&scopes);
         assert_eq!(joined, "read write email");
-        
+
         assert!(utils::contains_scope(&scopes, "read"));
         assert!(!utils::contains_scope(&scopes, "admin"));
-        
+
         assert!(utils::is_valid_scope_name("read"));
         assert!(utils::is_valid_scope_name("user:read"));
         assert!(!utils::is_valid_scope_name(""));

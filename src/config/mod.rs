@@ -106,9 +106,7 @@ impl Default for MonitoringConfig {
 
 impl Default for PrometheusConfig {
     fn default() -> Self {
-        Self {
-            enabled: true,
-        }
+        Self { enabled: true }
     }
 }
 
@@ -126,7 +124,7 @@ impl Config {
     pub fn load() -> Result<Self> {
         // Determine environment
         let environment = env::var("ENVIRONMENT").unwrap_or_else(|_| "development".to_string());
-        
+
         // Load from environment-specific config file
         let config_file = format!("config/{}.yml", environment);
         let mut config = if std::path::Path::new(&config_file).exists() {
@@ -237,7 +235,8 @@ impl Config {
             config.auth.jwt_secret = jwt_secret;
         }
         if let Ok(bcrypt_rounds) = env::var("BCRYPT_ROUNDS") {
-            config.auth.password_hash_rounds = bcrypt_rounds.parse().context("Invalid BCRYPT_ROUNDS")?;
+            config.auth.password_hash_rounds =
+                bcrypt_rounds.parse().context("Invalid BCRYPT_ROUNDS")?;
         }
 
         // Cache overrides

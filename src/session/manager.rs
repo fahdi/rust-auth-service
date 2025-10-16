@@ -1,13 +1,12 @@
-use anyhow::Result;
-use chrono::{DateTime, Utc, Duration};
-use std::collections::HashMap;
 use super::{
-    Session, SessionService, CreateSessionRequest, SessionValidationResult, 
-    SessionStatistics, TerminationReason, SecurityWarning, SecurityAction,
-    SecurityWarningType, WarningSevertiy, SessionConfig, DeviceInfo,
-    SessionLocation, SecurityLevel, generate_session_id, parse_user_agent,
-    calculate_distance_km, default_session_flags
+    calculate_distance_km, default_session_flags, generate_session_id, parse_user_agent,
+    CreateSessionRequest, DeviceInfo, SecurityAction, SecurityLevel, SecurityWarning,
+    SecurityWarningType, Session, SessionConfig, SessionLocation, SessionService,
+    SessionStatistics, SessionValidationResult, TerminationReason, WarningSevertiy,
 };
+use anyhow::Result;
+use chrono::{DateTime, Duration, Utc};
+use std::collections::HashMap;
 
 /// Session manager implementation
 pub struct SessionManager<T: SessionService> {
@@ -32,17 +31,17 @@ impl<T: SessionService> SessionManager<T> {
 
         if active_sessions.len() >= self.config.max_concurrent_sessions_per_user as usize {
             // Terminate oldest session to make room
-            if let Some(oldest_session) = active_sessions
-                .iter()
-                .min_by_key(|s| s.last_accessed_at)
+            if let Some(oldest_session) = active_sessions.iter().min_by_key(|s| s.last_accessed_at)
             {
-                self.service.terminate_session(&oldest_session.id, TerminationReason::ConcurrentLoginLimit).await?;
+                self.service
+                    .terminate_session(&oldest_session.id, TerminationReason::ConcurrentLoginLimit)
+                    .await?;
             }
         }
 
         // Parse device information
         let device_info = parse_user_agent(&request.user_agent);
-        
+
         // Check if this is a new device
         let is_new_device = !existing_sessions
             .iter()
@@ -52,7 +51,8 @@ impl<T: SessionService> SessionManager<T> {
         let security_level = self.determine_security_level(&request, is_new_device)?;
 
         // Calculate session expiration
-        let session_duration = request.session_duration
+        let session_duration = request
+            .session_duration
             .unwrap_or(self.config.default_session_duration);
         let expires_at = Utc::now() + session_duration;
 
@@ -82,10 +82,10 @@ impl<T: SessionService> SessionManager<T> {
 
     /// Validate session with comprehensive security checks
     pub async fn validate_session(
-        &self, 
-        session_id: &str, 
-        ip_address: &str, 
-        user_agent: &str
+        &self,
+        session_id: &str,
+        ip_address: &str,
+        user_agent: &str,
     ) -> Result<SessionValidationResult> {
         let session = match self.service.get_session(session_id).await? {
             Some(session) => session,
@@ -126,7 +126,10 @@ impl<T: SessionService> SessionManager<T> {
         if session.ip_address != ip_address {
             warnings.push(SecurityWarning {
                 warning_type: SecurityWarningType::SuspiciousActivity,
-                message: format!("IP address changed from {} to {}", session.ip_address, ip_address),
+                message: format!(
+                    "IP address changed from {} to {}",
+                    session.ip_address, ip_address
+                ),
                 severity: WarningSevertiy::Medium,
                 triggered_at: Utc::now(),
             });
@@ -148,7 +151,7 @@ impl<T: SessionService> SessionManager<T> {
                                 severity: WarningSevertiy::High,
                                 triggered_at: Utc::now(),
                             });
-                            
+
                             if session.security_level < SecurityLevel::High {
                                 actions_required.push(SecurityAction::RequireMFA);
                             }
@@ -199,11 +202,13 @@ impl<T: SessionService> SessionManager<T> {
         updated_session.last_accessed_at = Utc::now();
         updated_session.ip_address = ip_address.to_string();
         updated_session.user_agent = user_agent.to_string();
-        
-        self.service.update_session(session_id, updated_session.clone()).await?;
 
-        let is_valid = actions_required.is_empty() || 
-                      !actions_required.contains(&SecurityAction::ForceLogout);
+        self.service
+            .update_session(session_id, updated_session.clone())
+            .await?;
+
+        let is_valid =
+            actions_required.is_empty() || !actions_required.contains(&SecurityAction::ForceLogout);
 
         Ok(SessionValidationResult {
             is_valid,
@@ -215,7 +220,10 @@ impl<T: SessionService> SessionManager<T> {
 
     /// Refresh session tokens
     pub async fn refresh_session(&self, session_id: &str) -> Result<Session> {
-        let mut session = self.service.get_session(session_id).await?
+        let mut session = self
+            .service
+            .get_session(session_id)
+            .await?
             .ok_or_else(|| anyhow::anyhow!("Session not found"))?;
 
         // Check if session is still valid
@@ -256,13 +264,22 @@ impl<T: SessionService> SessionManager<T> {
                 SessionTerminationCondition::All => true,
                 SessionTerminationCondition::ExceptCurrent(current_id) => session.id != *current_id,
                 SessionTerminationCondition::OlderThan(cutoff) => session.created_at < *cutoff,
-                SessionTerminationCondition::SecurityLevelBelow(level) => session.security_level < *level,
+                SessionTerminationCondition::SecurityLevelBelow(level) => {
+                    session.security_level < *level
+                }
                 SessionTerminationCondition::SuspiciousOnly => session.flags.is_suspicious,
-                SessionTerminationCondition::DeviceType(device_type) => session.device_info.device_type == *device_type,
+                SessionTerminationCondition::DeviceType(device_type) => {
+                    session.device_info.device_type == *device_type
+                }
             };
 
             if should_terminate {
-                if self.service.terminate_session(&session.id, reason.clone()).await.is_ok() {
+                if self
+                    .service
+                    .terminate_session(&session.id, reason.clone())
+                    .await
+                    .is_ok()
+                {
                     terminated_count += 1;
                 }
             }
@@ -274,7 +291,7 @@ impl<T: SessionService> SessionManager<T> {
     /// Get detailed session analytics
     pub async fn get_session_analytics(&self, user_id: &str) -> Result<SessionAnalytics> {
         let sessions = self.service.get_user_sessions(user_id).await?;
-        
+
         let total_sessions = sessions.len();
         let active_sessions = sessions
             .iter()
@@ -299,9 +316,13 @@ impl<T: SessionService> SessionManager<T> {
         let mut security_levels = HashMap::new();
 
         for session in &sessions {
-            *device_types.entry(session.device_info.device_type.clone()).or_insert(0) += 1;
-            *security_levels.entry(session.security_level.clone()).or_insert(0) += 1;
-            
+            *device_types
+                .entry(session.device_info.device_type.clone())
+                .or_insert(0) += 1;
+            *security_levels
+                .entry(session.security_level.clone())
+                .or_insert(0) += 1;
+
             if let Some(location) = &session.location {
                 if let Some(country) = &location.country {
                     *locations.entry(country.clone()).or_insert(0) += 1;
@@ -321,7 +342,11 @@ impl<T: SessionService> SessionManager<T> {
     }
 
     /// Determine security level for new session
-    fn determine_security_level(&self, request: &CreateSessionRequest, is_new_device: bool) -> Result<SecurityLevel> {
+    fn determine_security_level(
+        &self,
+        request: &CreateSessionRequest,
+        is_new_device: bool,
+    ) -> Result<SecurityLevel> {
         let mut level = request.security_level.clone();
 
         // Upgrade security level based on risk factors
@@ -341,7 +366,11 @@ impl<T: SessionService> SessionManager<T> {
     }
 
     /// Determine session flags
-    fn determine_session_flags(&self, _request: &CreateSessionRequest, is_new_device: bool) -> super::SessionFlags {
+    fn determine_session_flags(
+        &self,
+        _request: &CreateSessionRequest,
+        is_new_device: bool,
+    ) -> super::SessionFlags {
         let mut flags = default_session_flags();
 
         flags.requires_mfa = is_new_device && self.config.require_mfa_for_new_devices;
@@ -416,15 +445,15 @@ impl<T: SessionService> SessionCleanupService<T> {
     /// Run cleanup process
     pub async fn run_cleanup(&self) -> Result<SessionCleanupReport> {
         let start_time = Utc::now();
-        
+
         // Clean up expired sessions
         let expired_count = self.service.cleanup_expired_sessions().await?;
-        
+
         // Get current statistics
         let stats = self.service.get_session_statistics().await?;
-        
+
         let end_time = Utc::now();
-        
+
         Ok(SessionCleanupReport {
             cleanup_start: start_time,
             cleanup_end: end_time,
@@ -453,10 +482,13 @@ mod tests {
     #[tokio::test]
     async fn test_session_termination_conditions() {
         let condition = SessionTerminationCondition::SecurityLevelBelow(SecurityLevel::High);
-        
+
         // Test would require mock service implementation
         // This is a placeholder for actual test implementation
-        assert!(matches!(condition, SessionTerminationCondition::SecurityLevelBelow(_)));
+        assert!(matches!(
+            condition,
+            SessionTerminationCondition::SecurityLevelBelow(_)
+        ));
     }
 
     #[test]
@@ -475,7 +507,7 @@ mod tests {
         let config = SessionConfig::default();
         let mock_service = MockSessionService;
         let manager = SessionManager::new(mock_service, config);
-        
+
         let level = manager.determine_security_level(&request, false).unwrap();
         assert!(level >= SecurityLevel::Medium); // MFA verified should upgrade
     }
@@ -485,19 +517,60 @@ mod tests {
 
     #[async_trait::async_trait]
     impl SessionService for MockSessionService {
-        async fn create_session(&self, _request: CreateSessionRequest) -> Result<Session> { unimplemented!() }
-        async fn get_session(&self, _session_id: &str) -> Result<Option<Session>> { unimplemented!() }
-        async fn update_session(&self, _session_id: &str, _session: Session) -> Result<Session> { unimplemented!() }
-        async fn terminate_session(&self, _session_id: &str, _reason: TerminationReason) -> Result<bool> { unimplemented!() }
-        async fn validate_session(&self, _session_id: &str, _ip_address: &str, _user_agent: &str) -> Result<SessionValidationResult> { unimplemented!() }
-        async fn refresh_session(&self, _session_id: &str) -> Result<Session> { unimplemented!() }
-        async fn get_user_sessions(&self, _user_id: &str) -> Result<Vec<Session>> { unimplemented!() }
-        async fn terminate_user_sessions(&self, _user_id: &str, _reason: TerminationReason) -> Result<u64> { unimplemented!() }
-        async fn get_device_sessions(&self, _device_id: &str) -> Result<Vec<Session>> { unimplemented!() }
-        async fn trust_device(&self, _device_id: &str, _user_id: &str) -> Result<bool> { unimplemented!() }
-        async fn untrust_device(&self, _device_id: &str, _user_id: &str) -> Result<bool> { unimplemented!() }
-        async fn get_session_statistics(&self) -> Result<SessionStatistics> { unimplemented!() }
-        async fn cleanup_expired_sessions(&self) -> Result<u64> { unimplemented!() }
-        async fn emergency_logout_all(&self, _reason: TerminationReason) -> Result<u64> { unimplemented!() }
+        async fn create_session(&self, _request: CreateSessionRequest) -> Result<Session> {
+            unimplemented!()
+        }
+        async fn get_session(&self, _session_id: &str) -> Result<Option<Session>> {
+            unimplemented!()
+        }
+        async fn update_session(&self, _session_id: &str, _session: Session) -> Result<Session> {
+            unimplemented!()
+        }
+        async fn terminate_session(
+            &self,
+            _session_id: &str,
+            _reason: TerminationReason,
+        ) -> Result<bool> {
+            unimplemented!()
+        }
+        async fn validate_session(
+            &self,
+            _session_id: &str,
+            _ip_address: &str,
+            _user_agent: &str,
+        ) -> Result<SessionValidationResult> {
+            unimplemented!()
+        }
+        async fn refresh_session(&self, _session_id: &str) -> Result<Session> {
+            unimplemented!()
+        }
+        async fn get_user_sessions(&self, _user_id: &str) -> Result<Vec<Session>> {
+            unimplemented!()
+        }
+        async fn terminate_user_sessions(
+            &self,
+            _user_id: &str,
+            _reason: TerminationReason,
+        ) -> Result<u64> {
+            unimplemented!()
+        }
+        async fn get_device_sessions(&self, _device_id: &str) -> Result<Vec<Session>> {
+            unimplemented!()
+        }
+        async fn trust_device(&self, _device_id: &str, _user_id: &str) -> Result<bool> {
+            unimplemented!()
+        }
+        async fn untrust_device(&self, _device_id: &str, _user_id: &str) -> Result<bool> {
+            unimplemented!()
+        }
+        async fn get_session_statistics(&self) -> Result<SessionStatistics> {
+            unimplemented!()
+        }
+        async fn cleanup_expired_sessions(&self) -> Result<u64> {
+            unimplemented!()
+        }
+        async fn emergency_logout_all(&self, _reason: TerminationReason) -> Result<u64> {
+            unimplemented!()
+        }
     }
 }

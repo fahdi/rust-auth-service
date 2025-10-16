@@ -1,6 +1,9 @@
+use super::{
+    SocialAuthUrl, SocialConfig, SocialLoginProvider, SocialLoginResult, SocialProvider,
+    SocialUserProfile,
+};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use super::{SocialProvider, SocialUserProfile, SocialAuthUrl, SocialLoginResult, SocialLoginProvider, SocialConfig};
 
 /// Google OAuth2 configuration
 #[derive(Debug, Clone)]
@@ -63,7 +66,7 @@ impl GoogleProvider {
     /// Get Google OAuth2 authorization URL
     fn get_auth_url(&self, state: &str) -> String {
         let scope_string = self.scopes.join(" ");
-        
+
         format!(
             "https://accounts.google.com/o/oauth2/v2/auth?client_id={}&redirect_uri={}&scope={}&response_type=code&state={}&access_type=offline&prompt=consent",
             urlencoding::encode(&self.client_id),
@@ -92,7 +95,10 @@ impl GoogleProvider {
 
         if !response.status().is_success() {
             let error_text = response.text().await?;
-            return Err(anyhow::anyhow!("Google token exchange failed: {}", error_text));
+            return Err(anyhow::anyhow!(
+                "Google token exchange failed: {}",
+                error_text
+            ));
         }
 
         let token_response: GoogleTokenResponse = response.json().await?;
@@ -110,7 +116,10 @@ impl GoogleProvider {
 
         if !response.status().is_success() {
             let error_text = response.text().await?;
-            return Err(anyhow::anyhow!("Failed to get Google user info: {}", error_text));
+            return Err(anyhow::anyhow!(
+                "Failed to get Google user info: {}",
+                error_text
+            ));
         }
 
         let user_info: GoogleUserInfo = response.json().await?;
@@ -120,7 +129,7 @@ impl GoogleProvider {
     /// Convert Google user info to social user profile
     fn convert_to_profile(&self, user_info: GoogleUserInfo) -> SocialUserProfile {
         let raw_profile = serde_json::to_value(&user_info).unwrap_or_default();
-        
+
         SocialUserProfile {
             provider: SocialProvider::Google,
             provider_user_id: user_info.id,
@@ -142,7 +151,7 @@ impl SocialLoginProvider for GoogleProvider {
 
     async fn get_authorization_url(&self, state: &str) -> Result<SocialAuthUrl> {
         let authorization_url = self.get_auth_url(state);
-        
+
         Ok(SocialAuthUrl {
             provider: SocialProvider::Google,
             authorization_url,
@@ -186,7 +195,10 @@ impl SocialLoginProvider for GoogleProvider {
 
         if !response.status().is_success() {
             let error_text = response.text().await?;
-            return Err(anyhow::anyhow!("Google token refresh failed: {}", error_text));
+            return Err(anyhow::anyhow!(
+                "Google token refresh failed: {}",
+                error_text
+            ));
         }
 
         let token_response: GoogleTokenResponse = response.json().await?;
@@ -196,7 +208,9 @@ impl SocialLoginProvider for GoogleProvider {
         Ok(SocialLoginResult {
             user_profile,
             access_token: token_response.access_token,
-            refresh_token: token_response.refresh_token.or_else(|| Some(refresh_token.to_string())),
+            refresh_token: token_response
+                .refresh_token
+                .or_else(|| Some(refresh_token.to_string())),
             expires_in: token_response.expires_in,
         })
     }
@@ -211,8 +225,12 @@ impl SocialLoginProvider for GoogleProvider {
         if self.redirect_uri.is_empty() {
             return Err(anyhow::anyhow!("Google redirect_uri is required"));
         }
-        if !self.redirect_uri.starts_with("https://") && !self.redirect_uri.starts_with("http://localhost") {
-            return Err(anyhow::anyhow!("Google redirect_uri must use HTTPS or localhost"));
+        if !self.redirect_uri.starts_with("https://")
+            && !self.redirect_uri.starts_with("http://localhost")
+        {
+            return Err(anyhow::anyhow!(
+                "Google redirect_uri must use HTTPS or localhost"
+            ));
         }
         Ok(())
     }
@@ -228,7 +246,11 @@ mod tests {
             client_id: "test_client_id".to_string(),
             client_secret: "test_client_secret".to_string(),
             redirect_uri: "https://example.com/auth/google/callback".to_string(),
-            scopes: vec!["openid".to_string(), "email".to_string(), "profile".to_string()],
+            scopes: vec![
+                "openid".to_string(),
+                "email".to_string(),
+                "profile".to_string(),
+            ],
             enabled: true,
         }
     }
@@ -237,7 +259,7 @@ mod tests {
     fn test_google_provider_creation() {
         let config = create_test_config();
         let provider = GoogleProvider::new(config).unwrap();
-        
+
         assert_eq!(provider.provider_type(), SocialProvider::Google);
     }
 
@@ -245,7 +267,7 @@ mod tests {
     fn test_google_provider_validation() {
         let config = create_test_config();
         let provider = GoogleProvider::new(config).unwrap();
-        
+
         assert!(provider.validate_config().is_ok());
     }
 
@@ -253,7 +275,7 @@ mod tests {
     fn test_google_provider_invalid_config() {
         let mut config = create_test_config();
         config.client_id = "".to_string();
-        
+
         let provider = GoogleProvider::new(config).unwrap();
         assert!(provider.validate_config().is_err());
     }
@@ -263,9 +285,9 @@ mod tests {
         let config = create_test_config();
         let provider = GoogleProvider::new(config).unwrap();
         let state = "test_state";
-        
+
         let auth_url = provider.get_auth_url(state);
-        
+
         assert!(auth_url.contains("accounts.google.com"));
         assert!(auth_url.contains("test_client_id"));
         assert!(auth_url.contains("test_state"));
@@ -278,7 +300,7 @@ mod tests {
     fn test_convert_to_profile() {
         let config = create_test_config();
         let provider = GoogleProvider::new(config).unwrap();
-        
+
         let google_user = GoogleUserInfo {
             id: "123456789".to_string(),
             email: "test@gmail.com".to_string(),
@@ -289,15 +311,18 @@ mod tests {
             picture: Some("https://example.com/avatar.jpg".to_string()),
             locale: Some("en".to_string()),
         };
-        
+
         let profile = provider.convert_to_profile(google_user);
-        
+
         assert_eq!(profile.provider, SocialProvider::Google);
         assert_eq!(profile.provider_user_id, "123456789");
         assert_eq!(profile.email, "test@gmail.com");
         assert_eq!(profile.name, "Test User");
         assert!(profile.verified_email);
-        assert_eq!(profile.avatar_url, Some("https://example.com/avatar.jpg".to_string()));
+        assert_eq!(
+            profile.avatar_url,
+            Some("https://example.com/avatar.jpg".to_string())
+        );
         assert!(profile.username.is_none());
     }
 }
