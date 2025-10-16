@@ -1,6 +1,8 @@
 use super::{
-    Permission, PermissionCheckResult, PermissionConditions, UserContext, UserManagementService,
+    NotificationPreferences, Permission, PermissionCheckResult, PermissionConditions, PrivacySettings, 
+    UserContext, UserGroup, UserManagementService, UserProfile,
 };
+use crate::models::user::UserRole;
 use anyhow::Result;
 use chrono::{DateTime, Datelike, Timelike, Utc};
 use regex::Regex;

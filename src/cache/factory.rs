@@ -225,6 +225,8 @@ mod tests {
             url: None,
             ttl: 3600,
             lru_size: 100,
+            redis: None,
+            memory: crate::config::cache::MemoryConfig { max_size: 100 },
         };
 
         let cache = create_cache_provider(&config).await.unwrap();
@@ -245,6 +247,8 @@ mod tests {
             url: None,
             ttl: 3600,
             lru_size: 100,
+            redis: None,
+            memory: crate::config::cache::MemoryConfig { max_size: 100 },
         };
 
         let cache = create_cache_provider(&config).await.unwrap();
@@ -265,6 +269,8 @@ mod tests {
             url: None,
             ttl: 3600,
             lru_size: 100,
+            redis: None,
+            memory: crate::config::cache::MemoryConfig { max_size: 100 },
         };
 
         let provider = create_cache_provider(&config).await.unwrap();

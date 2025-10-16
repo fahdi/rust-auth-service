@@ -425,22 +425,37 @@ mod tests {
                 port: 8090,
                 workers: 2,
                 max_connections: 100,
-                keep_alive: 60,
                 timeout: 30,
             },
             auth: AuthConfig {
+                jwt: crate::config::auth::JwtConfig {
+                    secret: "test-secret-key-with-sufficient-length".to_string(),
+                    expiration_days: 7,
+                },
+                password: crate::config::auth::PasswordConfig {
+                    bcrypt_rounds: 10,
+                    min_length: 8,
+                },
+                verification: crate::config::auth::VerificationConfig {
+                    token_expiry_hours: 24,
+                    required: true,
+                },
                 jwt_secret: "test-secret-key-with-sufficient-length".to_string(),
                 jwt_expiration: 3600,
                 jwt_refresh_expiration: 604800,
                 password_hash_rounds: 10,
                 max_failed_attempts: 5,
                 lockout_duration: 300,
-                require_email_verification: true,
-                allow_password_reset: true,
                 session_timeout: 7200,
             },
             database: DatabaseConfig {
                 r#type: "mongodb".to_string(),
+                url: "mongodb://localhost:27017".to_string(),
+                pool: crate::config::database::PoolConfig {
+                    min_connections: 1,
+                    max_connections: 10,
+                    idle_timeout: 600,
+                },
                 mongodb: Some(crate::config::database::MongoDBConfig {
                     url: "mongodb://localhost:27017".to_string(),
                     database: "test".to_string(),
