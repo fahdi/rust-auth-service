@@ -1,10 +1,10 @@
-name: Basic CI
+name: Quick Checks
 
 on:
   push:
-    branches: [ main, milestone-4-advanced-auth ]
+    branches: [ milestone-4-advanced-auth ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, milestone-4-advanced-auth ]
 
 env:
   CARGO_TERM_COLOR: always
