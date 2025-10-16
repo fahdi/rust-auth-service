@@ -8,6 +8,10 @@ pub struct AuthConfig {
     pub jwt_secret: String,
     pub password_hash_rounds: u32,
     pub session_timeout: u64,
+    pub jwt_expiration: u64,
+    pub jwt_refresh_expiration: u64,
+    pub max_failed_attempts: u32,
+    pub lockout_duration: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -37,6 +41,10 @@ impl Default for AuthConfig {
             jwt_secret: "your-secret-key-change-in-production".to_string(),
             password_hash_rounds: 12,
             session_timeout: 3600, // 1 hour
+            jwt_expiration: 86400,     // 24 hours
+            jwt_refresh_expiration: 2592000, // 30 days
+            max_failed_attempts: 5,
+            lockout_duration: 900, // 15 minutes
         }
     }
 }

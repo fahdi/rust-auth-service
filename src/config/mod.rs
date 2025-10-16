@@ -28,6 +28,7 @@ pub struct Config {
     pub monitoring: MonitoringConfig,
     pub environment: EnvironmentConfig,
     pub logging: LoggingConfig,
+    pub security: SecurityConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -60,6 +61,16 @@ pub struct TracingConfig {
     pub jaeger_endpoint: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SecurityConfig {
+    pub cors: CorsConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CorsConfig {
+    pub allowed_origins: Vec<String>,
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -72,6 +83,7 @@ impl Default for Config {
             monitoring: MonitoringConfig::default(),
             environment: EnvironmentConfig::default(),
             logging: LoggingConfig::default(),
+            security: SecurityConfig::default(),
         }
     }
 }
@@ -115,6 +127,22 @@ impl Default for TracingConfig {
         Self {
             level: "info".to_string(),
             jaeger_endpoint: "http://localhost:14268/api/traces".to_string(),
+        }
+    }
+}
+
+impl Default for SecurityConfig {
+    fn default() -> Self {
+        Self {
+            cors: CorsConfig::default(),
+        }
+    }
+}
+
+impl Default for CorsConfig {
+    fn default() -> Self {
+        Self {
+            allowed_origins: vec!["http://localhost:3000".to_string()],
         }
     }
 }

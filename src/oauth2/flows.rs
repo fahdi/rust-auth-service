@@ -1,11 +1,8 @@
 use anyhow::{anyhow, Result};
 use chrono::{Duration, Utc};
-use std::collections::HashMap;
-use uuid::Uuid;
-
 use super::pkce::{verify_pkce, PKCEVerificationResult};
 use super::scopes::ScopeManager;
-use super::tokens::{AccessTokenClaims, TokenManager};
+use super::tokens::TokenManager;
 use super::{
     AuthorizationCode, DeviceAuthorization, GrantType, OAuth2Client, OAuth2Config, OAuth2Error,
     OAuth2ErrorResponse, OAuth2Service, ResponseType, TokenResponse,

@@ -164,7 +164,7 @@ pub enum WarningSevertiy {
 }
 
 /// Required security actions
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum SecurityAction {
     RequireMFA,
     RequirePasswordChange,
