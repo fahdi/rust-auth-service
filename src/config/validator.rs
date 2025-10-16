@@ -121,6 +121,9 @@ impl ConfigValidator {
                         }
                     }
                 }
+                _ => {
+                    // Other database types don't require SSL validation
+                }
             }
 
             // Redis SSL
