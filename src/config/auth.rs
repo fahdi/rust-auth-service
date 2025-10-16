@@ -40,8 +40,8 @@ impl Default for AuthConfig {
             verification: VerificationConfig::default(),
             jwt_secret: "your-secret-key-change-in-production".to_string(),
             password_hash_rounds: 12,
-            session_timeout: 3600, // 1 hour
-            jwt_expiration: 86400,     // 24 hours
+            session_timeout: 3600,           // 1 hour
+            jwt_expiration: 86400,           // 24 hours
             jwt_refresh_expiration: 2592000, // 30 days
             max_failed_attempts: 5,
             lockout_duration: 900, // 15 minutes
