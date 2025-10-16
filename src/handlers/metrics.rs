@@ -104,13 +104,17 @@ mod tests {
             .await
             .expect("Failed to create test database");
 
-        let cache_provider = crate::cache::create_cache_provider(&config.cache).await.expect("Failed to create cache provider");
+        let cache_provider = crate::cache::create_cache_provider(&config.cache)
+            .await
+            .expect("Failed to create cache provider");
         let cache_service = crate::cache::CacheService::new(cache_provider, config.cache.ttl);
-        
+
         let oauth2_config = crate::oauth2::OAuth2Config::default();
-        let oauth2_server = crate::oauth2::server::OAuth2Server::new(&oauth2_config).expect("Failed to create OAuth2 server");
-        
-        let token_manager = crate::oauth2::tokens::TokenManager::new(&config.auth.jwt).expect("Failed to create token manager");
+        let oauth2_server = crate::oauth2::server::OAuth2Server::new(&oauth2_config)
+            .expect("Failed to create OAuth2 server");
+
+        let token_manager = crate::oauth2::tokens::TokenManager::new(&config.auth.jwt)
+            .expect("Failed to create token manager");
 
         AppState {
             config: Arc::new(config),

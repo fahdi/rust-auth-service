@@ -689,11 +689,7 @@ mod tests {
         async fn get_role(&self, _role_id: &str) -> Result<Option<UserRole>> {
             unimplemented!()
         }
-        async fn update_role(
-            &self,
-            _role_id: &str,
-            _role: UserRole,
-        ) -> Result<UserRole> {
+        async fn update_role(&self, _role_id: &str, _role: UserRole) -> Result<UserRole> {
             unimplemented!()
         }
         async fn delete_role(&self, _role_id: &str) -> Result<bool> {

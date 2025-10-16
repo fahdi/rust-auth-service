@@ -170,7 +170,11 @@ impl AuthFlow {
             }
             Ok(body)
         } else {
-            Err(anyhow::anyhow!("Registration failed with status {}: {}", status, body))
+            Err(anyhow::anyhow!(
+                "Registration failed with status {}: {}",
+                status,
+                body
+            ))
         }
     }
 
@@ -199,7 +203,11 @@ impl AuthFlow {
             }
             Ok(body)
         } else {
-            Err(anyhow::anyhow!("Login failed with status {}: {}", status, body))
+            Err(anyhow::anyhow!(
+                "Login failed with status {}: {}",
+                status,
+                body
+            ))
         }
     }
 
@@ -222,7 +230,11 @@ impl AuthFlow {
         if status == StatusCode::OK {
             Ok(body)
         } else {
-            Err(anyhow::anyhow!("Get profile failed with status {}: {}", status, body))
+            Err(anyhow::anyhow!(
+                "Get profile failed with status {}: {}",
+                status,
+                body
+            ))
         }
     }
 
@@ -250,7 +262,11 @@ impl AuthFlow {
         if status == StatusCode::OK {
             Ok(body)
         } else {
-            Err(anyhow::anyhow!("Update profile failed with status {}: {}", status, body))
+            Err(anyhow::anyhow!(
+                "Update profile failed with status {}: {}",
+                status,
+                body
+            ))
         }
     }
 
@@ -283,7 +299,11 @@ impl AuthFlow {
             }
             Ok(body)
         } else {
-            Err(anyhow::anyhow!("Token refresh failed with status {}: {}", status, body))
+            Err(anyhow::anyhow!(
+                "Token refresh failed with status {}: {}",
+                status,
+                body
+            ))
         }
     }
 
@@ -306,7 +326,11 @@ impl AuthFlow {
         if status == StatusCode::OK {
             Ok(body)
         } else {
-            Err(anyhow::anyhow!("Logout failed with status {}: {}", status, body))
+            Err(anyhow::anyhow!(
+                "Logout failed with status {}: {}",
+                status,
+                body
+            ))
         }
     }
 
@@ -328,7 +352,11 @@ impl AuthFlow {
         if status == StatusCode::OK {
             Ok(body)
         } else {
-            Err(anyhow::anyhow!("Forgot password failed with status {}: {}", status, body))
+            Err(anyhow::anyhow!(
+                "Forgot password failed with status {}: {}",
+                status,
+                body
+            ))
         }
     }
 }
