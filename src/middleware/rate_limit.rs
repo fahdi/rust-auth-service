@@ -20,6 +20,8 @@ use crate::{
     errors::AppError,
     AppState,
 };
+use redis::{aio::ConnectionManager, Client};
+use base64::Engine;
 
 /// In-memory rate limiting store
 #[derive(Debug, Clone)]
@@ -75,6 +77,87 @@ impl MemoryRateLimitStore {
     }
 }
 
+/// Redis-based rate limiting store
+#[derive(Clone)]
+pub struct RedisRateLimitStore {
+    connection: ConnectionManager,
+}
+
+impl RedisRateLimitStore {
+    pub async fn new(redis_url: &str) -> Result<Self, AppError> {
+        let client = Client::open(redis_url).map_err(|_| AppError::Internal)?;
+        let connection = ConnectionManager::new(client)
+            .await
+            .map_err(|_| AppError::Internal)?;
+        Ok(Self { connection })
+    }
+
+    pub async fn check_and_increment(
+        &self,
+        key: &str,
+        rule: &RateLimitRule,
+        current_time: u64,
+    ) -> Result<RateLimitStatus, AppError> {
+        let mut conn = self.connection.clone();
+        let window_start = (current_time / rule.window_seconds) * rule.window_seconds;
+        let full_key = format!("{}:{}", key, window_start);
+
+        // Use Redis MULTI/EXEC for atomic operations
+        let (current_count,): (u32,) = redis::pipe()
+            .atomic()
+            .incr(&full_key, 1)
+            .expire(&full_key, rule.window_seconds as i64)
+            .ignore()
+            .query_async(&mut conn)
+            .await
+            .map_err(|_| AppError::Internal)?;
+
+        let allowed = current_count <= rule.max_requests;
+        let reset_time = window_start + rule.window_seconds - current_time;
+        let retry_after = if !allowed { Some(reset_time) } else { None };
+
+        Ok(RateLimitStatus {
+            allowed,
+            current_requests: current_count,
+            max_requests: rule.max_requests,
+            reset_time,
+            retry_after,
+        })
+    }
+}
+
+/// Rate limiting store trait for abstraction
+pub trait RateLimitStore: Send + Sync {
+    async fn check_and_increment(
+        &self,
+        key: &str,
+        rule: &RateLimitRule,
+        current_time: u64,
+    ) -> Result<RateLimitStatus, AppError>;
+}
+
+impl RateLimitStore for MemoryRateLimitStore {
+    async fn check_and_increment(
+        &self,
+        key: &str,
+        rule: &RateLimitRule,
+        current_time: u64,
+    ) -> Result<RateLimitStatus, AppError> {
+        Ok(self.check_and_increment(key, rule, current_time))
+    }
+}
+
+impl RateLimitStore for RedisRateLimitStore {
+    async fn check_and_increment(
+        &self,
+        key: &str,
+        rule: &RateLimitRule,
+        current_time: u64,
+    ) -> Result<RateLimitStatus, AppError> {
+        self.check_and_increment(key, rule, current_time).await
+    }
+}
+
 /// Rate limiting middleware
 pub async fn rate_limit_middleware(
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
@@ -106,18 +189,44 @@ pub async fn rate_limit_middleware(
         .map_err(|_| AppError::Internal)?
         .as_secs();
 
-    let identifier = if rule.per_ip {
-        client_ip.clone()
+    // Extract user ID from Authorization header if present and per_user is enabled
+    let user_id = if rule.per_user {
+        extract_user_id_from_request(&request)
     } else {
-        "global".to_string() // For global rate limiting
+        None
+    };
+
+    let identifier = match (rule.per_ip, rule.per_user, user_id) {
+        (_, true, Some(uid)) => format!("user:{}", uid), // Per-user takes precedence when authenticated
+        (true, _, _) => format!("ip:{}", client_ip),     // Per-IP when no user or per_user disabled
+        _ => "global".to_string(),                       // Global rate limiting
     };
 
     let key = generate_rate_limit_key(category, &identifier, current_time);
 
-    // Check rate limit using memory store for now
-    // TODO: Add Redis support for distributed rate limiting
-    let store = MemoryRateLimitStore::new(state.config.rate_limit.memory_cache_size);
-    let status = store.check_and_increment(&key, rule, current_time);
+    // Check rate limit using configured backend
+    let status = match state.config.rate_limit.backend.as_str() {
+        "redis" => {
+            if let Some(redis_url) = &state.config.rate_limit.redis_url {
+                match RedisRateLimitStore::new(redis_url).await {
+                    Ok(redis_store) => redis_store.check_and_increment(&key, rule, current_time).await?,
+                    Err(_) => {
+                        warn!("Failed to connect to Redis, falling back to memory store");
+                        let memory_store = MemoryRateLimitStore::new(state.config.rate_limit.memory_cache_size);
+                        memory_store.check_and_increment(&key, rule, current_time)
+                    }
+                }
+            } else {
+                warn!("Redis backend configured but no Redis URL provided, using memory store");
+                let memory_store = MemoryRateLimitStore::new(state.config.rate_limit.memory_cache_size);
+                memory_store.check_and_increment(&key, rule, current_time)
+            }
+        }
+        _ => {
+            let memory_store = MemoryRateLimitStore::new(state.config.rate_limit.memory_cache_size);
+            memory_store.check_and_increment(&key, rule, current_time)
+        }
+    };
 
     // Add rate limit headers to response
     let mut response = if status.allowed {
@@ -188,6 +297,54 @@ fn get_client_ip(request: &Request, fallback_ip: String) -> String {
 
     // Fallback to connection IP
     fallback_ip
+}
+
+/// Extract user ID from JWT token in Authorization header
+fn extract_user_id_from_request(request: &Request) -> Option<String> {
+    // Get Authorization header
+    let auth_header = request.headers().get("Authorization")?;
+    let auth_str = auth_header.to_str().ok()?;
+    
+    // Check if it's a Bearer token
+    if !auth_str.starts_with("Bearer ") {
+        return None;
+    }
+    
+    let token = auth_str.strip_prefix("Bearer ")?;
+    
+    // Parse JWT token without verification (just for rate limiting identification)
+    // JWT format: header.payload.signature
+    let parts: Vec<&str> = token.split('.').collect();
+    if parts.len() != 3 {
+        return None;
+    }
+    
+    // Decode the payload (second part)
+    let payload = parts[1];
+    
+    // Add padding if needed for base64 decoding
+    let padded_payload = match payload.len() % 4 {
+        0 => payload.to_string(),
+        n => format!("{}{}", payload, "=".repeat(4 - n)),
+    };
+    
+    // Decode base64 payload
+    if let Ok(decoded) = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(&padded_payload) {
+        if let Ok(json_str) = String::from_utf8(decoded) {
+            if let Ok(claims) = serde_json::from_str::<serde_json::Value>(&json_str) {
+                // Extract user ID from claims (typically in 'sub' field)
+                if let Some(user_id) = claims.get("sub").and_then(|v| v.as_str()) {
+                    return Some(user_id.to_string());
+                }
+                // Fallback to 'user_id' field if 'sub' not found
+                if let Some(user_id) = claims.get("user_id").and_then(|v| v.as_str()) {
+                    return Some(user_id.to_string());
+                }
+            }
+        }
+    }
+    
+    None
 }
 
 /// Get rate limit rule for a specific category
@@ -278,5 +435,30 @@ mod tests {
         assert_eq!(get_rule_for_category(&config, "health").max_requests, 1000);
         assert_eq!(get_rule_for_category(&config, "unknown").max_requests, 100);
         // general
+    }
+
+    #[test]
+    fn test_extract_user_id_from_request() {
+        // Create a test JWT token (without signature verification)
+        // Payload: {"sub": "user123", "exp": 1234567890}
+        let payload = r#"{"sub":"user123","exp":1234567890}"#;
+        let encoded_payload = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(payload);
+        let fake_token = format!("header.{}.signature", encoded_payload);
+        
+        let mut request = create_test_request("/test");
+        request.headers_mut().insert(
+            "Authorization",
+            HeaderValue::from_str(&format!("Bearer {}", fake_token)).unwrap(),
+        );
+
+        let user_id = extract_user_id_from_request(&request);
+        assert_eq!(user_id, Some("user123".to_string()));
+    }
+
+    #[test]
+    fn test_extract_user_id_no_token() {
+        let request = create_test_request("/test");
+        let user_id = extract_user_id_from_request(&request);
+        assert_eq!(user_id, None);
     }
 }
