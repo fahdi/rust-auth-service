@@ -1,8 +1,7 @@
 use super::{
     NotificationPreferences, Permission, PermissionCheckResult, PermissionConditions,
-    PrivacySettings, UserContext, UserGroup, UserManagementService, UserProfile,
+    PrivacySettings, UserContext, UserGroup, UserManagementService, UserProfile, UserRole,
 };
-use crate::models::user::UserRole;
 use anyhow::Result;
 use chrono::{DateTime, Datelike, Timelike, Utc};
 use regex::Regex;
@@ -656,7 +655,7 @@ mod tests {
 
     #[test]
     fn test_wildcard_to_regex() {
-        let mut evaluator = PermissionEvaluator::new(MockUserManagementService);
+        let evaluator = PermissionEvaluator::new(MockUserManagementService);
 
         let regex = evaluator.wildcard_to_regex("users:*").unwrap();
         assert_eq!(regex, "^users:.*$");
@@ -684,23 +683,23 @@ mod tests {
 
     #[async_trait::async_trait]
     impl UserManagementService for MockUserManagementService {
-        async fn create_role(&self, _role: super::UserRole) -> Result<super::UserRole> {
+        async fn create_role(&self, _role: UserRole) -> Result<UserRole> {
             unimplemented!()
         }
-        async fn get_role(&self, _role_id: &str) -> Result<Option<super::UserRole>> {
+        async fn get_role(&self, _role_id: &str) -> Result<Option<UserRole>> {
             unimplemented!()
         }
         async fn update_role(
             &self,
             _role_id: &str,
-            _role: super::UserRole,
-        ) -> Result<super::UserRole> {
+            _role: UserRole,
+        ) -> Result<UserRole> {
             unimplemented!()
         }
         async fn delete_role(&self, _role_id: &str) -> Result<bool> {
             unimplemented!()
         }
-        async fn list_roles(&self) -> Result<Vec<super::UserRole>> {
+        async fn list_roles(&self) -> Result<Vec<UserRole>> {
             unimplemented!()
         }
         async fn assign_role_to_user(&self, _user_id: &str, _role_id: &str) -> Result<()> {
@@ -709,7 +708,7 @@ mod tests {
         async fn remove_role_from_user(&self, _user_id: &str, _role_id: &str) -> Result<()> {
             unimplemented!()
         }
-        async fn get_user_roles(&self, _user_id: &str) -> Result<Vec<super::UserRole>> {
+        async fn get_user_roles(&self, _user_id: &str) -> Result<Vec<UserRole>> {
             unimplemented!()
         }
         async fn create_permission(&self, _permission: Permission) -> Result<Permission> {

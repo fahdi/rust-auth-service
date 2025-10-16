@@ -332,7 +332,7 @@ mod tests {
             should_fail: false,
         });
 
-        let runner = MigrationRunner::new(provider, "migrations", "test").with_dry_run(true);
+        let _runner = MigrationRunner::new(provider, "migrations", "test").with_dry_run(true);
 
         // Note: This would fail in a real test because the migrations directory doesn't exist
         // In a real implementation, you'd want to set up test fixtures

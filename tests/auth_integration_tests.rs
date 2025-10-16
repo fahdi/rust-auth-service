@@ -434,7 +434,7 @@ async fn test_authentication_performance() {
     // Test registration performance
     let user = TestUser::new("perf_test");
     let start = std::time::Instant::now();
-    let (tokens, _) = client
+    let (_tokens, _) = client
         .register(&user)
         .await
         .expect("Registration should succeed");
