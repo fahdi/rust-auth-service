@@ -74,16 +74,16 @@ async fn test_mfa_setup_flow() {
             if resp.status().is_success() {
                 let body: serde_json::Value = resp.json().await.unwrap();
                 println!("✅ MFA setup successful");
-                
+
                 // Check for required fields in response
                 if body.get("qr_code").is_some() {
                     println!("✅ QR code provided for TOTP setup");
                 }
-                
+
                 if body.get("secret").is_some() {
                     println!("✅ TOTP secret provided");
                 }
-                
+
                 if body.get("backup_codes").is_some() {
                     println!("✅ Backup codes provided");
                 }
@@ -175,7 +175,7 @@ async fn test_mfa_verification_flow() {
     println!("✅ MFA verification flow test completed");
 }
 
-#[tokio::test] 
+#[tokio::test]
 async fn test_mfa_challenge_flow() {
     let client = reqwest::Client::new();
     let base_url = "http://localhost:8090";
@@ -233,11 +233,11 @@ async fn test_mfa_challenge_flow() {
             if resp.status().is_success() {
                 let body: serde_json::Value = resp.json().await.unwrap();
                 println!("✅ MFA challenge created successfully");
-                
+
                 if body.get("challenge_id").is_some() {
                     println!("✅ Challenge ID provided");
                 }
-                
+
                 if body.get("challenge").is_some() {
                     println!("✅ Challenge data provided");
                 }
@@ -308,7 +308,7 @@ async fn test_mfa_backup_codes() {
             if resp.status().is_success() {
                 let body: serde_json::Value = resp.json().await.unwrap();
                 println!("✅ Backup codes generated successfully");
-                
+
                 if let Some(codes) = body.get("backup_codes") {
                     if codes.is_array() {
                         println!("✅ Backup codes provided as array");
@@ -317,7 +317,10 @@ async fn test_mfa_backup_codes() {
                     }
                 }
             } else {
-                println!("ℹ️ Backup codes generation returned status: {}", resp.status());
+                println!(
+                    "ℹ️ Backup codes generation returned status: {}",
+                    resp.status()
+                );
             }
         }
         Err(e) => {
@@ -383,7 +386,7 @@ async fn test_mfa_methods_management() {
             if resp.status().is_success() {
                 let body: serde_json::Value = resp.json().await.unwrap();
                 println!("✅ MFA methods listed successfully");
-                
+
                 if let Some(methods) = body.get("methods") {
                     if methods.is_array() {
                         let methods_array = methods.as_array().unwrap();
@@ -481,15 +484,15 @@ async fn test_webauthn_flow() {
             if resp.status().is_success() {
                 let body: serde_json::Value = resp.json().await.unwrap();
                 println!("✅ WebAuthn setup initiated successfully");
-                
+
                 if body.get("challenge").is_some() {
                     println!("✅ WebAuthn challenge provided");
                 }
-                
+
                 if body.get("rp").is_some() {
                     println!("✅ Relying party information provided");
                 }
-                
+
                 if body.get("user").is_some() {
                     println!("✅ User information provided");
                 }
@@ -520,11 +523,7 @@ async fn test_mfa_policy_enforcement() {
     println!("🔍 Testing MFA policy enforcement");
 
     // Test admin endpoints that might require higher security
-    let admin_endpoints = vec![
-        "/admin/users",
-        "/admin/audit",
-        "/admin/config",
-    ];
+    let admin_endpoints = vec!["/admin/users", "/admin/audit", "/admin/config"];
 
     for endpoint in admin_endpoints {
         let response = client

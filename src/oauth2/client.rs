@@ -7,7 +7,8 @@ use validator::{Validate, ValidationError};
 
 use super::flows::validate_redirect_uri;
 use super::{
-    AccessToken, AuthorizationCode, DeviceAuthorization, GrantType, OAuth2Client, OAuth2Service, RefreshToken, TokenIntrospection,
+    AccessToken, AuthorizationCode, DeviceAuthorization, GrantType, OAuth2Client, OAuth2Service,
+    RefreshToken, TokenIntrospection,
 };
 
 /// Client registration request (RFC 7591)
@@ -677,7 +678,10 @@ mod tests {
         ) -> Result<crate::oauth2::AuthorizationCode> {
             unimplemented!()
         }
-        async fn get_auth_code(&self, _code: &str) -> Result<Option<crate::oauth2::AuthorizationCode>> {
+        async fn get_auth_code(
+            &self,
+            _code: &str,
+        ) -> Result<Option<crate::oauth2::AuthorizationCode>> {
             unimplemented!()
         }
         async fn use_auth_code(&self, _code: &str) -> Result<bool> {

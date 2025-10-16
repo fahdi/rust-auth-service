@@ -67,7 +67,10 @@ async fn test_oauth2_token_endpoint() {
             } else if resp.status() == reqwest::StatusCode::UNAUTHORIZED {
                 println!("✅ OAuth2 token endpoint correctly requires client authentication");
             } else {
-                println!("ℹ️ OAuth2 token endpoint returned status: {}", resp.status());
+                println!(
+                    "ℹ️ OAuth2 token endpoint returned status: {}",
+                    resp.status()
+                );
             }
         }
         Err(e) => {
@@ -89,16 +92,19 @@ async fn test_oauth2_token_endpoint() {
             if resp.status() == reqwest::StatusCode::OK {
                 let body: serde_json::Value = resp.json().await.unwrap();
                 println!("✅ OAuth2 client credentials grant successful");
-                
+
                 if body.get("access_token").is_some() {
                     println!("✅ Access token provided");
                 }
-                
+
                 if body.get("token_type").is_some() {
                     println!("✅ Token type provided");
                 }
             } else {
-                println!("ℹ️ OAuth2 client credentials returned status: {}", resp.status());
+                println!(
+                    "ℹ️ OAuth2 client credentials returned status: {}",
+                    resp.status()
+                );
             }
         }
         Err(e) => {
@@ -132,20 +138,23 @@ async fn test_oauth2_client_registration() {
             if resp.status() == reqwest::StatusCode::CREATED {
                 let body: serde_json::Value = resp.json().await.unwrap();
                 println!("✅ OAuth2 client registration successful");
-                
+
                 if body.get("client_id").is_some() {
                     println!("✅ Client ID generated");
                 }
-                
+
                 if body.get("client_secret").is_some() {
                     println!("✅ Client secret generated");
                 }
-                
+
                 if body.get("registration_access_token").is_some() {
                     println!("✅ Registration access token provided");
                 }
             } else {
-                println!("ℹ️ OAuth2 client registration returned status: {}", resp.status());
+                println!(
+                    "ℹ️ OAuth2 client registration returned status: {}",
+                    resp.status()
+                );
             }
         }
         Err(e) => {
@@ -174,24 +183,27 @@ async fn test_oauth2_device_flow() {
             if resp.status() == reqwest::StatusCode::OK {
                 let body: serde_json::Value = resp.json().await.unwrap();
                 println!("✅ OAuth2 device authorization successful");
-                
+
                 if body.get("device_code").is_some() {
                     println!("✅ Device code provided");
                 }
-                
+
                 if body.get("user_code").is_some() {
                     println!("✅ User code provided");
                 }
-                
+
                 if body.get("verification_uri").is_some() {
                     println!("✅ Verification URI provided");
                 }
-                
+
                 if body.get("expires_in").is_some() {
                     println!("✅ Expiration time provided");
                 }
             } else {
-                println!("ℹ️ OAuth2 device authorization returned status: {}", resp.status());
+                println!(
+                    "ℹ️ OAuth2 device authorization returned status: {}",
+                    resp.status()
+                );
             }
         }
         Err(e) => {
@@ -235,11 +247,15 @@ async fn test_oauth2_pkce_flow() {
 
     match pkce_auth_response {
         Ok(resp) => {
-            if resp.status() == reqwest::StatusCode::FOUND || 
-               resp.status() == reqwest::StatusCode::BAD_REQUEST {
+            if resp.status() == reqwest::StatusCode::FOUND
+                || resp.status() == reqwest::StatusCode::BAD_REQUEST
+            {
                 println!("✅ OAuth2 PKCE authorization handled correctly");
             } else {
-                println!("ℹ️ OAuth2 PKCE authorization returned status: {}", resp.status());
+                println!(
+                    "ℹ️ OAuth2 PKCE authorization returned status: {}",
+                    resp.status()
+                );
             }
         }
         Err(e) => {
@@ -281,7 +297,12 @@ async fn test_oauth2_scope_validation() {
                 } else if resp.status() == reqwest::StatusCode::BAD_REQUEST {
                     println!("✅ {} - Scope '{}' correctly rejected", description, scope);
                 } else {
-                    println!("ℹ️ {} - Scope '{}' returned status: {}", description, scope, resp.status());
+                    println!(
+                        "ℹ️ {} - Scope '{}' returned status: {}",
+                        description,
+                        scope,
+                        resp.status()
+                    );
                 }
             }
             Err(e) => {
@@ -314,27 +335,30 @@ async fn test_oauth2_token_introspection() {
             if resp.status() == reqwest::StatusCode::OK {
                 let body: serde_json::Value = resp.json().await.unwrap();
                 println!("✅ OAuth2 token introspection successful");
-                
+
                 if body.get("active").is_some() {
                     println!("✅ Token active status provided");
                 }
-                
+
                 // If token is active, should have additional claims
                 if body["active"].as_bool().unwrap_or(false) {
                     if body.get("scope").is_some() {
                         println!("✅ Token scope provided");
                     }
-                    
+
                     if body.get("client_id").is_some() {
                         println!("✅ Client ID provided");
                     }
-                    
+
                     if body.get("exp").is_some() {
                         println!("✅ Expiration time provided");
                     }
                 }
             } else {
-                println!("ℹ️ OAuth2 token introspection returned status: {}", resp.status());
+                println!(
+                    "ℹ️ OAuth2 token introspection returned status: {}",
+                    resp.status()
+                );
             }
         }
         Err(e) => {
@@ -364,11 +388,11 @@ async fn test_oauth2_refresh_token_flow() {
             if resp.status() == reqwest::StatusCode::OK {
                 let body: serde_json::Value = resp.json().await.unwrap();
                 println!("✅ OAuth2 refresh token grant successful");
-                
+
                 if body.get("access_token").is_some() {
                     println!("✅ New access token provided");
                 }
-                
+
                 if body.get("refresh_token").is_some() {
                     println!("✅ New refresh token provided");
                 }
@@ -399,7 +423,7 @@ async fn test_oauth2_error_handling() {
             "Invalid grant type",
         ),
         (
-            "invalid_client", 
+            "invalid_client",
             "grant_type=client_credentials",
             "Invalid client credentials",
         ),

@@ -129,7 +129,7 @@ impl MongoDatabase {
 
         Ok(())
     }
-    
+
     /// Helper function to perform update operations with consistent error handling
     async fn update_user_by_filter(
         &self,
@@ -256,7 +256,8 @@ impl AuthDatabase for MongoDatabase {
             "password_hash": password_hash
         });
 
-        self.update_user_by_filter(filter, update, "update password").await
+        self.update_user_by_filter(filter, update, "update password")
+            .await
     }
 
     async fn set_email_verification_token(
@@ -272,7 +273,8 @@ impl AuthDatabase for MongoDatabase {
             "email_verification_expires": mongodb::bson::DateTime::from_system_time(expires_at.into())
         });
 
-        self.update_user_by_filter(filter, update, "set verification token").await
+        self.update_user_by_filter(filter, update, "set verification token")
+            .await
     }
 
     async fn verify_email(&self, token: &str) -> Result<String, UserError> {
@@ -317,7 +319,8 @@ impl AuthDatabase for MongoDatabase {
             "password_reset_expires": mongodb::bson::DateTime::from_system_time(expires_at.into())
         });
 
-        self.update_user_by_filter(filter, update, "set password reset token").await
+        self.update_user_by_filter(filter, update, "set password reset token")
+            .await
     }
 
     async fn verify_password_reset_token(&self, token: &str) -> Result<String, UserError> {
@@ -344,7 +347,8 @@ impl AuthDatabase for MongoDatabase {
         };
         let update = Self::create_update_doc_with_unset(doc! {}, unset_fields);
 
-        self.update_user_by_filter(filter, update, "clear reset token").await
+        self.update_user_by_filter(filter, update, "clear reset token")
+            .await
     }
 
     async fn record_login(&self, user_id: &str) -> Result<(), UserError> {
@@ -356,7 +360,8 @@ impl AuthDatabase for MongoDatabase {
         let unset_fields = doc! { "locked_until": "" };
         let update = Self::create_update_doc_with_unset(set_fields, unset_fields);
 
-        self.update_user_by_filter(filter, update, "record login").await
+        self.update_user_by_filter(filter, update, "record login")
+            .await
     }
 
     async fn record_failed_login(
@@ -420,7 +425,8 @@ impl AuthDatabase for MongoDatabase {
             "is_active": false
         });
 
-        self.update_user_by_filter(filter, update, "deactivate user").await
+        self.update_user_by_filter(filter, update, "deactivate user")
+            .await
     }
 
     async fn health_check(&self) -> Result<DatabaseHealth> {
@@ -542,7 +548,8 @@ impl AuthDatabase for MongoDatabase {
             "last_login": mongodb::bson::DateTime::from_system_time(Utc::now().into())
         });
 
-        self.update_user_by_filter(filter, update, "update last login").await
+        self.update_user_by_filter(filter, update, "update last login")
+            .await
     }
 
     async fn record_login_attempt(&self, attempt: &LoginAttempt) -> Result<(), UserError> {

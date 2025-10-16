@@ -147,7 +147,11 @@ async fn test_social_auth_callback_handling() {
                 } else if resp.status() == reqwest::StatusCode::NOT_FOUND {
                     println!("ℹ️ {} callback endpoint not available", provider);
                 } else {
-                    println!("ℹ️ {} callback returned status: {}", provider, resp.status());
+                    println!(
+                        "ℹ️ {} callback returned status: {}",
+                        provider,
+                        resp.status()
+                    );
                 }
             }
             Err(e) => {
@@ -157,17 +161,28 @@ async fn test_social_auth_callback_handling() {
 
         // Test callback with invalid authorization code
         let invalid_callback_response = client
-            .get(&format!("{}{}?code=invalid_code&state=test_state", base_url, endpoint))
+            .get(&format!(
+                "{}{}?code=invalid_code&state=test_state",
+                base_url, endpoint
+            ))
             .send()
             .await;
 
         match invalid_callback_response {
             Ok(resp) => {
-                if resp.status() == reqwest::StatusCode::BAD_REQUEST ||
-                   resp.status() == reqwest::StatusCode::UNAUTHORIZED {
-                    println!("✅ {} callback correctly validates authorization code", provider);
+                if resp.status() == reqwest::StatusCode::BAD_REQUEST
+                    || resp.status() == reqwest::StatusCode::UNAUTHORIZED
+                {
+                    println!(
+                        "✅ {} callback correctly validates authorization code",
+                        provider
+                    );
                 } else {
-                    println!("ℹ️ {} callback with invalid code returned: {}", provider, resp.status());
+                    println!(
+                        "ℹ️ {} callback with invalid code returned: {}",
+                        provider,
+                        resp.status()
+                    );
                 }
             }
             Err(e) => {
@@ -252,7 +267,11 @@ async fn test_social_auth_user_linking() {
                 } else if resp.status() == reqwest::StatusCode::NOT_FOUND {
                     println!("ℹ️ {} account linking not available", provider);
                 } else {
-                    println!("ℹ️ {} account linking returned status: {}", provider, resp.status());
+                    println!(
+                        "ℹ️ {} account linking returned status: {}",
+                        provider,
+                        resp.status()
+                    );
                 }
             }
             Err(e) => {
@@ -277,7 +296,7 @@ async fn test_social_auth_profile_data() {
     // Note: These are internal endpoints that might require special testing setup
     let profile_endpoints = vec![
         ("/internal/social/google/profile", "Google"),
-        ("/internal/social/github/profile", "GitHub"), 
+        ("/internal/social/github/profile", "GitHub"),
         ("/internal/social/discord/profile", "Discord"),
     ];
 
@@ -291,11 +310,21 @@ async fn test_social_auth_profile_data() {
         match profile_response {
             Ok(resp) => {
                 if resp.status() == reqwest::StatusCode::UNAUTHORIZED {
-                    println!("✅ {} profile endpoint correctly requires authentication", provider);
+                    println!(
+                        "✅ {} profile endpoint correctly requires authentication",
+                        provider
+                    );
                 } else if resp.status() == reqwest::StatusCode::NOT_FOUND {
-                    println!("ℹ️ {} profile endpoint not available (expected for integration test)", provider);
+                    println!(
+                        "ℹ️ {} profile endpoint not available (expected for integration test)",
+                        provider
+                    );
                 } else {
-                    println!("ℹ️ {} profile endpoint returned status: {}", provider, resp.status());
+                    println!(
+                        "ℹ️ {} profile endpoint returned status: {}",
+                        provider,
+                        resp.status()
+                    );
                 }
             }
             Err(e) => {
@@ -335,10 +364,7 @@ async fn test_social_auth_error_handling() {
     ];
 
     for (url, description) in error_scenarios {
-        let error_response = client
-            .get(&format!("{}{}", base_url, url))
-            .send()
-            .await;
+        let error_response = client.get(&format!("{}{}", base_url, url)).send().await;
 
         match error_response {
             Ok(resp) => {
@@ -368,16 +394,22 @@ async fn test_social_auth_scope_handling() {
 
     // Test social auth with different scope requirements
     let scope_tests = vec![
-        ("/auth/google?scope=email+profile", "Google with email and profile"),
-        ("/auth/github?scope=user:email", "GitHub with user email scope"),
-        ("/auth/discord?scope=identify+email", "Discord with identify and email"),
+        (
+            "/auth/google?scope=email+profile",
+            "Google with email and profile",
+        ),
+        (
+            "/auth/github?scope=user:email",
+            "GitHub with user email scope",
+        ),
+        (
+            "/auth/discord?scope=identify+email",
+            "Discord with identify and email",
+        ),
     ];
 
     for (url, description) in scope_tests {
-        let scope_response = client
-            .get(&format!("{}{}", base_url, url))
-            .send()
-            .await;
+        let scope_response = client.get(&format!("{}{}", base_url, url)).send().await;
 
         match scope_response {
             Ok(resp) => {

@@ -4,23 +4,30 @@ use axum::{
     Json,
 };
 use serde_json::json;
-use tracing::{error, warn, info};
+use tracing::{error, info, warn};
 use uuid::Uuid;
 
 /// Log structured error information with request context
-fn log_error_with_context(error_type: &str, message: &str, details: Option<&str>, request_id: &str) {
+fn log_error_with_context(
+    error_type: &str,
+    message: &str,
+    details: Option<&str>,
+    request_id: &str,
+) {
     if let Some(details) = details {
         error!(
             error_type = error_type,
             error_details = details,
             request_id = request_id,
-            "{}", message
+            "{}",
+            message
         );
     } else {
         error!(
             error_type = error_type,
             request_id = request_id,
-            "{}", message
+            "{}",
+            message
         );
     }
 }
@@ -30,7 +37,8 @@ fn log_warning_with_context(warning_type: &str, message: &str, request_id: &str)
     warn!(
         warning_type = warning_type,
         request_id = request_id,
-        "{}", message
+        "{}",
+        message
     );
 }
 

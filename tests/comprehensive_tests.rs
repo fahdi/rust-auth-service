@@ -16,7 +16,7 @@ use rust_auth_service::utils::password::hash_password;
 ///
 /// This test suite provides comprehensive coverage of the rust-auth-service
 /// across all supported database adapters (MongoDB, PostgreSQL, MySQL).
-/// 
+///
 /// Tests include:
 /// - Database operations (CRUD, authentication flows)
 /// - Performance benchmarks (throughput, latency)

@@ -1,6 +1,6 @@
 use super::{
-    Permission, PermissionCheckResult, PermissionConditions,
-    UserContext, UserGroup, UserManagementService,
+    Permission, PermissionCheckResult, PermissionConditions, UserContext, UserGroup,
+    UserManagementService,
 };
 use crate::models::user::UserRole;
 use anyhow::Result;
@@ -743,11 +743,7 @@ mod tests {
         async fn get_group(&self, _group_id: &str) -> Result<Option<UserGroup>> {
             unimplemented!()
         }
-        async fn update_group(
-            &self,
-            _group_id: &str,
-            _group: UserGroup,
-        ) -> Result<UserGroup> {
+        async fn update_group(&self, _group_id: &str, _group: UserGroup) -> Result<UserGroup> {
             unimplemented!()
         }
         async fn delete_group(&self, _group_id: &str) -> Result<bool> {

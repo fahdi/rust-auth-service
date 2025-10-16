@@ -1,8 +1,8 @@
 use super::{
     calculate_distance_km, default_session_flags, generate_session_id, parse_user_agent,
-    CreateSessionRequest, SecurityAction, SecurityLevel, SecurityWarning,
-    SecurityWarningType, Session, SessionConfig, SessionLocation, SessionService,
-    SessionStatistics, SessionValidationResult, TerminationReason, WarningSevertiy,
+    CreateSessionRequest, SecurityAction, SecurityLevel, SecurityWarning, SecurityWarningType,
+    Session, SessionConfig, SessionLocation, SessionService, SessionStatistics,
+    SessionValidationResult, TerminationReason, WarningSevertiy,
 };
 use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
