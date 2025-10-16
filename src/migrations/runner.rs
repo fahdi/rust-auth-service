@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use super::{calculate_migration_plan, MigrationLoader, MigrationPlan, MigrationProvider};
+use super::{calculate_migration_plan, Migration, MigrationLoader, MigrationPlan, MigrationProvider, MigrationRecord};
 use anyhow::{Context, Result};
 use std::sync::Arc;
 use std::time::Instant;
@@ -211,7 +211,7 @@ impl MigrationRunner {
         Ok(calculate_migration_plan(all_migrations, applied_migrations))
     }
 
-    async fn apply_migration(&self, migration: &super::Migration) -> Result<()> {
+    async fn apply_migration(&self, migration: &Migration) -> Result<()> {
         info!(
             "Applying migration {} - {}",
             migration.version, migration.name
@@ -240,7 +240,7 @@ impl MigrationRunner {
         Ok(())
     }
 
-    async fn rollback_migration(&self, migration: &super::Migration) -> Result<()> {
+    async fn rollback_migration(&self, migration: &Migration) -> Result<()> {
         info!(
             "Rolling back migration {} - {}",
             migration.version, migration.name
@@ -279,7 +279,7 @@ mod tests {
     use async_trait::async_trait;
 
     struct MockMigrationProvider {
-        applied_migrations: Vec<super::MigrationRecord>,
+        applied_migrations: Vec<MigrationRecord>,
         should_fail: bool,
     }
 
@@ -293,13 +293,13 @@ mod tests {
             }
         }
 
-        async fn get_applied_migrations(&self) -> Result<Vec<super::MigrationRecord>> {
+        async fn get_applied_migrations(&self) -> Result<Vec<MigrationRecord>> {
             Ok(self.applied_migrations.clone())
         }
 
         async fn record_migration(
             &self,
-            _migration: &super::Migration,
+            _migration: &Migration,
             _execution_time_ms: i64,
         ) -> Result<()> {
             Ok(())
@@ -309,11 +309,11 @@ mod tests {
             Ok(())
         }
 
-        async fn execute_migration(&self, _migration: &super::Migration) -> Result<()> {
+        async fn execute_migration(&self, _migration: &Migration) -> Result<()> {
             Ok(())
         }
 
-        async fn rollback_migration(&self, _migration: &super::Migration) -> Result<()> {
+        async fn rollback_migration(&self, _migration: &Migration) -> Result<()> {
             Ok(())
         }
 

@@ -416,7 +416,7 @@ impl ConfigValidator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{AuthConfig, Config, DatabaseConfig, DatabaseType, ServerConfig};
+    use crate::config::{AuthConfig, Config, DatabaseConfig, ServerConfig};
 
     fn create_test_config() -> Config {
         Config {
@@ -441,7 +441,7 @@ mod tests {
             },
             database: DatabaseConfig {
                 r#type: "mongodb".to_string(),
-                mongodb: Some(crate::config::MongoDBConfig {
+                mongodb: Some(crate::config::database::MongoDBConfig {
                     url: "mongodb://localhost:27017".to_string(),
                     database: "test".to_string(),
                     pool_size: 10,

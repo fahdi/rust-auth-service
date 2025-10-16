@@ -23,7 +23,6 @@ pub struct ClientRegistrationRequest {
     #[validate(custom(function = "validate_grant_types"))]
     pub grant_types: Vec<String>,
 
-    #[validate(custom(function = "validate_scopes"))]
     pub scope: Option<String>,
 
     #[validate(url)]
@@ -81,7 +80,6 @@ pub struct ClientUpdateRequest {
     #[validate(custom(function = "validate_grant_types"))]
     pub grant_types: Option<Vec<String>>,
 
-    #[validate(custom(function = "validate_scopes"))]
     pub scope: Option<String>,
 
     #[validate(url)]
@@ -551,16 +549,18 @@ fn validate_grant_types(grant_types: &[String]) -> Result<(), ValidationError> {
     Ok(())
 }
 
-fn validate_scopes(scopes: &String) -> Result<(), ValidationError> {
-    // Basic scope validation - no control characters
-    let scope_regex = Regex::new(r"^[a-zA-Z0-9:/_-]+( [a-zA-Z0-9:/_-]+)*$").unwrap();
-    if !scope_regex.is_match(scopes) {
-        return Err(ValidationError::new("Invalid scope format"));
-    }
+fn validate_scopes(scopes: &Option<String>) -> Result<(), ValidationError> {
+    if let Some(scope_str) = scopes {
+        // Basic scope validation - no control characters
+        let scope_regex = Regex::new(r"^[a-zA-Z0-9:/_-]+( [a-zA-Z0-9:/_-]+)*$").unwrap();
+        if !scope_regex.is_match(scope_str) {
+            return Err(ValidationError::new("Invalid scope format"));
+        }
 
-    // Check scope length
-    if scopes.len() > 1000 {
-        return Err(ValidationError::new("Scope string too long"));
+        // Check scope length
+        if scope_str.len() > 1000 {
+            return Err(ValidationError::new("Scope string too long"));
+        }
     }
 
     Ok(())
@@ -799,7 +799,7 @@ mod tests {
             software_version: None,
         };
 
-        let response = manager.register_client(request).unwrap();
+        let response = manager.register_client(request).await.unwrap();
 
         assert!(response.client_id.starts_with("client_"));
         assert!(response.client_secret.is_some());
@@ -831,7 +831,7 @@ mod tests {
             software_version: None,
         };
 
-        let response = manager.register_client(request).unwrap();
+        let response = manager.register_client(request).await.unwrap();
 
         assert!(response.client_secret.is_none()); // Native clients are public
         assert_eq!(response.application_type, "native");

@@ -17,6 +17,8 @@ pub struct MongoDBConfig {
     pub pool_size: u32,
     pub timeout: u64,
     pub ssl: bool,
+    pub ssl_verify_certificate: Option<bool>,
+    pub ssl_ca_file: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -10,7 +10,7 @@ use std::time::Instant;
 
 use super::{AuthDatabase, DatabaseHealth};
 use crate::config::database::PoolConfig;
-use crate::models::user::{LoginAttempt, User, UserError};
+use crate::models::user::{CreateUserRequest, LoginAttempt, UpdateUserRequest, User, UserError};
 use crate::oauth2::{
     AccessToken, AuthorizationCode, DeviceAuthorization, OAuth2Client, OAuth2Service, RefreshToken,
     TokenIntrospection,
