@@ -11,6 +11,7 @@ use tracing::{error, info, warn};
 pub struct RedisCache {
     connection_manager: ConnectionManager,
     stats: Arc<RwLock<CacheStats>>,
+    redis_url: String,
 }
 
 impl RedisCache {
@@ -35,6 +36,7 @@ impl RedisCache {
         Ok(Self {
             connection_manager,
             stats: Arc::new(RwLock::new(CacheStats::new())),
+            redis_url: redis_url.to_string(),
         })
     }
 
@@ -179,6 +181,7 @@ impl RedisPool {
 #[allow(dead_code)]
 pub struct RedisPubSub {
     connection_manager: ConnectionManager,
+    redis_url: String,
 }
 
 impl RedisPubSub {
@@ -191,7 +194,10 @@ impl RedisPubSub {
             .await
             .context("Failed to create Redis connection manager for Pub/Sub")?;
 
-        Ok(Self { connection_manager })
+        Ok(Self {
+            connection_manager,
+            redis_url: redis_url.to_string(),
+        })
     }
 
     #[allow(dead_code)]
@@ -208,8 +214,8 @@ impl RedisPubSub {
 
     #[allow(dead_code)]
     pub async fn subscribe(&self, channels: &[&str]) -> Result<redis::aio::PubSub> {
-        // Get a fresh connection for PubSub
-        let client = Client::open("redis://localhost:6379")?; // TODO: Use actual URL
+        // Get a fresh connection for PubSub using the configured Redis URL
+        let client = Client::open(self.redis_url.as_str())?;
         let conn = client.get_async_connection().await?;
         let mut pubsub = conn.into_pubsub();
 

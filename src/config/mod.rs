@@ -336,6 +336,15 @@ impl Config {
             config.rate_limit.enabled = rate_limit_enabled.parse().unwrap_or(true);
         }
 
+        // CORS overrides
+        if let Ok(cors_origins) = env::var("CORS_ALLOWED_ORIGINS") {
+            config.security.cors.allowed_origins = cors_origins
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect();
+        }
+
         // Monitoring overrides
         if let Ok(prometheus_enabled) = env::var("PROMETHEUS_ENABLED") {
             config.monitoring.prometheus.enabled = prometheus_enabled.parse().unwrap_or(true);
