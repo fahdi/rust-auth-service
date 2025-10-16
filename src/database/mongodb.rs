@@ -11,13 +11,24 @@ use std::time::Instant;
 use super::{AuthDatabase, DatabaseHealth};
 use crate::config::database::PoolConfig;
 use crate::models::user::{LoginAttempt, User, UserError};
+use crate::oauth2::{OAuth2Service, OAuth2Client, AuthorizationCode, AccessToken, RefreshToken, DeviceAuthorization, TokenIntrospection};
 
 const USERS_COLLECTION: &str = "users";
+const OAUTH2_CLIENTS_COLLECTION: &str = "oauth2_clients";
+const OAUTH2_AUTH_CODES_COLLECTION: &str = "oauth2_auth_codes";
+const OAUTH2_ACCESS_TOKENS_COLLECTION: &str = "oauth2_access_tokens";
+const OAUTH2_REFRESH_TOKENS_COLLECTION: &str = "oauth2_refresh_tokens";
+const OAUTH2_DEVICE_AUTHORIZATIONS_COLLECTION: &str = "oauth2_device_authorizations";
 const DATABASE_NAME: &str = "auth_service";
 
 pub struct MongoDatabase {
     database: Database,
     users: Collection<User>,
+    oauth2_clients: Collection<OAuth2Client>,
+    oauth2_auth_codes: Collection<AuthorizationCode>,
+    oauth2_access_tokens: Collection<AccessToken>,
+    oauth2_refresh_tokens: Collection<RefreshToken>,
+    oauth2_device_authorizations: Collection<DeviceAuthorization>,
 }
 
 impl MongoDatabase {
@@ -31,8 +42,21 @@ impl MongoDatabase {
 
         let database = client.database(DATABASE_NAME);
         let users = database.collection::<User>(USERS_COLLECTION);
+        let oauth2_clients = database.collection::<OAuth2Client>(OAUTH2_CLIENTS_COLLECTION);
+        let oauth2_auth_codes = database.collection::<AuthorizationCode>(OAUTH2_AUTH_CODES_COLLECTION);
+        let oauth2_access_tokens = database.collection::<AccessToken>(OAUTH2_ACCESS_TOKENS_COLLECTION);
+        let oauth2_refresh_tokens = database.collection::<RefreshToken>(OAUTH2_REFRESH_TOKENS_COLLECTION);
+        let oauth2_device_authorizations = database.collection::<DeviceAuthorization>(OAUTH2_DEVICE_AUTHORIZATIONS_COLLECTION);
 
-        Ok(Self { database, users })
+        Ok(Self { 
+            database, 
+            users,
+            oauth2_clients,
+            oauth2_auth_codes,
+            oauth2_access_tokens,
+            oauth2_refresh_tokens,
+            oauth2_device_authorizations,
+        })
     }
 
     async fn create_indexes(&self) -> Result<()> {
@@ -627,6 +651,322 @@ pub async fn create_database(
     let client = Client::with_options(client_options).context("Failed to create MongoDB client")?;
 
     Ok(client.database(DATABASE_NAME))
+}
+
+#[async_trait]
+impl OAuth2Service for MongoDatabase {
+    // Client management
+    async fn create_client(&self, client: OAuth2Client) -> Result<OAuth2Client> {
+        self.oauth2_clients
+            .insert_one(&client)
+            .await
+            .context("Failed to create OAuth2 client")?;
+        Ok(client)
+    }
+
+    async fn get_client(&self, client_id: &str) -> Result<Option<OAuth2Client>> {
+        let filter = doc! { "client_id": client_id };
+        self.oauth2_clients
+            .find_one(filter)
+            .await
+            .context("Failed to get OAuth2 client")
+    }
+
+    async fn update_client(&self, client: OAuth2Client) -> Result<OAuth2Client> {
+        let filter = doc! { "client_id": &client.client_id };
+        self.oauth2_clients
+            .replace_one(filter, &client)
+            .await
+            .context("Failed to update OAuth2 client")?;
+        Ok(client)
+    }
+
+    async fn delete_client(&self, client_id: &str) -> Result<bool> {
+        let filter = doc! { "client_id": client_id };
+        let result = self.oauth2_clients
+            .delete_one(filter)
+            .await
+            .context("Failed to delete OAuth2 client")?;
+        Ok(result.deleted_count > 0)
+    }
+
+    async fn list_clients(&self, limit: Option<u64>, offset: Option<u64>) -> Result<Vec<OAuth2Client>> {
+        let mut cursor = self.oauth2_clients.find(doc! {}).await
+            .context("Failed to list OAuth2 clients")?;
+        
+        let mut clients = Vec::new();
+        let skip = offset.unwrap_or(0);
+        let limit = limit.unwrap_or(100);
+        
+        let mut count = 0;
+        while cursor.advance().await.context("Failed to advance cursor")? {
+            if count < skip {
+                count += 1;
+                continue;
+            }
+            if clients.len() >= limit as usize {
+                break;
+            }
+            
+            let client = cursor.deserialize_current()
+                .context("Failed to deserialize OAuth2 client")?;
+            clients.push(client);
+        }
+        
+        Ok(clients)
+    }
+
+    // Authorization codes
+    async fn create_auth_code(&self, code: AuthorizationCode) -> Result<AuthorizationCode> {
+        self.oauth2_auth_codes
+            .insert_one(&code)
+            .await
+            .context("Failed to create authorization code")?;
+        Ok(code)
+    }
+
+    async fn get_auth_code(&self, code: &str) -> Result<Option<AuthorizationCode>> {
+        let filter = doc! { "code": code };
+        self.oauth2_auth_codes
+            .find_one(filter)
+            .await
+            .context("Failed to get authorization code")
+    }
+
+    async fn use_auth_code(&self, code: &str) -> Result<bool> {
+        let filter = doc! { "code": code };
+        let update = doc! { "$set": { "used": true } };
+        let result = self.oauth2_auth_codes
+            .update_one(filter, update)
+            .await
+            .context("Failed to mark authorization code as used")?;
+        Ok(result.modified_count > 0)
+    }
+
+    async fn cleanup_expired_codes(&self) -> Result<u64> {
+        let filter = doc! { "expires_at": { "$lt": mongodb::bson::DateTime::now() } };
+        let result = self.oauth2_auth_codes
+            .delete_many(filter)
+            .await
+            .context("Failed to cleanup expired authorization codes")?;
+        Ok(result.deleted_count)
+    }
+
+    // Access tokens
+    async fn create_access_token(&self, token: AccessToken) -> Result<AccessToken> {
+        self.oauth2_access_tokens
+            .insert_one(&token)
+            .await
+            .context("Failed to create access token")?;
+        Ok(token)
+    }
+
+    async fn get_access_token(&self, token: &str) -> Result<Option<AccessToken>> {
+        let filter = doc! { "token": token };
+        self.oauth2_access_tokens
+            .find_one(filter)
+            .await
+            .context("Failed to get access token")
+    }
+
+    async fn revoke_access_token(&self, token: &str) -> Result<bool> {
+        let filter = doc! { "token": token };
+        let update = doc! { "$set": { "revoked": true } };
+        let result = self.oauth2_access_tokens
+            .update_one(filter, update)
+            .await
+            .context("Failed to revoke access token")?;
+        Ok(result.modified_count > 0)
+    }
+
+    async fn cleanup_expired_tokens(&self) -> Result<u64> {
+        let filter = doc! { "expires_at": { "$lt": mongodb::bson::DateTime::now() } };
+        let result = self.oauth2_access_tokens
+            .delete_many(filter)
+            .await
+            .context("Failed to cleanup expired access tokens")?;
+        Ok(result.deleted_count)
+    }
+
+    // Refresh tokens
+    async fn create_refresh_token(&self, token: RefreshToken) -> Result<RefreshToken> {
+        self.oauth2_refresh_tokens
+            .insert_one(&token)
+            .await
+            .context("Failed to create refresh token")?;
+        Ok(token)
+    }
+
+    async fn get_refresh_token(&self, token: &str) -> Result<Option<RefreshToken>> {
+        let filter = doc! { "token": token };
+        self.oauth2_refresh_tokens
+            .find_one(filter)
+            .await
+            .context("Failed to get refresh token")
+    }
+
+    async fn use_refresh_token(&self, token: &str) -> Result<bool> {
+        let filter = doc! { "token": token };
+        let update = doc! { "$set": { "used": true } };
+        let result = self.oauth2_refresh_tokens
+            .update_one(filter, update)
+            .await
+            .context("Failed to mark refresh token as used")?;
+        Ok(result.modified_count > 0)
+    }
+
+    async fn revoke_refresh_token(&self, token: &str) -> Result<bool> {
+        let filter = doc! { "token": token };
+        let result = self.oauth2_refresh_tokens
+            .delete_one(filter)
+            .await
+            .context("Failed to revoke refresh token")?;
+        Ok(result.deleted_count > 0)
+    }
+
+    // Device authorization
+    async fn create_device_authorization(&self, auth: DeviceAuthorization) -> Result<DeviceAuthorization> {
+        self.oauth2_device_authorizations
+            .insert_one(&auth)
+            .await
+            .context("Failed to create device authorization")?;
+        Ok(auth)
+    }
+
+    async fn get_device_authorization_by_device_code(&self, device_code: &str) -> Result<Option<DeviceAuthorization>> {
+        let filter = doc! { "device_code": device_code };
+        self.oauth2_device_authorizations
+            .find_one(filter)
+            .await
+            .context("Failed to get device authorization")
+    }
+
+    async fn get_device_authorization_by_user_code(&self, user_code: &str) -> Result<Option<DeviceAuthorization>> {
+        let filter = doc! { "user_code": user_code };
+        self.oauth2_device_authorizations
+            .find_one(filter)
+            .await
+            .context("Failed to get device authorization")
+    }
+
+    async fn authorize_device(&self, user_code: &str, user_id: &str) -> Result<bool> {
+        let filter = doc! { "user_code": user_code };
+        let update = doc! { 
+            "$set": { 
+                "authorized": true,
+                "user_id": user_id
+            }
+        };
+        let result = self.oauth2_device_authorizations
+            .update_one(filter, update)
+            .await
+            .context("Failed to authorize device")?;
+        Ok(result.modified_count > 0)
+    }
+
+    async fn cleanup_expired_device_authorizations(&self) -> Result<u64> {
+        let filter = doc! { "expires_at": { "$lt": mongodb::bson::DateTime::now() } };
+        let result = self.oauth2_device_authorizations
+            .delete_many(filter)
+            .await
+            .context("Failed to cleanup expired device authorizations")?;
+        Ok(result.deleted_count)
+    }
+
+    // Token introspection
+    async fn introspect_token(&self, token: &str) -> Result<TokenIntrospection> {
+        let filter = doc! { "token": token };
+        if let Some(access_token) = self.oauth2_access_tokens
+            .find_one(filter)
+            .await
+            .context("Failed to introspect token")?
+        {
+            Ok(TokenIntrospection {
+                active: !access_token.revoked && access_token.expires_at > Utc::now(),
+                scope: Some(access_token.scopes.join(" ")),
+                client_id: Some(access_token.client_id),
+                username: access_token.user_id.clone(),
+                token_type: Some(access_token.token_type),
+                exp: Some(access_token.expires_at.timestamp()),
+                iat: Some(access_token.created_at.timestamp()),
+                nbf: None,
+                sub: access_token.user_id,
+                aud: None,
+                iss: None,
+                jti: None,
+            })
+        } else {
+            Ok(TokenIntrospection {
+                active: false,
+                scope: None,
+                client_id: None,
+                username: None,
+                token_type: None,
+                exp: None,
+                iat: None,
+                nbf: None,
+                sub: None,
+                aud: None,
+                iss: None,
+                jti: None,
+            })
+        }
+    }
+
+    // Utility methods
+    async fn revoke_all_user_tokens(&self, user_id: &str) -> Result<u64> {
+        let filter = doc! { "user_id": user_id };
+        let update = doc! { "$set": { "revoked": true } };
+        let result = self.oauth2_access_tokens
+            .update_many(filter, update)
+            .await
+            .context("Failed to revoke all user tokens")?;
+        Ok(result.modified_count)
+    }
+
+    async fn revoke_all_client_tokens(&self, client_id: &str) -> Result<u64> {
+        let filter = doc! { "client_id": client_id };
+        let update = doc! { "$set": { "revoked": true } };
+        let result = self.oauth2_access_tokens
+            .update_many(filter, update)
+            .await
+            .context("Failed to revoke all client tokens")?;
+        Ok(result.modified_count)
+    }
+
+    async fn get_user_tokens(&self, user_id: &str) -> Result<Vec<AccessToken>> {
+        let filter = doc! { "user_id": user_id, "revoked": false };
+        let mut cursor = self.oauth2_access_tokens
+            .find(filter)
+            .await
+            .context("Failed to get user tokens")?;
+        
+        let mut tokens = Vec::new();
+        while cursor.advance().await.context("Failed to advance cursor")? {
+            let token = cursor.deserialize_current()
+                .context("Failed to deserialize access token")?;
+            tokens.push(token);
+        }
+        
+        Ok(tokens)
+    }
+
+    async fn get_client_tokens(&self, client_id: &str) -> Result<Vec<AccessToken>> {
+        let filter = doc! { "client_id": client_id, "revoked": false };
+        let mut cursor = self.oauth2_access_tokens
+            .find(filter)
+            .await
+            .context("Failed to get client tokens")?;
+        
+        let mut tokens = Vec::new();
+        while cursor.advance().await.context("Failed to advance cursor")? {
+            let token = cursor.deserialize_current()
+                .context("Failed to deserialize access token")?;
+            tokens.push(token);
+        }
+        
+        Ok(tokens)
+    }
 }
 
 #[cfg(test)]

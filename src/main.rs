@@ -1,7 +1,7 @@
 use anyhow::Result;
 use axum::{
     middleware::from_fn_with_state,
-    routing::{get, post, put},
+    routing::{delete, get, post, put},
     Router,
 };
 use std::sync::Arc;
@@ -15,6 +15,7 @@ mod errors;
 mod handlers;
 mod metrics;
 mod models;
+mod oauth2;
 // mod services;
 mod cache;
 mod database;
@@ -26,6 +27,9 @@ mod utils;
 use cache::CacheService;
 use config::Config;
 use database::AuthDatabase;
+use oauth2::{OAuth2Config, OAuth2Service};
+use oauth2::server::OAuth2Server;
+use oauth2::tokens::TokenManager;
 
 // Application state shared across handlers
 #[derive(Clone)]
@@ -33,6 +37,8 @@ pub struct AppState {
     pub config: Arc<Config>,
     pub database: Arc<dyn AuthDatabase>,
     pub cache: Arc<CacheService>,
+    pub oauth2_server: Arc<OAuth2Server>,
+    pub token_manager: Arc<TokenManager>,
 }
 
 #[tokio::main]
@@ -67,6 +73,30 @@ async fn main() -> Result<()> {
     let cache_service = CacheService::new(cache_provider, config.cache.ttl);
     info!("Cache system initialized");
 
+    // Initialize OAuth2 components
+    let oauth2_config = OAuth2Config::default(); // TODO: Load from config
+    
+    // Create a default JWT signing key for HMAC
+    let jwt_key = oauth2_config.jwt_signing_key
+        .as_ref()
+        .map(|k| k.as_bytes())
+        .unwrap_or(b"default-secret-key-change-in-production");
+        
+    let token_manager = TokenManager::new(oauth2_config.clone(), jwt_key, None)?;
+    
+    // Create OAuth2Service from database
+    let oauth2_service: Arc<dyn oauth2::OAuth2Service> = match config.database.r#type.as_str() {
+        "mongodb" => {
+            // Create a new MongoDB connection specifically for OAuth2Service
+            let mongodb = database::mongodb::MongoDatabase::new(&config.database.url, &config.database.pool).await?;
+            Arc::new(mongodb)
+        }
+        _ => return Err(anyhow::anyhow!("OAuth2Service not implemented for database type: {}", config.database.r#type)),
+    };
+    
+    let oauth2_server = OAuth2Server::new(oauth2_config, oauth2_service, token_manager.clone());
+    info!("OAuth2 server initialized");
+
     // Test database connection
     match database.health_check().await {
         Ok(health) => {
@@ -91,6 +121,8 @@ async fn main() -> Result<()> {
         config: Arc::new(config.clone()),
         database: Arc::from(database),
         cache: Arc::new(cache_service),
+        oauth2_server: Arc::new(oauth2_server),
+        token_manager: Arc::new(token_manager),
     };
 
     // Build public routes (no authentication required)
@@ -107,11 +139,52 @@ async fn main() -> Result<()> {
         .route("/auth/reset-password", post(handlers::reset_password))
         .route("/auth/refresh", post(handlers::refresh_token));
 
+    // Build OAuth2 routes
+    let oauth2_routes = Router::new()
+        // Authorization endpoints
+        .route("/oauth2/authorize", get(handlers::authorize))
+        .route("/oauth2/authorize", post(handlers::authorize_consent_post))
+        .route("/oauth2/token", post(handlers::token))
+        .route("/oauth2/revoke", post(handlers::revoke))
+        .route("/oauth2/introspect", post(handlers::introspect))
+        // Device flow endpoints
+        .route("/oauth2/device/authorize", post(handlers::device_authorization))
+        .route("/oauth2/device/verify", get(handlers::device_verify))
+        .route("/oauth2/device/verify", post(handlers::device_verify_post))
+        // Metadata and discovery
+        .route("/.well-known/oauth-authorization-server", get(handlers::metadata))
+        .route("/.well-known/jwks.json", get(handlers::jwks))
+        // Client management (TODO: implement when OAuth2Service is integrated)
+        // .route("/oauth2/clients", post(handlers::register_client))
+        // .route("/oauth2/clients", get(handlers::list_clients))
+        // .route("/oauth2/clients/:client_id", get(handlers::get_client))
+        // .route("/oauth2/clients/:client_id", put(handlers::update_client))
+        // .route("/oauth2/clients/:client_id", delete(handlers::delete_client))
+        ;
+
+    // Build MFA routes (authentication required)
+    let mfa_routes = Router::new()
+        // MFA status and management
+        .route("/mfa/status", get(handlers::get_mfa_status))
+        .route("/mfa/methods", get(handlers::list_mfa_methods))
+        .route("/mfa/methods", post(handlers::setup_mfa_method))
+        .route("/mfa/methods/:method_id/verify", post(handlers::verify_mfa_setup))
+        .route("/mfa/methods/:method_id/primary", put(handlers::set_primary_mfa_method))
+        .route("/mfa/methods/:method_id", delete(handlers::remove_mfa_method))
+        // MFA challenges and verification
+        .route("/mfa/challenge", post(handlers::create_mfa_challenge))
+        .route("/mfa/challenge/:challenge_id/verify", post(handlers::verify_mfa_challenge))
+        // Backup codes
+        .route("/mfa/backup-codes", post(handlers::generate_backup_codes))
+        // MFA disable (with verification)
+        .route("/mfa/disable", post(handlers::disable_mfa));
+
     // Build protected routes (authentication required)
     let protected_routes = Router::new()
         .route("/auth/me", get(handlers::get_profile))
         .route("/auth/profile", put(handlers::update_profile))
         .route("/auth/logout", post(handlers::logout))
+        .merge(mfa_routes)
         .route_layer(from_fn_with_state(
             app_state.clone(),
             middleware::jwt_auth_middleware,
@@ -120,6 +193,7 @@ async fn main() -> Result<()> {
     // Combine all routes
     let app = Router::new()
         .merge(public_routes)
+        .merge(oauth2_routes)
         .merge(protected_routes)
         .with_state(app_state.clone())
         .layer(from_fn_with_state(
