@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use anyhow::{anyhow, Result};
 use crate::config::Config;
 
@@ -84,22 +83,22 @@ impl ConfigValidator {
 
         // SSL/TLS validation for production
         if config.environment.name == "production" {
-            match &config.database.database_type {
-                crate::config::DatabaseType::MongoDB => {
+            match config.database.r#type.as_str() {
+                "mongodb" => {
                     if let Some(mongodb) = &config.database.mongodb {
                         if !mongodb.ssl {
                             errors.push("MongoDB SSL should be enabled in production".to_string());
                         }
                     }
                 }
-                crate::config::DatabaseType::PostgreSQL => {
+                "postgresql" => {
                     if let Some(postgresql) = &config.database.postgresql {
                         if postgresql.ssl_mode != "require" {
                             errors.push("PostgreSQL SSL mode should be 'require' in production".to_string());
                         }
                     }
                 }
-                crate::config::DatabaseType::MySQL => {
+                "mysql" => {
                     if let Some(mysql) = &config.database.mysql {
                         if mysql.ssl_mode != "REQUIRED" {
                             errors.push("MySQL SSL mode should be 'REQUIRED' in production".to_string());
@@ -130,8 +129,8 @@ impl ConfigValidator {
             _ => 1,
         };
 
-        match &config.database.database_type {
-            crate::config::DatabaseType::MongoDB => {
+        match config.database.r#type.as_str() {
+            "mongodb" => {
                 if let Some(mongodb) = &config.database.mongodb {
                     if mongodb.pool_size < min_pool {
                         errors.push(format!("MongoDB pool size should be at least {} for {}", min_pool, config.environment.name));
@@ -141,7 +140,7 @@ impl ConfigValidator {
                     }
                 }
             }
-            crate::config::DatabaseType::PostgreSQL => {
+            "postgresql" => {
                 if let Some(postgresql) = &config.database.postgresql {
                     if postgresql.pool_size < min_pool {
                         errors.push(format!("PostgreSQL pool size should be at least {} for {}", min_pool, config.environment.name));
@@ -151,7 +150,7 @@ impl ConfigValidator {
                     }
                 }
             }
-            crate::config::DatabaseType::MySQL => {
+            "mysql" => {
                 if let Some(mysql) = &config.database.mysql {
                     if mysql.pool_size < min_pool {
                         errors.push(format!("MySQL pool size should be at least {} for {}", min_pool, config.environment.name));
@@ -370,7 +369,7 @@ mod tests {
                 session_timeout: 7200,
             },
             database: DatabaseConfig {
-                database_type: DatabaseType::MongoDB,
+                r#type: "mongodb".to_string(),
                 mongodb: Some(crate::config::MongoDBConfig {
                     url: "mongodb://localhost:27017".to_string(),
                     database: "test".to_string(),

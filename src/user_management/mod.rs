@@ -10,7 +10,7 @@ pub mod profiles;
 pub mod groups;
 
 /// User role definition
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct UserRole {
     pub id: String,
     pub name: String,
@@ -23,7 +23,7 @@ pub struct UserRole {
 }
 
 /// Permission definition
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Permission {
     pub id: String,
     pub name: String,
@@ -35,28 +35,28 @@ pub struct Permission {
 }
 
 /// Permission conditions for fine-grained access control
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PermissionConditions {
     pub time_based: Option<TimeBasedCondition>,
     pub ip_based: Option<IpBasedCondition>,
     pub attribute_based: Option<AttributeBasedCondition>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TimeBasedCondition {
     pub allowed_hours: Option<Vec<u8>>, // 0-23
     pub allowed_days: Option<Vec<u8>>, // 0-6 (Sunday-Saturday)
     pub timezone: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct IpBasedCondition {
     pub allowed_ips: Vec<String>,
     pub blocked_ips: Vec<String>,
     pub allowed_countries: Option<Vec<String>>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AttributeBasedCondition {
     pub required_attributes: HashMap<String, String>,
     pub forbidden_attributes: HashMap<String, String>,

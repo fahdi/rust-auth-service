@@ -341,7 +341,7 @@ impl<T: SessionService> SessionManager<T> {
     }
 
     /// Determine session flags
-    fn determine_session_flags(&self, request: &CreateSessionRequest, is_new_device: bool) -> super::SessionFlags {
+    fn determine_session_flags(&self, _request: &CreateSessionRequest, is_new_device: bool) -> super::SessionFlags {
         let mut flags = default_session_flags();
 
         flags.requires_mfa = is_new_device && self.config.require_mfa_for_new_devices;

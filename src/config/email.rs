@@ -14,11 +14,13 @@ pub struct EmailConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BrevoConfig {
     pub api_key: String,
+    pub from_email: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SendGridConfig {
     pub api_key: String,
+    pub from_email: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -28,6 +30,7 @@ pub struct SmtpConfig {
     pub username: String,
     pub password: String,
     pub use_tls: bool,
+    pub from_email: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -44,6 +47,7 @@ impl Default for EmailConfig {
             from_name: "Your App".to_string(),
             brevo: Some(BrevoConfig {
                 api_key: "your-brevo-api-key".to_string(),
+                from_email: "noreply@yourapp.com".to_string(),
             }),
             sendgrid: None,
             smtp: None,

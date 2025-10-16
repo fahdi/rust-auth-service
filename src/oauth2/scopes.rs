@@ -423,7 +423,7 @@ impl ScopeManager {
     fn build_hierarchy(&mut self) {
         self.hierarchy.clear();
         
-        for (scope_name, scope_def) in &self.scopes {
+        for (scope_name, _scope_def) in &self.scopes {
             let mut implied = HashSet::new();
             self.collect_implied_scopes(scope_name, &mut implied);
             self.hierarchy.insert(scope_name.clone(), implied);

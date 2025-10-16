@@ -2,7 +2,6 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
-use uuid::Uuid;
 
 /// WebAuthn provider for FIDO2/WebAuthn authentication
 #[derive(Debug, Clone)]

@@ -49,7 +49,7 @@ pub struct DeviceInfo {
 }
 
 /// Device type classification
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum DeviceType {
     Desktop,
     Mobile,
@@ -75,7 +75,7 @@ pub struct SessionLocation {
 }
 
 /// Session security level
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum SecurityLevel {
     Low = 1,     // Basic authentication
     Medium = 2,   // Two-factor authentication
@@ -96,7 +96,7 @@ pub struct SessionFlags {
 }
 
 /// Session termination reason
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub enum TerminationReason {
     UserLogout,
     AdminLogout,
