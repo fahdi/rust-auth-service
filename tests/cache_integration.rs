@@ -82,7 +82,7 @@ fn create_test_cache_configs() -> Vec<(String, CacheConfig)> {
 
 /// Test basic cache operations across all cache types
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn test_basic_cache_operations() {
     let configs = create_test_cache_configs();
 
@@ -141,7 +141,7 @@ async fn test_basic_cache_operations() {
 
 /// Test cache TTL (Time To Live) functionality
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn test_cache_ttl() {
     let configs = create_test_cache_configs();
 
@@ -192,7 +192,7 @@ async fn test_cache_ttl() {
 
 /// Test cache health checks and connectivity
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn test_cache_health_checks() {
     let configs = create_test_cache_configs();
 
@@ -224,7 +224,7 @@ async fn test_cache_health_checks() {
 
 /// Test cache statistics and hit rate calculation
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn test_cache_statistics() {
     let configs = create_test_cache_configs();
 
@@ -287,7 +287,7 @@ async fn test_cache_statistics() {
 
 /// Test cache service layer functionality
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn test_cache_service() {
     let configs = create_test_cache_configs();
 
@@ -356,7 +356,7 @@ async fn test_cache_service() {
 
 /// Test get_or_set pattern in cache service
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn test_get_or_set_pattern() {
     let configs = create_test_cache_configs();
 
@@ -429,7 +429,7 @@ async fn test_get_or_set_pattern() {
 
 /// Test cache key utility functions
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn test_cache_key_utilities() {
     println!("🔍 Testing cache key utilities");
 
@@ -514,7 +514,7 @@ async fn test_cache_key_utilities() {
 
 /// Test multi-level cache specific functionality
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn test_multi_level_cache() {
     // Only run if Redis is available
     if std::env::var("REDIS_TEST_URL").is_err() {
@@ -575,7 +575,7 @@ async fn test_multi_level_cache() {
 
 /// Test concurrent cache operations
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn test_concurrent_cache_operations() {
     let configs = create_test_cache_configs();
 
@@ -651,7 +651,7 @@ async fn test_concurrent_cache_operations() {
 
 /// Test cache error handling and resilience
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn test_cache_error_handling() {
     let configs = create_test_cache_configs();
 
@@ -704,7 +704,7 @@ async fn test_cache_error_handling() {
 
 /// Test cache memory management and LRU eviction
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn test_cache_memory_management() {
     println!("🔍 Testing memory cache LRU eviction");
 
@@ -757,7 +757,7 @@ async fn test_cache_memory_management() {
 
 /// Test cache performance characteristics
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn test_cache_performance() {
     let configs = create_test_cache_configs();
 
@@ -824,7 +824,7 @@ async fn test_cache_performance() {
 
 /// Integration test combining all cache functionality
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn test_complete_cache_workflow() {
     let configs = create_test_cache_configs();
 

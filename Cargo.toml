@@ -18,6 +18,8 @@ mysql = ["sqlx", "sqlx/mysql"]
 # Security-focused builds (progressively eliminate RSA vulnerability)
 secure = ["mongodb", "postgresql"]  # PostgreSQL + MongoDB (eliminates MySQL RSA)
 ultra-secure = ["mongodb"]          # MongoDB only (eliminates ALL SQLx dependencies and RSA)
+# Testing features
+integration-tests = []              # Enable integration tests requiring running services
 
 [dependencies]
 # Web framework
@@ -54,8 +56,8 @@ base32 = "0.5"
 # WebAuthn (for FIDO2/passwordless auth)
 webauthn-rs = { version = "0.5", features = ["danger-allow-state-serialisation"] }
 
-# Social Login & HTTP Client Extensions
-surf = "2.3"
+# Social Login & HTTP Client Extensions  
+# Note: Replaced unmaintained `surf` with `reqwest` which is actively maintained
 
 # Caching
 redis = { version = "0.24", features = ["tokio-comp", "connection-manager"] }

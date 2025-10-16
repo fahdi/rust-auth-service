@@ -142,7 +142,7 @@ async fn create_test_databases() -> Vec<TestDatabase> {
 
 /// Test database health checks across all adapters
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn test_database_health_checks() {
     let databases = create_test_databases().await;
 
@@ -172,7 +172,7 @@ async fn test_database_health_checks() {
 
 /// Test user creation across all database adapters
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn test_user_creation() {
     let databases = create_test_databases().await;
 
@@ -201,7 +201,7 @@ async fn test_user_creation() {
 
 /// Test duplicate email handling
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn test_duplicate_email_prevention() {
     let databases = create_test_databases().await;
 
@@ -235,7 +235,7 @@ async fn test_duplicate_email_prevention() {
 
 /// Test user lookup by email
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn test_user_lookup_by_email() {
     let databases = create_test_databases().await;
 
@@ -288,7 +288,7 @@ async fn test_user_lookup_by_email() {
 
 /// Test user lookup by ID
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn test_user_lookup_by_id() {
     let databases = create_test_databases().await;
 
@@ -330,7 +330,7 @@ async fn test_user_lookup_by_id() {
 
 /// Test user updates
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn test_user_updates() {
     let databases = create_test_databases().await;
 
@@ -380,7 +380,7 @@ async fn test_user_updates() {
 
 /// Test password operations
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn test_password_operations() {
     let databases = create_test_databases().await;
 
@@ -421,7 +421,7 @@ async fn test_password_operations() {
 
 /// Test email verification flow
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn test_email_verification_flow() {
     let databases = create_test_databases().await;
 
@@ -472,7 +472,7 @@ async fn test_email_verification_flow() {
 
 /// Test password reset flow
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn test_password_reset_flow() {
     let databases = create_test_databases().await;
 
@@ -521,7 +521,7 @@ async fn test_password_reset_flow() {
 
 /// Test login attempt tracking
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn test_login_attempt_tracking() {
     let databases = create_test_databases().await;
 
@@ -579,7 +579,7 @@ async fn test_login_attempt_tracking() {
 
 /// Test account lockout functionality
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn test_account_lockout() {
     let databases = create_test_databases().await;
 
@@ -620,7 +620,7 @@ async fn test_account_lockout() {
 
 /// Test user deactivation
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn test_user_deactivation() {
     let databases = create_test_databases().await;
 
@@ -660,7 +660,7 @@ async fn test_user_deactivation() {
 
 /// Test user existence checks
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn test_user_existence_checks() {
     let databases = create_test_databases().await;
 
@@ -709,7 +709,7 @@ async fn test_user_existence_checks() {
 
 /// Test concurrent operations
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn test_concurrent_operations() {
     let databases = create_test_databases().await;
 
@@ -778,7 +778,7 @@ async fn test_concurrent_operations() {
 
 /// Test database adapter error handling
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn test_error_handling() {
     let databases = create_test_databases().await;
 
@@ -806,7 +806,7 @@ async fn test_error_handling() {
 
 /// Full integration test combining all operations
 #[tokio::test]
-#[ignore]
+#[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn test_complete_user_lifecycle() {
     let databases = create_test_databases().await;
 

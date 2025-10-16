@@ -363,7 +363,7 @@ impl AuthFlow {
 
 /// Test complete registration → login → profile access flow
 #[tokio::test]
-#[ignore] // Only run with --include-ignored when service is running
+#[cfg(feature = "integration-tests")]
 async fn test_complete_authentication_flow() {
     let ctx = AuthTestContext::new();
     ctx.wait_for_service()
@@ -472,7 +472,7 @@ async fn test_complete_authentication_flow() {
 
 /// Test registration with various validation scenarios
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_registration_validation() {
     let ctx = AuthTestContext::new();
     ctx.wait_for_service()
@@ -544,7 +544,7 @@ async fn test_registration_validation() {
 
 /// Test login scenarios and authentication
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_login_scenarios() {
     let ctx = AuthTestContext::new();
     ctx.wait_for_service()
@@ -589,7 +589,7 @@ async fn test_login_scenarios() {
 
 /// Test JWT token expiration and refresh
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_token_expiration_and_refresh() {
     let ctx = AuthTestContext::new();
     ctx.wait_for_service()
@@ -635,7 +635,7 @@ async fn test_token_expiration_and_refresh() {
 
 /// Test password reset flow
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_password_reset_flow() {
     let ctx = AuthTestContext::new();
     ctx.wait_for_service()
@@ -673,7 +673,7 @@ async fn test_password_reset_flow() {
 
 /// Test protected endpoints access control
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_protected_endpoints_access_control() {
     let ctx = AuthTestContext::new();
     ctx.wait_for_service()
@@ -737,7 +737,7 @@ async fn test_protected_endpoints_access_control() {
 
 /// Test concurrent authentication operations
 #[tokio::test]
-#[ignore]
+#[cfg(feature = "integration-tests")]
 async fn test_concurrent_authentication() {
     let ctx = AuthTestContext::new();
     ctx.wait_for_service()
