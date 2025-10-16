@@ -234,19 +234,19 @@ jobs:
 
     - name: Run authentication flow integration tests
       if: matrix.test-suite == 'auth-flow'
-      run: cargo test --test simple_auth_integration -- --include-ignored
+      run: cargo test --test simple_auth_integration --features integration-tests
 
     - name: Run database adapter integration tests
       if: matrix.test-suite == 'database-adapters'
-      run: cargo test --test database_adapters_integration -- --include-ignored
+      run: cargo test --test database_adapters_integration --features "mongodb,postgresql,mysql"
 
     - name: Run cache integration tests
       if: matrix.test-suite == 'cache'
-      run: cargo test --test cache_integration -- --include-ignored
+      run: cargo test --test cache_integration --features "mongodb,postgresql,mysql"
 
     - name: Run performance integration tests
       if: matrix.test-suite == 'performance'
-      run: cargo test --test performance_load_testing -- --include-ignored
+      run: cargo test --test performance_load_testing --features "mongodb,postgresql,mysql"
 
     - name: Start auth service for security tests
       if: matrix.test-suite == 'security'
@@ -262,7 +262,7 @@ jobs:
 
     - name: Run security integration tests
       if: matrix.test-suite == 'security'
-      run: cargo test --test security_integration -- --include-ignored
+      run: cargo test --test security_integration --features integration-tests
 
     - name: Stop auth service
       if: matrix.test-suite == 'security' && env.AUTH_PID
@@ -322,7 +322,7 @@ jobs:
         timeout 60 bash -c 'until redis-cli -h localhost -p 6379 ping >/dev/null 2>&1; do sleep 2; done'
 
     - name: Run performance regression baseline
-      run: cargo test --test performance_load_testing test_performance_regression_baseline -- --include-ignored
+      run: cargo test --test performance_load_testing test_performance_regression_baseline --features "mongodb,postgresql,mysql"
 
     - name: Store performance results
       run: |

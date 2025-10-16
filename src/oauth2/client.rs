@@ -7,7 +7,7 @@ use validator::{Validate, ValidationError};
 
 use super::flows::validate_redirect_uri;
 use super::{
-    GrantType, OAuth2Client, OAuth2Service,
+    AccessToken, AuthorizationCode, DeviceAuthorization, GrantType, OAuth2Client, OAuth2Service, RefreshToken, TokenIntrospection,
 };
 
 /// Client registration request (RFC 7591)

@@ -1,7 +1,8 @@
 use super::{
     Permission, PermissionCheckResult, PermissionConditions,
-    UserContext, UserManagementService,
+    UserContext, UserGroup, UserManagementService,
 };
+use crate::models::user::UserRole;
 use anyhow::Result;
 use chrono::{Datelike, Timelike, Utc};
 use regex::Regex;
@@ -736,23 +737,23 @@ mod tests {
         async fn get_user_permissions(&self, _user_id: &str) -> Result<HashSet<String>> {
             unimplemented!()
         }
-        async fn create_group(&self, _group: super::UserGroup) -> Result<super::UserGroup> {
+        async fn create_group(&self, _group: UserGroup) -> Result<UserGroup> {
             unimplemented!()
         }
-        async fn get_group(&self, _group_id: &str) -> Result<Option<super::UserGroup>> {
+        async fn get_group(&self, _group_id: &str) -> Result<Option<UserGroup>> {
             unimplemented!()
         }
         async fn update_group(
             &self,
             _group_id: &str,
-            _group: super::UserGroup,
-        ) -> Result<super::UserGroup> {
+            _group: UserGroup,
+        ) -> Result<UserGroup> {
             unimplemented!()
         }
         async fn delete_group(&self, _group_id: &str) -> Result<bool> {
             unimplemented!()
         }
-        async fn list_groups(&self) -> Result<Vec<super::UserGroup>> {
+        async fn list_groups(&self) -> Result<Vec<UserGroup>> {
             unimplemented!()
         }
         async fn add_user_to_group(&self, _user_id: &str, _group_id: &str) -> Result<()> {
