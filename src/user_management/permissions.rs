@@ -1,6 +1,6 @@
 use super::{
-    NotificationPreferences, Permission, PermissionCheckResult, PermissionConditions, PrivacySettings, 
-    UserContext, UserGroup, UserManagementService, UserProfile,
+    NotificationPreferences, Permission, PermissionCheckResult, PermissionConditions,
+    PrivacySettings, UserContext, UserGroup, UserManagementService, UserProfile,
 };
 use crate::models::user::UserRole;
 use anyhow::Result;

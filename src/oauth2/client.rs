@@ -6,7 +6,10 @@ use uuid::Uuid;
 use validator::{Validate, ValidationError};
 
 use super::flows::validate_redirect_uri;
-use super::{AccessToken, AuthorizationCode, DeviceAuthorization, GrantType, OAuth2Client, OAuth2Service, RefreshToken, TokenIntrospection};
+use super::{
+    AccessToken, AuthorizationCode, DeviceAuthorization, GrantType, OAuth2Client, OAuth2Service,
+    RefreshToken, TokenIntrospection,
+};
 
 /// Client registration request (RFC 7591)
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize, Validate)]
