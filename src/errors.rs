@@ -4,7 +4,35 @@ use axum::{
     Json,
 };
 use serde_json::json;
-use tracing::error;
+use tracing::{error, warn, info};
+use uuid::Uuid;
+
+/// Log structured error information with request context
+fn log_error_with_context(error_type: &str, message: &str, details: Option<&str>, request_id: &str) {
+    if let Some(details) = details {
+        error!(
+            error_type = error_type,
+            error_details = details,
+            request_id = request_id,
+            "{}", message
+        );
+    } else {
+        error!(
+            error_type = error_type,
+            request_id = request_id,
+            "{}", message
+        );
+    }
+}
+
+/// Log structured warning with request context
+fn log_warning_with_context(warning_type: &str, message: &str, request_id: &str) {
+    warn!(
+        warning_type = warning_type,
+        request_id = request_id,
+        "{}", message
+    );
+}
 
 /// Application error types
 #[derive(Debug, thiserror::Error)]
@@ -37,17 +65,41 @@ pub enum AppError {
     #[error("Database error: {0}")]
     Database(String),
 
+    #[error("Database connection error")]
+    DatabaseConnection,
+
+    #[error("Database timeout")]
+    DatabaseTimeout,
+
     #[error("JWT error: {0}")]
     #[allow(dead_code)]
     Jwt(String),
+
+    #[error("JWT token expired")]
+    JwtExpired,
+
+    #[error("JWT token invalid")]
+    JwtInvalid,
 
     #[error("Cache error: {0}")]
     #[allow(dead_code)]
     Cache(String),
 
+    #[error("Cache unavailable")]
+    CacheUnavailable,
+
     #[error("Email service error: {0}")]
     #[allow(dead_code)]
     Email(String),
+
+    #[error("Email delivery failed")]
+    EmailDeliveryFailed,
+
+    #[error("Configuration error: {0}")]
+    Configuration(String),
+
+    #[error("Service temporarily unavailable")]
+    ServiceUnavailable,
 }
 
 impl IntoResponse for AppError {
@@ -87,7 +139,7 @@ impl IntoResponse for AppError {
                 "RATE_LIMITED",
             ),
             AppError::Internal => {
-                error!("Internal server error: {}", self);
+                error!(error_type = "internal", "Internal server error occurred");
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     "Internal server error".to_string(),
@@ -95,7 +147,7 @@ impl IntoResponse for AppError {
                 )
             }
             AppError::Database(msg) => {
-                error!("Database error: {}", msg);
+                error!(error = %msg, error_type = "database", "Database operation failed");
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     "Internal server error".to_string(),
@@ -103,7 +155,7 @@ impl IntoResponse for AppError {
                 )
             }
             AppError::Jwt(msg) => {
-                error!("JWT error: {}", msg);
+                error!(error = %msg, error_type = "jwt", "JWT validation failed");
                 (
                     StatusCode::UNAUTHORIZED,
                     "Invalid token".to_string(),
@@ -111,7 +163,7 @@ impl IntoResponse for AppError {
                 )
             }
             AppError::Cache(msg) => {
-                error!("Cache error: {}", msg);
+                error!(error = %msg, error_type = "cache", "Cache operation failed");
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     "Internal server error".to_string(),
@@ -119,19 +171,87 @@ impl IntoResponse for AppError {
                 )
             }
             AppError::Email(msg) => {
-                error!("Email service error: {}", msg);
+                error!(error = %msg, "Email service error");
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     "Internal server error".to_string(),
                     "EMAIL_ERROR",
                 )
             }
+            AppError::DatabaseConnection => {
+                error!("Database connection failed");
+                (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "Service temporarily unavailable".to_string(),
+                    "DATABASE_CONNECTION_ERROR",
+                )
+            }
+            AppError::DatabaseTimeout => {
+                warn!("Database operation timed out");
+                (
+                    StatusCode::REQUEST_TIMEOUT,
+                    "Request timed out".to_string(),
+                    "DATABASE_TIMEOUT",
+                )
+            }
+            AppError::JwtExpired => {
+                info!("JWT token expired");
+                (
+                    StatusCode::UNAUTHORIZED,
+                    "Token has expired".to_string(),
+                    "TOKEN_EXPIRED",
+                )
+            }
+            AppError::JwtInvalid => {
+                warn!("Invalid JWT token provided");
+                (
+                    StatusCode::UNAUTHORIZED,
+                    "Invalid token".to_string(),
+                    "TOKEN_INVALID",
+                )
+            }
+            AppError::CacheUnavailable => {
+                warn!("Cache service unavailable, using fallback");
+                (
+                    StatusCode::OK, // Don't fail the request if cache is down
+                    "Request processed with degraded performance".to_string(),
+                    "CACHE_UNAVAILABLE",
+                )
+            }
+            AppError::EmailDeliveryFailed => {
+                error!("Email delivery failed");
+                (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "Email service temporarily unavailable".to_string(),
+                    "EMAIL_DELIVERY_FAILED",
+                )
+            }
+            AppError::Configuration(msg) => {
+                error!(config_error = %msg, "Configuration error");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Internal server error".to_string(),
+                    "CONFIGURATION_ERROR",
+                )
+            }
+            AppError::ServiceUnavailable => {
+                warn!("Service temporarily unavailable");
+                (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "Service temporarily unavailable".to_string(),
+                    "SERVICE_UNAVAILABLE",
+                )
+            }
         };
+
+        // Generate a unique request ID for tracing
+        let request_id = Uuid::new_v4().to_string();
 
         let body = Json(json!({
             "error": {
                 "code": error_code,
                 "message": error_message,
+                "request_id": request_id,
             },
             "timestamp": chrono::Utc::now().to_rfc3339(),
         }));
