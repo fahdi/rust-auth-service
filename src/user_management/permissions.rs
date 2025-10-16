@@ -1,9 +1,11 @@
+use super::{
+    Permission, PermissionCheckResult, PermissionConditions, UserContext, UserManagementService,
+};
 use anyhow::Result;
+use chrono::{DateTime, Datelike, Timelike, Utc};
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use chrono::{DateTime, Utc};
-use regex::Regex;
-use super::{Permission, PermissionConditions, UserContext, PermissionCheckResult, UserManagementService};
 
 /// Permission evaluator for checking access control
 pub struct PermissionEvaluator<T: UserManagementService> {
@@ -32,19 +34,26 @@ impl<T: UserManagementService> PermissionEvaluator<T> {
 
         // Check direct permission match
         if user_permissions.contains(required_permission) {
-            return self.evaluate_permission_conditions(required_permission, context).await;
+            return self
+                .evaluate_permission_conditions(required_permission, context)
+                .await;
         }
 
         // Check wildcard permissions
         for user_perm in &user_permissions {
             if self.matches_wildcard_permission(user_perm, required_permission)? {
-                return self.evaluate_permission_conditions(user_perm, context).await;
+                return self
+                    .evaluate_permission_conditions(user_perm, context)
+                    .await;
             }
         }
 
         Ok(PermissionCheckResult {
             granted: false,
-            reason: format!("User {} does not have permission: {}", user_id, required_permission),
+            reason: format!(
+                "User {} does not have permission: {}",
+                user_id, required_permission
+            ),
             conditions_met: false,
             required_permissions: vec![required_permission.to_string()],
             missing_permissions: vec![required_permission.to_string()],
@@ -61,7 +70,9 @@ impl<T: UserManagementService> PermissionEvaluator<T> {
         let mut missing_permissions = Vec::new();
 
         for permission in required_permissions {
-            let result = self.check_permission(user_id, permission, context.clone()).await?;
+            let result = self
+                .check_permission(user_id, permission, context.clone())
+                .await?;
             if result.granted {
                 return Ok(result);
             }
@@ -70,7 +81,10 @@ impl<T: UserManagementService> PermissionEvaluator<T> {
 
         Ok(PermissionCheckResult {
             granted: false,
-            reason: format!("User {} does not have any of the required permissions", user_id),
+            reason: format!(
+                "User {} does not have any of the required permissions",
+                user_id
+            ),
             conditions_met: false,
             required_permissions: required_permissions.to_vec(),
             missing_permissions,
@@ -87,7 +101,9 @@ impl<T: UserManagementService> PermissionEvaluator<T> {
         let mut missing_permissions = Vec::new();
 
         for permission in required_permissions {
-            let result = self.check_permission(user_id, permission, context.clone()).await?;
+            let result = self
+                .check_permission(user_id, permission, context.clone())
+                .await?;
             if !result.granted {
                 missing_permissions.push(permission.clone());
             }
@@ -104,7 +120,11 @@ impl<T: UserManagementService> PermissionEvaluator<T> {
         } else {
             Ok(PermissionCheckResult {
                 granted: false,
-                reason: format!("User {} is missing {} permissions", user_id, missing_permissions.len()),
+                reason: format!(
+                    "User {} is missing {} permissions",
+                    user_id,
+                    missing_permissions.len()
+                ),
                 conditions_met: false,
                 required_permissions: required_permissions.to_vec(),
                 missing_permissions,
@@ -118,7 +138,10 @@ impl<T: UserManagementService> PermissionEvaluator<T> {
         permission_id: &str,
         context: Option<UserContext>,
     ) -> Result<PermissionCheckResult> {
-        let permission = self.service.get_permission(permission_id).await?
+        let permission = self
+            .service
+            .get_permission(permission_id)
+            .await?
             .ok_or_else(|| anyhow::anyhow!("Permission not found: {}", permission_id))?;
 
         if let Some(conditions) = &permission.conditions {
@@ -213,7 +236,11 @@ impl<T: UserManagementService> PermissionEvaluator<T> {
     }
 
     /// Check IP-based conditions
-    fn check_ip_condition(&self, condition: &super::IpBasedCondition, context: &UserContext) -> bool {
+    fn check_ip_condition(
+        &self,
+        condition: &super::IpBasedCondition,
+        context: &UserContext,
+    ) -> bool {
         if let Some(ip) = &context.ip_address {
             // Check blocked IPs first
             if condition.blocked_ips.contains(ip) {
@@ -233,7 +260,11 @@ impl<T: UserManagementService> PermissionEvaluator<T> {
     }
 
     /// Check attribute-based conditions
-    fn check_attribute_condition(&self, _condition: &super::AttributeBasedCondition, _context: &UserContext) -> bool {
+    fn check_attribute_condition(
+        &self,
+        _condition: &super::AttributeBasedCondition,
+        _context: &UserContext,
+    ) -> bool {
         // TODO: Implement attribute-based checking
         // This would check user attributes against required/forbidden attributes
         true
@@ -313,8 +344,18 @@ impl PermissionValidator {
     /// Add default valid resources
     fn add_default_resources(&mut self) {
         let resources = vec![
-            "users", "roles", "permissions", "groups", "profile", "auth",
-            "system", "public", "content", "reports", "analytics", "audit",
+            "users",
+            "roles",
+            "permissions",
+            "groups",
+            "profile",
+            "auth",
+            "system",
+            "public",
+            "content",
+            "reports",
+            "analytics",
+            "audit",
         ];
 
         for resource in resources {
@@ -325,9 +366,22 @@ impl PermissionValidator {
     /// Add default valid actions
     fn add_default_actions(&mut self) {
         let actions = vec![
-            "create", "read", "update", "delete", "list", "search",
-            "execute", "manage", "admin", "moderate", "approve",
-            "login", "logout", "change_password", "suspend", "activate",
+            "create",
+            "read",
+            "update",
+            "delete",
+            "list",
+            "search",
+            "execute",
+            "manage",
+            "admin",
+            "moderate",
+            "approve",
+            "login",
+            "logout",
+            "change_password",
+            "suspend",
+            "activate",
         ];
 
         for action in actions {
@@ -343,14 +397,19 @@ impl PermissionValidator {
         }
 
         if !permission.id.contains(':') && permission.id != "*" {
-            return Err(anyhow::anyhow!("Permission ID must be in format 'resource:action' or '*'"));
+            return Err(anyhow::anyhow!(
+                "Permission ID must be in format 'resource:action' or '*'"
+            ));
         }
 
         // Validate resource and action
         if permission.id != "*" {
             let parts: Vec<&str> = permission.id.split(':').collect();
             if parts.len() != 2 {
-                return Err(anyhow::anyhow!("Invalid permission format: {}", permission.id));
+                return Err(anyhow::anyhow!(
+                    "Invalid permission format: {}",
+                    permission.id
+                ));
             }
 
             let resource = parts[0];
@@ -430,13 +489,13 @@ impl PermissionValidator {
             if parts.len() != 2 {
                 return false;
             }
-            
+
             if let Ok(prefix) = parts[1].parse::<u8>() {
                 return prefix <= 32 && self.is_valid_ip(parts[0]);
             }
             return false;
         }
-        
+
         self.is_valid_ip(ip)
     }
 
@@ -492,14 +551,21 @@ impl<T: UserManagementService> PermissionManager<T> {
 
         // Check if permission already exists
         if self.service.get_permission(&permission.id).await?.is_some() {
-            return Err(anyhow::anyhow!("Permission already exists: {}", permission.id));
+            return Err(anyhow::anyhow!(
+                "Permission already exists: {}",
+                permission.id
+            ));
         }
 
         self.service.create_permission(permission).await
     }
 
     /// Update permission with validation
-    pub async fn update_permission(&self, permission_id: &str, permission: Permission) -> Result<Permission> {
+    pub async fn update_permission(
+        &self,
+        permission_id: &str,
+        permission: Permission,
+    ) -> Result<Permission> {
         self.validator.validate_permission(&permission)?;
 
         // Check if permission exists
@@ -507,7 +573,9 @@ impl<T: UserManagementService> PermissionManager<T> {
             return Err(anyhow::anyhow!("Permission not found: {}", permission_id));
         }
 
-        self.service.update_permission(permission_id, permission).await
+        self.service
+            .update_permission(permission_id, permission)
+            .await
     }
 
     /// Delete permission with dependency checking
@@ -517,8 +585,8 @@ impl<T: UserManagementService> PermissionManager<T> {
         for role in &roles {
             if role.permissions.contains(permission_id) {
                 return Err(anyhow::anyhow!(
-                    "Cannot delete permission {} - it is used by role {}", 
-                    permission_id, 
+                    "Cannot delete permission {} - it is used by role {}",
+                    permission_id,
                     role.id
                 ));
             }
@@ -534,7 +602,7 @@ impl<T: UserManagementService> PermissionManager<T> {
             .into_iter()
             .filter(|p| p.resource == resource)
             .collect();
-        
+
         Ok(filtered)
     }
 
@@ -545,7 +613,7 @@ impl<T: UserManagementService> PermissionManager<T> {
             .into_iter()
             .filter(|p| p.action == action)
             .collect();
-        
+
         Ok(filtered)
     }
 }
@@ -558,7 +626,7 @@ mod tests {
     #[test]
     fn test_permission_validator() {
         let validator = PermissionValidator::new();
-        
+
         let valid_permission = Permission {
             id: "users:read".to_string(),
             name: "Read Users".to_string(),
@@ -587,10 +655,10 @@ mod tests {
     #[test]
     fn test_wildcard_to_regex() {
         let mut evaluator = PermissionEvaluator::new(MockUserManagementService);
-        
+
         let regex = evaluator.wildcard_to_regex("users:*").unwrap();
         assert_eq!(regex, "^users:.*$");
-        
+
         let regex = evaluator.wildcard_to_regex("*:read").unwrap();
         assert_eq!(regex, "^.*:read$");
     }
@@ -598,12 +666,12 @@ mod tests {
     #[test]
     fn test_ip_validation() {
         let validator = PermissionValidator::new();
-        
+
         assert!(validator.is_valid_ip("192.168.1.1"));
         assert!(validator.is_valid_ip("127.0.0.1"));
         assert!(!validator.is_valid_ip("256.1.1.1"));
         assert!(!validator.is_valid_ip("192.168.1"));
-        
+
         assert!(validator.is_valid_ip_or_cidr("192.168.1.0/24"));
         assert!(validator.is_valid_ip_or_cidr("10.0.0.1"));
         assert!(!validator.is_valid_ip_or_cidr("192.168.1.0/33"));
@@ -614,35 +682,128 @@ mod tests {
 
     #[async_trait::async_trait]
     impl UserManagementService for MockUserManagementService {
-        async fn create_role(&self, _role: super::UserRole) -> Result<super::UserRole> { unimplemented!() }
-        async fn get_role(&self, _role_id: &str) -> Result<Option<super::UserRole>> { unimplemented!() }
-        async fn update_role(&self, _role_id: &str, _role: super::UserRole) -> Result<super::UserRole> { unimplemented!() }
-        async fn delete_role(&self, _role_id: &str) -> Result<bool> { unimplemented!() }
-        async fn list_roles(&self) -> Result<Vec<super::UserRole>> { unimplemented!() }
-        async fn assign_role_to_user(&self, _user_id: &str, _role_id: &str) -> Result<()> { unimplemented!() }
-        async fn remove_role_from_user(&self, _user_id: &str, _role_id: &str) -> Result<()> { unimplemented!() }
-        async fn get_user_roles(&self, _user_id: &str) -> Result<Vec<super::UserRole>> { unimplemented!() }
-        async fn create_permission(&self, _permission: Permission) -> Result<Permission> { unimplemented!() }
-        async fn get_permission(&self, _permission_id: &str) -> Result<Option<Permission>> { unimplemented!() }
-        async fn update_permission(&self, _permission_id: &str, _permission: Permission) -> Result<Permission> { unimplemented!() }
-        async fn delete_permission(&self, _permission_id: &str) -> Result<bool> { unimplemented!() }
-        async fn list_permissions(&self) -> Result<Vec<Permission>> { unimplemented!() }
-        async fn check_user_permission(&self, _user_id: &str, _permission: &str, _context: Option<UserContext>) -> Result<PermissionCheckResult> { unimplemented!() }
-        async fn get_user_permissions(&self, _user_id: &str) -> Result<HashSet<String>> { unimplemented!() }
-        async fn create_group(&self, _group: super::UserGroup) -> Result<super::UserGroup> { unimplemented!() }
-        async fn get_group(&self, _group_id: &str) -> Result<Option<super::UserGroup>> { unimplemented!() }
-        async fn update_group(&self, _group_id: &str, _group: super::UserGroup) -> Result<super::UserGroup> { unimplemented!() }
-        async fn delete_group(&self, _group_id: &str) -> Result<bool> { unimplemented!() }
-        async fn list_groups(&self) -> Result<Vec<super::UserGroup>> { unimplemented!() }
-        async fn add_user_to_group(&self, _user_id: &str, _group_id: &str) -> Result<()> { unimplemented!() }
-        async fn remove_user_from_group(&self, _user_id: &str, _group_id: &str) -> Result<()> { unimplemented!() }
-        async fn get_user_groups(&self, _user_id: &str) -> Result<Vec<super::UserGroup>> { unimplemented!() }
-        async fn create_profile(&self, _profile: super::UserProfile) -> Result<super::UserProfile> { unimplemented!() }
-        async fn get_profile(&self, _user_id: &str) -> Result<Option<super::UserProfile>> { unimplemented!() }
-        async fn update_profile(&self, _user_id: &str, _profile: super::UserProfile) -> Result<super::UserProfile> { unimplemented!() }
-        async fn delete_profile(&self, _user_id: &str) -> Result<bool> { unimplemented!() }
-        async fn search_profiles(&self, _query: &str, _filters: Option<HashMap<String, String>>) -> Result<Vec<super::UserProfile>> { unimplemented!() }
-        async fn update_privacy_settings(&self, _user_id: &str, _settings: super::PrivacySettings) -> Result<()> { unimplemented!() }
-        async fn update_notification_preferences(&self, _user_id: &str, _preferences: super::NotificationPreferences) -> Result<()> { unimplemented!() }
+        async fn create_role(&self, _role: super::UserRole) -> Result<super::UserRole> {
+            unimplemented!()
+        }
+        async fn get_role(&self, _role_id: &str) -> Result<Option<super::UserRole>> {
+            unimplemented!()
+        }
+        async fn update_role(
+            &self,
+            _role_id: &str,
+            _role: super::UserRole,
+        ) -> Result<super::UserRole> {
+            unimplemented!()
+        }
+        async fn delete_role(&self, _role_id: &str) -> Result<bool> {
+            unimplemented!()
+        }
+        async fn list_roles(&self) -> Result<Vec<super::UserRole>> {
+            unimplemented!()
+        }
+        async fn assign_role_to_user(&self, _user_id: &str, _role_id: &str) -> Result<()> {
+            unimplemented!()
+        }
+        async fn remove_role_from_user(&self, _user_id: &str, _role_id: &str) -> Result<()> {
+            unimplemented!()
+        }
+        async fn get_user_roles(&self, _user_id: &str) -> Result<Vec<super::UserRole>> {
+            unimplemented!()
+        }
+        async fn create_permission(&self, _permission: Permission) -> Result<Permission> {
+            unimplemented!()
+        }
+        async fn get_permission(&self, _permission_id: &str) -> Result<Option<Permission>> {
+            unimplemented!()
+        }
+        async fn update_permission(
+            &self,
+            _permission_id: &str,
+            _permission: Permission,
+        ) -> Result<Permission> {
+            unimplemented!()
+        }
+        async fn delete_permission(&self, _permission_id: &str) -> Result<bool> {
+            unimplemented!()
+        }
+        async fn list_permissions(&self) -> Result<Vec<Permission>> {
+            unimplemented!()
+        }
+        async fn check_user_permission(
+            &self,
+            _user_id: &str,
+            _permission: &str,
+            _context: Option<UserContext>,
+        ) -> Result<PermissionCheckResult> {
+            unimplemented!()
+        }
+        async fn get_user_permissions(&self, _user_id: &str) -> Result<HashSet<String>> {
+            unimplemented!()
+        }
+        async fn create_group(&self, _group: super::UserGroup) -> Result<super::UserGroup> {
+            unimplemented!()
+        }
+        async fn get_group(&self, _group_id: &str) -> Result<Option<super::UserGroup>> {
+            unimplemented!()
+        }
+        async fn update_group(
+            &self,
+            _group_id: &str,
+            _group: super::UserGroup,
+        ) -> Result<super::UserGroup> {
+            unimplemented!()
+        }
+        async fn delete_group(&self, _group_id: &str) -> Result<bool> {
+            unimplemented!()
+        }
+        async fn list_groups(&self) -> Result<Vec<super::UserGroup>> {
+            unimplemented!()
+        }
+        async fn add_user_to_group(&self, _user_id: &str, _group_id: &str) -> Result<()> {
+            unimplemented!()
+        }
+        async fn remove_user_from_group(&self, _user_id: &str, _group_id: &str) -> Result<()> {
+            unimplemented!()
+        }
+        async fn get_user_groups(&self, _user_id: &str) -> Result<Vec<super::UserGroup>> {
+            unimplemented!()
+        }
+        async fn create_profile(&self, _profile: super::UserProfile) -> Result<super::UserProfile> {
+            unimplemented!()
+        }
+        async fn get_profile(&self, _user_id: &str) -> Result<Option<super::UserProfile>> {
+            unimplemented!()
+        }
+        async fn update_profile(
+            &self,
+            _user_id: &str,
+            _profile: super::UserProfile,
+        ) -> Result<super::UserProfile> {
+            unimplemented!()
+        }
+        async fn delete_profile(&self, _user_id: &str) -> Result<bool> {
+            unimplemented!()
+        }
+        async fn search_profiles(
+            &self,
+            _query: &str,
+            _filters: Option<HashMap<String, String>>,
+        ) -> Result<Vec<super::UserProfile>> {
+            unimplemented!()
+        }
+        async fn update_privacy_settings(
+            &self,
+            _user_id: &str,
+            _settings: super::PrivacySettings,
+        ) -> Result<()> {
+            unimplemented!()
+        }
+        async fn update_notification_preferences(
+            &self,
+            _user_id: &str,
+            _preferences: super::NotificationPreferences,
+        ) -> Result<()> {
+            unimplemented!()
+        }
     }
 }

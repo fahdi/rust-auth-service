@@ -1,17 +1,17 @@
-use reqwest::{Client, StatusCode, Method};
+use base64::Engine;
+use reqwest::{Client, Method, StatusCode};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use tokio::time::sleep;
 use uuid::Uuid;
-use base64::Engine;
 
 const SERVICE_URL: &str = "http://localhost:8090";
 const MAX_SERVICE_WAIT_ATTEMPTS: u32 = 30;
 const SERVICE_WAIT_DELAY_MS: u64 = 1000;
 
 /// Security Integration Tests
-/// 
+///
 /// This module contains comprehensive security testing including:
 /// - Authentication bypass attempts
 /// - SQL injection and NoSQL injection testing
@@ -82,7 +82,10 @@ async fn wait_for_service() -> Result<(), Box<dyn std::error::Error + Send + Syn
             _ => {
                 attempts += 1;
                 if attempts % 10 == 0 {
-                    println!("⏳ Waiting for auth service... (attempt {}/{})", attempts, MAX_SERVICE_WAIT_ATTEMPTS);
+                    println!(
+                        "⏳ Waiting for auth service... (attempt {}/{})",
+                        attempts, MAX_SERVICE_WAIT_ATTEMPTS
+                    );
                 }
                 sleep(Duration::from_millis(SERVICE_WAIT_DELAY_MS)).await;
             }
@@ -92,7 +95,10 @@ async fn wait_for_service() -> Result<(), Box<dyn std::error::Error + Send + Syn
     Err("Auth service not available after maximum attempts".into())
 }
 
-async fn create_test_user(client: &Client, email_suffix: &str) -> Result<(String, String), Box<dyn std::error::Error + Send + Sync>> {
+async fn create_test_user(
+    client: &Client,
+    email_suffix: &str,
+) -> Result<(String, String), Box<dyn std::error::Error + Send + Sync>> {
     let test_email = format!("security_test_{}@example.com", email_suffix);
     let test_password = "SecureTestPass123!";
 
@@ -116,7 +122,11 @@ async fn create_test_user(client: &Client, email_suffix: &str) -> Result<(String
     }
 }
 
-async fn authenticate_user(client: &Client, email: &str, password: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+async fn authenticate_user(
+    client: &Client,
+    email: &str,
+    password: &str,
+) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     let login_data = json!({
         "email": email,
         "password": password
@@ -144,9 +154,9 @@ async fn authenticate_user(client: &Client, email: &str, password: &str) -> Resu
 #[ignore]
 async fn test_authentication_bypass_attempts() {
     println!("🔍 Testing authentication bypass attempts");
-    
+
     match wait_for_service().await {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(_) => {
             println!("⚠️ Auth service not available - skipping authentication bypass tests");
             return;
@@ -158,10 +168,7 @@ async fn test_authentication_bypass_attempts() {
 
     // Test 1: Direct access to protected endpoints without token
     let start_time = Instant::now();
-    let response = client
-        .get(&format!("{}/auth/me", SERVICE_URL))
-        .send()
-        .await;
+    let response = client.get(&format!("{}/auth/me", SERVICE_URL)).send().await;
 
     match response {
         Ok(resp) => {
@@ -180,7 +187,7 @@ async fn test_authentication_bypass_attempts() {
         Err(e) => {
             results.push(
                 SecurityTestResult::new("no_token_access")
-                    .failure(&format!("Request failed: {}", e))
+                    .failure(&format!("Request failed: {}", e)),
             );
         }
     }
@@ -222,7 +229,7 @@ async fn test_authentication_bypass_attempts() {
             Err(e) => {
                 results.push(
                     SecurityTestResult::new(&format!("invalid_token_{}", i))
-                        .failure(&format!("Request failed: {}", e))
+                        .failure(&format!("Request failed: {}", e)),
                 );
             }
         }
@@ -253,8 +260,7 @@ async fn test_authentication_bypass_attempts() {
         }
         Err(e) => {
             results.push(
-                SecurityTestResult::new("expired_token")
-                    .failure(&format!("Request failed: {}", e))
+                SecurityTestResult::new("expired_token").failure(&format!("Request failed: {}", e)),
             );
         }
     }
@@ -270,8 +276,15 @@ async fn test_authentication_bypass_attempts() {
 
     for result in &results {
         let status = if result.passed { "✅" } else { "❌" };
-        let vuln_indicator = if result.vulnerability_detected { "🚨" } else { "" };
-        println!("   {} {} - {} {}", status, result.test_name, result.details, vuln_indicator);
+        let vuln_indicator = if result.vulnerability_detected {
+            "🚨"
+        } else {
+            ""
+        };
+        println!(
+            "   {} {} - {} {}",
+            status, result.test_name, result.details, vuln_indicator
+        );
     }
 
     assert!(
@@ -290,9 +303,9 @@ async fn test_authentication_bypass_attempts() {
 #[ignore]
 async fn test_sql_injection_attempts() {
     println!("🔍 Testing SQL injection and NoSQL injection attempts");
-    
+
     match wait_for_service().await {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(_) => {
             println!("⚠️ Auth service not available - skipping injection tests");
             return;
@@ -349,7 +362,9 @@ async fn test_sql_injection_attempts() {
         match response {
             Ok(resp) => {
                 let test_name = format!("injection_login_{}", i);
-                let result = if resp.status() == StatusCode::BAD_REQUEST || resp.status() == StatusCode::UNAUTHORIZED {
+                let result = if resp.status() == StatusCode::BAD_REQUEST
+                    || resp.status() == StatusCode::UNAUTHORIZED
+                {
                     SecurityTestResult::new(&test_name)
                         .success("Correctly rejected injection attempt")
                         .with_response(resp.status(), start_time.elapsed())
@@ -368,7 +383,7 @@ async fn test_sql_injection_attempts() {
             Err(e) => {
                 results.push(
                     SecurityTestResult::new(&format!("injection_login_{}", i))
-                        .success(&format!("Connection rejected injection: {}", e))
+                        .success(&format!("Connection rejected injection: {}", e)),
                 );
             }
         }
@@ -412,7 +427,7 @@ async fn test_sql_injection_attempts() {
             Err(e) => {
                 results.push(
                     SecurityTestResult::new(&format!("injection_register_{}", i))
-                        .success(&format!("Connection rejected injection: {}", e))
+                        .success(&format!("Connection rejected injection: {}", e)),
                 );
             }
         }
@@ -429,8 +444,15 @@ async fn test_sql_injection_attempts() {
 
     for result in &results {
         let status = if result.passed { "✅" } else { "❌" };
-        let vuln_indicator = if result.vulnerability_detected { "🚨" } else { "" };
-        println!("   {} {} - {} {}", status, result.test_name, result.details, vuln_indicator);
+        let vuln_indicator = if result.vulnerability_detected {
+            "🚨"
+        } else {
+            ""
+        };
+        println!(
+            "   {} {} - {} {}",
+            status, result.test_name, result.details, vuln_indicator
+        );
     }
 
     assert!(
@@ -449,9 +471,9 @@ async fn test_sql_injection_attempts() {
 #[ignore]
 async fn test_rate_limiting_protection() {
     println!("🔍 Testing rate limiting and DDoS protection");
-    
+
     match wait_for_service().await {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(_) => {
             println!("⚠️ Auth service not available - skipping rate limiting tests");
             return;
@@ -484,7 +506,9 @@ async fn test_rate_limiting_protection() {
 
         match response {
             Ok(resp) => {
-                if resp.status() == StatusCode::TOO_MANY_REQUESTS || resp.status() == StatusCode::FORBIDDEN {
+                if resp.status() == StatusCode::TOO_MANY_REQUESTS
+                    || resp.status() == StatusCode::FORBIDDEN
+                {
                     rate_limited_requests += 1;
                 } else {
                     successful_requests += 1;
@@ -503,8 +527,10 @@ async fn test_rate_limiting_protection() {
     let requests_per_second = total_requests as f64 / total_time.as_secs_f64();
 
     let rate_limit_result = if rate_limited_requests > 0 {
-        SecurityTestResult::new("brute_force_rate_limiting")
-            .success(&format!("Rate limiting activated after {} requests", successful_requests))
+        SecurityTestResult::new("brute_force_rate_limiting").success(&format!(
+            "Rate limiting activated after {} requests",
+            successful_requests
+        ))
     } else if requests_per_second > 100.0 {
         SecurityTestResult::new("brute_force_rate_limiting")
             .failure("No rate limiting detected despite high request rate")
@@ -522,7 +548,10 @@ async fn test_rate_limiting_protection() {
     let mut registration_limited = 0;
     let registration_attempts = 20;
 
-    println!("🔄 Testing registration flood protection with {} attempts...", registration_attempts);
+    println!(
+        "🔄 Testing registration flood protection with {} attempts...",
+        registration_attempts
+    );
 
     for i in 0..registration_attempts {
         let registration_data = json!({
@@ -540,7 +569,9 @@ async fn test_rate_limiting_protection() {
 
         match response {
             Ok(resp) => {
-                if resp.status() == StatusCode::TOO_MANY_REQUESTS || resp.status() == StatusCode::FORBIDDEN {
+                if resp.status() == StatusCode::TOO_MANY_REQUESTS
+                    || resp.status() == StatusCode::FORBIDDEN
+                {
                     registration_limited += 1;
                 } else if resp.status().is_success() {
                     registration_successful += 1;
@@ -557,14 +588,17 @@ async fn test_rate_limiting_protection() {
         sleep(Duration::from_millis(50)).await;
     }
 
-    let registration_rate_result = if registration_limited > 0 || registration_successful < registration_attempts {
-        SecurityTestResult::new("registration_flood_protection")
-            .success(&format!("Registration protection active: {}/{} limited", registration_limited, registration_attempts))
-    } else {
-        SecurityTestResult::new("registration_flood_protection")
-            .failure("No registration flood protection detected")
-            .with_vulnerability()
-    };
+    let registration_rate_result =
+        if registration_limited > 0 || registration_successful < registration_attempts {
+            SecurityTestResult::new("registration_flood_protection").success(&format!(
+                "Registration protection active: {}/{} limited",
+                registration_limited, registration_attempts
+            ))
+        } else {
+            SecurityTestResult::new("registration_flood_protection")
+                .failure("No registration flood protection detected")
+                .with_vulnerability()
+        };
 
     results.push(registration_rate_result);
 
@@ -576,13 +610,26 @@ async fn test_rate_limiting_protection() {
     println!("📊 Rate Limiting Tests Results:");
     println!("   Passed: {}/{}", passed_tests, total_tests);
     println!("   Vulnerabilities Detected: {}", vulnerabilities);
-    println!("   Login Tests: {}/{} requests rate limited", rate_limited_requests, total_requests);
-    println!("   Registration Tests: {}/{} requests rate limited", registration_limited, registration_attempts);
+    println!(
+        "   Login Tests: {}/{} requests rate limited",
+        rate_limited_requests, total_requests
+    );
+    println!(
+        "   Registration Tests: {}/{} requests rate limited",
+        registration_limited, registration_attempts
+    );
 
     for result in &results {
         let status = if result.passed { "✅" } else { "❌" };
-        let vuln_indicator = if result.vulnerability_detected { "🚨" } else { "" };
-        println!("   {} {} - {} {}", status, result.test_name, result.details, vuln_indicator);
+        let vuln_indicator = if result.vulnerability_detected {
+            "🚨"
+        } else {
+            ""
+        };
+        println!(
+            "   {} {} - {} {}",
+            status, result.test_name, result.details, vuln_indicator
+        );
     }
 
     assert!(
@@ -601,9 +648,9 @@ async fn test_rate_limiting_protection() {
 #[ignore]
 async fn test_password_security_validation() {
     println!("🔍 Testing password security validation");
-    
+
     match wait_for_service().await {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(_) => {
             println!("⚠️ Auth service not available - skipping password security tests");
             return;
@@ -631,7 +678,10 @@ async fn test_password_security_validation() {
         "pass",
     ];
 
-    println!("🔄 Testing {} weak password patterns...", weak_passwords.len());
+    println!(
+        "🔄 Testing {} weak password patterns...",
+        weak_passwords.len()
+    );
 
     for (i, weak_password) in weak_passwords.iter().enumerate() {
         let test_email = format!("weak_pass_test_{}@example.com", i);
@@ -671,7 +721,7 @@ async fn test_password_security_validation() {
             Err(e) => {
                 results.push(
                     SecurityTestResult::new(&format!("weak_password_{}", i))
-                        .success(&format!("Connection rejected weak password: {}", e))
+                        .success(&format!("Connection rejected weak password: {}", e)),
                 );
             }
         }
@@ -685,7 +735,10 @@ async fn test_password_security_validation() {
         "Unbreakable$Pass123Word",
     ];
 
-    println!("🔄 Testing {} strong password patterns...", strong_passwords.len());
+    println!(
+        "🔄 Testing {} strong password patterns...",
+        strong_passwords.len()
+    );
 
     for (i, strong_password) in strong_passwords.iter().enumerate() {
         let test_email = format!("strong_pass_test_{}@example.com", Uuid::new_v4());
@@ -725,7 +778,7 @@ async fn test_password_security_validation() {
             Err(e) => {
                 results.push(
                     SecurityTestResult::new(&format!("strong_password_{}", i))
-                        .failure(&format!("Failed to test strong password: {}", e))
+                        .failure(&format!("Failed to test strong password: {}", e)),
                 );
             }
         }
@@ -742,8 +795,15 @@ async fn test_password_security_validation() {
 
     for result in &results {
         let status = if result.passed { "✅" } else { "❌" };
-        let vuln_indicator = if result.vulnerability_detected { "🚨" } else { "" };
-        println!("   {} {} - {} {}", status, result.test_name, result.details, vuln_indicator);
+        let vuln_indicator = if result.vulnerability_detected {
+            "🚨"
+        } else {
+            ""
+        };
+        println!(
+            "   {} {} - {} {}",
+            status, result.test_name, result.details, vuln_indicator
+        );
     }
 
     assert!(
@@ -762,9 +822,9 @@ async fn test_password_security_validation() {
 #[ignore]
 async fn test_input_validation_and_sanitization() {
     println!("🔍 Testing input validation and sanitization");
-    
+
     match wait_for_service().await {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(_) => {
             println!("⚠️ Auth service not available - skipping input validation tests");
             return;
@@ -848,7 +908,7 @@ async fn test_input_validation_and_sanitization() {
             Err(e) => {
                 results.push(
                     SecurityTestResult::new(&format!("email_validation_{}", i))
-                        .success(&format!("Connection rejected malicious input: {}", e))
+                        .success(&format!("Connection rejected malicious input: {}", e)),
                 );
             }
         }
@@ -890,7 +950,7 @@ async fn test_input_validation_and_sanitization() {
             Err(e) => {
                 results.push(
                     SecurityTestResult::new(&format!("firstname_validation_{}", i))
-                        .success(&format!("Connection rejected malicious input: {}", e))
+                        .success(&format!("Connection rejected malicious input: {}", e)),
                 );
             }
         }
@@ -914,7 +974,9 @@ async fn test_input_validation_and_sanitization() {
 
     match response {
         Ok(resp) => {
-            let result = if resp.status() == StatusCode::BAD_REQUEST || resp.status() == StatusCode::PAYLOAD_TOO_LARGE {
+            let result = if resp.status() == StatusCode::BAD_REQUEST
+                || resp.status() == StatusCode::PAYLOAD_TOO_LARGE
+            {
                 SecurityTestResult::new("buffer_overflow_protection")
                     .success("Correctly rejected oversized input")
                     .with_response(resp.status(), start_time.elapsed())
@@ -933,7 +995,7 @@ async fn test_input_validation_and_sanitization() {
         Err(e) => {
             results.push(
                 SecurityTestResult::new("buffer_overflow_protection")
-                    .success(&format!("Connection rejected oversized input: {}", e))
+                    .success(&format!("Connection rejected oversized input: {}", e)),
             );
         }
     }
@@ -949,8 +1011,15 @@ async fn test_input_validation_and_sanitization() {
 
     for result in &results {
         let status = if result.passed { "✅" } else { "❌" };
-        let vuln_indicator = if result.vulnerability_detected { "🚨" } else { "" };
-        println!("   {} {} - {} {}", status, result.test_name, result.details, vuln_indicator);
+        let vuln_indicator = if result.vulnerability_detected {
+            "🚨"
+        } else {
+            ""
+        };
+        println!(
+            "   {} {} - {} {}",
+            status, result.test_name, result.details, vuln_indicator
+        );
     }
 
     assert!(
@@ -969,9 +1038,9 @@ async fn test_input_validation_and_sanitization() {
 #[ignore]
 async fn test_session_security_and_token_management() {
     println!("🔍 Testing session security and token management");
-    
+
     match wait_for_service().await {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(_) => {
             println!("⚠️ Auth service not available - skipping session security tests");
             return;
@@ -982,13 +1051,14 @@ async fn test_session_security_and_token_management() {
     let mut results = Vec::new();
 
     // Create a test user for session testing
-    let (test_email, test_password) = match create_test_user(&client, &Uuid::new_v4().to_string()).await {
-        Ok(credentials) => credentials,
-        Err(_) => {
-            println!("⚠️ Could not create test user - skipping session security tests");
-            return;
-        }
-    };
+    let (test_email, test_password) =
+        match create_test_user(&client, &Uuid::new_v4().to_string()).await {
+            Ok(credentials) => credentials,
+            Err(_) => {
+                println!("⚠️ Could not create test user - skipping session security tests");
+                return;
+            }
+        };
 
     // Test 1: Token-based authentication
     let token = match authenticate_user(&client, &test_email, &test_password).await {
@@ -1023,7 +1093,7 @@ async fn test_session_security_and_token_management() {
         Err(e) => {
             results.push(
                 SecurityTestResult::new("valid_token_access")
-                    .failure(&format!("Valid token request failed: {}", e))
+                    .failure(&format!("Valid token request failed: {}", e)),
             );
         }
     }
@@ -1035,7 +1105,9 @@ async fn test_session_security_and_token_management() {
         .send()
         .await;
 
-    let logout_success = logout_response.map(|r| r.status().is_success()).unwrap_or(false);
+    let logout_success = logout_response
+        .map(|r| r.status().is_success())
+        .unwrap_or(false);
 
     if logout_success {
         // Try to use the token after logout
@@ -1067,14 +1139,14 @@ async fn test_session_security_and_token_management() {
             Err(e) => {
                 results.push(
                     SecurityTestResult::new("token_after_logout")
-                        .success(&format!("Token rejected after logout: {}", e))
+                        .success(&format!("Token rejected after logout: {}", e)),
                 );
             }
         }
     } else {
         results.push(
             SecurityTestResult::new("token_after_logout")
-                .failure("Logout endpoint not available or failed")
+                .failure("Logout endpoint not available or failed"),
         );
     }
 
@@ -1084,7 +1156,7 @@ async fn test_session_security_and_token_management() {
         Err(_) => {
             results.push(
                 SecurityTestResult::new("concurrent_sessions")
-                    .failure("Could not create second session for testing")
+                    .failure("Could not create second session for testing"),
             );
             String::new()
         }
@@ -1114,7 +1186,7 @@ async fn test_session_security_and_token_management() {
             Err(e) => {
                 results.push(
                     SecurityTestResult::new("concurrent_sessions")
-                        .success(&format!("Concurrent session appropriately handled: {}", e))
+                        .success(&format!("Concurrent session appropriately handled: {}", e)),
                 );
             }
         }
@@ -1123,9 +1195,9 @@ async fn test_session_security_and_token_management() {
     // Test 5: Token format validation
     let malformed_tokens = vec![
         token.clone() + "extra",
-        token[..token.len()-10].to_string(), // Truncated token
+        token[..token.len() - 10].to_string(), // Truncated token
         base64::engine::general_purpose::STANDARD.encode(&token), // Double-encoded
-        token.replace(".", "_"), // Modified structure
+        token.replace(".", "_"),               // Modified structure
     ];
 
     for (i, malformed_token) in malformed_tokens.iter().enumerate() {
@@ -1158,7 +1230,7 @@ async fn test_session_security_and_token_management() {
             Err(e) => {
                 results.push(
                     SecurityTestResult::new(&format!("malformed_token_{}", i))
-                        .success(&format!("Malformed token rejected: {}", e))
+                        .success(&format!("Malformed token rejected: {}", e)),
                 );
             }
         }
@@ -1175,8 +1247,15 @@ async fn test_session_security_and_token_management() {
 
     for result in &results {
         let status = if result.passed { "✅" } else { "❌" };
-        let vuln_indicator = if result.vulnerability_detected { "🚨" } else { "" };
-        println!("   {} {} - {} {}", status, result.test_name, result.details, vuln_indicator);
+        let vuln_indicator = if result.vulnerability_detected {
+            "🚨"
+        } else {
+            ""
+        };
+        println!(
+            "   {} {} - {} {}",
+            status, result.test_name, result.details, vuln_indicator
+        );
     }
 
     assert!(
@@ -1195,9 +1274,9 @@ async fn test_session_security_and_token_management() {
 #[ignore]
 async fn test_security_headers_validation() {
     println!("🔍 Testing security headers validation");
-    
+
     match wait_for_service().await {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(_) => {
             println!("⚠️ Auth service not available - skipping security headers tests");
             return;
@@ -1208,12 +1287,7 @@ async fn test_security_headers_validation() {
     let mut results = Vec::new();
 
     // Test security headers on various endpoints
-    let endpoints = vec![
-        "/health",
-        "/auth/register", 
-        "/auth/login",
-        "/metrics",
-    ];
+    let endpoints = vec!["/health", "/auth/register", "/auth/login", "/metrics"];
 
     for endpoint in endpoints {
         let start_time = Instant::now();
@@ -1253,13 +1327,19 @@ async fn test_security_headers_validation() {
                 }
 
                 // Count present headers
-                let present_headers = header_checks.iter().filter(|(_, present, _)| *present).count();
+                let present_headers = header_checks
+                    .iter()
+                    .filter(|(_, present, _)| *present)
+                    .count();
                 let total_headers = header_checks.len();
 
                 let test_name = format!("security_headers_{}", endpoint.replace("/", "_"));
                 let result = if present_headers >= total_headers / 2 {
                     SecurityTestResult::new(&test_name)
-                        .success(&format!("Good security headers: {}/{}", present_headers, total_headers))
+                        .success(&format!(
+                            "Good security headers: {}/{}",
+                            present_headers, total_headers
+                        ))
                         .with_response(resp.status(), start_time.elapsed())
                 } else if present_headers == 0 {
                     SecurityTestResult::new(&test_name)
@@ -1268,7 +1348,10 @@ async fn test_security_headers_validation() {
                         .with_vulnerability()
                 } else {
                     SecurityTestResult::new(&test_name)
-                        .success(&format!("Some security headers: {}/{}", present_headers, total_headers))
+                        .success(&format!(
+                            "Some security headers: {}/{}",
+                            present_headers, total_headers
+                        ))
                         .with_response(resp.status(), start_time.elapsed())
                 };
 
@@ -1277,14 +1360,22 @@ async fn test_security_headers_validation() {
                 // Log individual header status
                 for (header_name, present, _) in header_checks {
                     let status = if present { "✅" } else { "⚠️" };
-                    println!("   {} {} header on {}: {}", status, header_name, endpoint, 
-                             if present { "Present" } else { "Missing" });
+                    println!(
+                        "   {} {} header on {}: {}",
+                        status,
+                        header_name,
+                        endpoint,
+                        if present { "Present" } else { "Missing" }
+                    );
                 }
             }
             Err(e) => {
                 results.push(
-                    SecurityTestResult::new(&format!("security_headers_{}", endpoint.replace("/", "_")))
-                        .failure(&format!("Failed to test headers: {}", e))
+                    SecurityTestResult::new(&format!(
+                        "security_headers_{}",
+                        endpoint.replace("/", "_")
+                    ))
+                    .failure(&format!("Failed to test headers: {}", e)),
                 );
             }
         }
@@ -1302,39 +1393,34 @@ async fn test_security_headers_validation() {
     match response {
         Ok(resp) => {
             let headers = resp.headers();
-            let cors_origin = headers.get("access-control-allow-origin")
+            let cors_origin = headers
+                .get("access-control-allow-origin")
                 .and_then(|h| h.to_str().ok());
-            
+
             let result = match cors_origin {
-                Some("*") => {
-                    SecurityTestResult::new("cors_policy")
-                        .failure("CORS allows all origins (potential security risk)")
-                        .with_response(resp.status(), start_time.elapsed())
-                        .with_vulnerability()
-                }
+                Some("*") => SecurityTestResult::new("cors_policy")
+                    .failure("CORS allows all origins (potential security risk)")
+                    .with_response(resp.status(), start_time.elapsed())
+                    .with_vulnerability(),
                 Some(origin) if origin == "https://evil.com" => {
                     SecurityTestResult::new("cors_policy")
                         .failure("CORS allows arbitrary origins")
                         .with_response(resp.status(), start_time.elapsed())
                         .with_vulnerability()
                 }
-                Some(_) => {
-                    SecurityTestResult::new("cors_policy")
-                        .success("CORS policy appears restrictive")
-                        .with_response(resp.status(), start_time.elapsed())
-                }
-                None => {
-                    SecurityTestResult::new("cors_policy")
-                        .success("CORS policy is restrictive (no origin header)")
-                        .with_response(resp.status(), start_time.elapsed())
-                }
+                Some(_) => SecurityTestResult::new("cors_policy")
+                    .success("CORS policy appears restrictive")
+                    .with_response(resp.status(), start_time.elapsed()),
+                None => SecurityTestResult::new("cors_policy")
+                    .success("CORS policy is restrictive (no origin header)")
+                    .with_response(resp.status(), start_time.elapsed()),
             };
             results.push(result);
         }
         Err(e) => {
             results.push(
                 SecurityTestResult::new("cors_policy")
-                    .success(&format!("CORS preflight rejected: {}", e))
+                    .success(&format!("CORS preflight rejected: {}", e)),
             );
         }
     }
@@ -1350,8 +1436,15 @@ async fn test_security_headers_validation() {
 
     for result in &results {
         let status = if result.passed { "✅" } else { "❌" };
-        let vuln_indicator = if result.vulnerability_detected { "🚨" } else { "" };
-        println!("   {} {} - {} {}", status, result.test_name, result.details, vuln_indicator);
+        let vuln_indicator = if result.vulnerability_detected {
+            "🚨"
+        } else {
+            ""
+        };
+        println!(
+            "   {} {} - {} {}",
+            status, result.test_name, result.details, vuln_indicator
+        );
     }
 
     // Security headers are important but not always critical for API services
@@ -1371,9 +1464,9 @@ async fn test_security_headers_validation() {
 #[ignore]
 async fn test_comprehensive_security_audit() {
     println!("🔍 Running comprehensive security audit");
-    
+
     match wait_for_service().await {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(_) => {
             println!("⚠️ Auth service not available - skipping comprehensive security audit");
             return;
@@ -1390,51 +1483,87 @@ async fn test_comprehensive_security_audit() {
     // Run all security test categories
     println!("🔄 Testing Authentication Bypass...");
     let (passed, total, vulnerabilities) = test_auth_bypass_simulation().await;
-    audit_results.insert("Authentication Bypass".to_string(), (passed, total, vulnerabilities));
+    audit_results.insert(
+        "Authentication Bypass".to_string(),
+        (passed, total, vulnerabilities),
+    );
     total_passed += passed;
     total_tests += total;
     total_vulnerabilities += vulnerabilities;
-    println!("📊 Authentication Bypass Results: {}/{} passed, {} vulnerabilities", passed, total, vulnerabilities);
+    println!(
+        "📊 Authentication Bypass Results: {}/{} passed, {} vulnerabilities",
+        passed, total, vulnerabilities
+    );
 
     println!("🔄 Testing Injection Attacks...");
     let (passed, total, vulnerabilities) = test_injection_attack_simulation().await;
-    audit_results.insert("Injection Attacks".to_string(), (passed, total, vulnerabilities));
+    audit_results.insert(
+        "Injection Attacks".to_string(),
+        (passed, total, vulnerabilities),
+    );
     total_passed += passed;
     total_tests += total;
     total_vulnerabilities += vulnerabilities;
-    println!("📊 Injection Attacks Results: {}/{} passed, {} vulnerabilities", passed, total, vulnerabilities);
+    println!(
+        "📊 Injection Attacks Results: {}/{} passed, {} vulnerabilities",
+        passed, total, vulnerabilities
+    );
 
     println!("🔄 Testing Rate Limiting...");
     let (passed, total, vulnerabilities) = test_rate_limit_simulation().await;
-    audit_results.insert("Rate Limiting".to_string(), (passed, total, vulnerabilities));
+    audit_results.insert(
+        "Rate Limiting".to_string(),
+        (passed, total, vulnerabilities),
+    );
     total_passed += passed;
     total_tests += total;
     total_vulnerabilities += vulnerabilities;
-    println!("📊 Rate Limiting Results: {}/{} passed, {} vulnerabilities", passed, total, vulnerabilities);
+    println!(
+        "📊 Rate Limiting Results: {}/{} passed, {} vulnerabilities",
+        passed, total, vulnerabilities
+    );
 
     println!("🔄 Testing Password Security...");
     let (passed, total, vulnerabilities) = test_password_security_simulation().await;
-    audit_results.insert("Password Security".to_string(), (passed, total, vulnerabilities));
+    audit_results.insert(
+        "Password Security".to_string(),
+        (passed, total, vulnerabilities),
+    );
     total_passed += passed;
     total_tests += total;
     total_vulnerabilities += vulnerabilities;
-    println!("📊 Password Security Results: {}/{} passed, {} vulnerabilities", passed, total, vulnerabilities);
+    println!(
+        "📊 Password Security Results: {}/{} passed, {} vulnerabilities",
+        passed, total, vulnerabilities
+    );
 
     println!("🔄 Testing Input Validation...");
     let (passed, total, vulnerabilities) = test_input_validation_simulation().await;
-    audit_results.insert("Input Validation".to_string(), (passed, total, vulnerabilities));
+    audit_results.insert(
+        "Input Validation".to_string(),
+        (passed, total, vulnerabilities),
+    );
     total_passed += passed;
     total_tests += total;
     total_vulnerabilities += vulnerabilities;
-    println!("📊 Input Validation Results: {}/{} passed, {} vulnerabilities", passed, total, vulnerabilities);
+    println!(
+        "📊 Input Validation Results: {}/{} passed, {} vulnerabilities",
+        passed, total, vulnerabilities
+    );
 
     println!("🔄 Testing Session Security...");
     let (passed, total, vulnerabilities) = test_session_security_simulation().await;
-    audit_results.insert("Session Security".to_string(), (passed, total, vulnerabilities));
+    audit_results.insert(
+        "Session Security".to_string(),
+        (passed, total, vulnerabilities),
+    );
     total_passed += passed;
     total_tests += total;
     total_vulnerabilities += vulnerabilities;
-    println!("📊 Session Security Results: {}/{} passed, {} vulnerabilities", passed, total, vulnerabilities);
+    println!(
+        "📊 Session Security Results: {}/{} passed, {} vulnerabilities",
+        passed, total, vulnerabilities
+    );
 
     // Calculate overall security score
     let pass_rate = if total_tests > 0 {
@@ -1463,7 +1592,7 @@ async fn test_comprehensive_security_audit() {
     println!("   Pass Rate: {:.1}%", pass_rate);
     println!("   Vulnerabilities Found: {}", total_vulnerabilities);
     println!("   Security Grade: {}", security_grade);
-    
+
     println!("\n📈 Category Breakdown:");
     for (category, (passed, total, vulns)) in &audit_results {
         let category_rate = if *total > 0 {
@@ -1471,20 +1600,32 @@ async fn test_comprehensive_security_audit() {
         } else {
             0.0
         };
-        let status = if *vulns == 0 && category_rate >= 80.0 { "✅" } else { "⚠️" };
-        println!("   {} {}: {}/{} ({:.1}%) - {} vulnerabilities", 
-                status, category, passed, total, category_rate, vulns);
+        let status = if *vulns == 0 && category_rate >= 80.0 {
+            "✅"
+        } else {
+            "⚠️"
+        };
+        println!(
+            "   {} {}: {}/{} ({:.1}%) - {} vulnerabilities",
+            status, category, passed, total, category_rate, vulns
+        );
     }
 
     println!("\n🎯 Security Recommendations:");
     if total_vulnerabilities > 0 {
-        println!("   ❌ {} vulnerabilities require immediate attention", total_vulnerabilities);
+        println!(
+            "   ❌ {} vulnerabilities require immediate attention",
+            total_vulnerabilities
+        );
     } else {
         println!("   ✅ No critical vulnerabilities detected");
     }
 
     if pass_rate < 90.0 {
-        println!("   ⚠️ Consider strengthening security controls (current: {:.1}%)", pass_rate);
+        println!(
+            "   ⚠️ Consider strengthening security controls (current: {:.1}%)",
+            pass_rate
+        );
     } else {
         println!("   ✅ Strong security posture maintained");
     }
@@ -1499,24 +1640,72 @@ async fn test_comprehensive_security_audit() {
     }
 
     println!("\n🔍 Detailed Findings:");
-    println!("   Authentication: {}/{} tests passed", 
-             audit_results.get("Authentication Bypass").map(|(p, _, _)| *p).unwrap_or(0),
-             audit_results.get("Authentication Bypass").map(|(_, t, _)| *t).unwrap_or(0));
-    println!("   Injection Protection: {}/{} tests passed", 
-             audit_results.get("Injection Attacks").map(|(p, _, _)| *p).unwrap_or(0),
-             audit_results.get("Injection Attacks").map(|(_, t, _)| *t).unwrap_or(0));
-    println!("   Rate Limiting: {}/{} tests passed", 
-             audit_results.get("Rate Limiting").map(|(p, _, _)| *p).unwrap_or(0),
-             audit_results.get("Rate Limiting").map(|(_, t, _)| *t).unwrap_or(0));
-    println!("   Password Security: {}/{} tests passed", 
-             audit_results.get("Password Security").map(|(p, _, _)| *p).unwrap_or(0),
-             audit_results.get("Password Security").map(|(_, t, _)| *t).unwrap_or(0));
-    println!("   Input Validation: {}/{} tests passed", 
-             audit_results.get("Input Validation").map(|(p, _, _)| *p).unwrap_or(0),
-             audit_results.get("Input Validation").map(|(_, t, _)| *t).unwrap_or(0));
-    println!("   Session Management: {}/{} tests passed", 
-             audit_results.get("Session Security").map(|(p, _, _)| *p).unwrap_or(0),
-             audit_results.get("Session Security").map(|(_, t, _)| *t).unwrap_or(0));
+    println!(
+        "   Authentication: {}/{} tests passed",
+        audit_results
+            .get("Authentication Bypass")
+            .map(|(p, _, _)| *p)
+            .unwrap_or(0),
+        audit_results
+            .get("Authentication Bypass")
+            .map(|(_, t, _)| *t)
+            .unwrap_or(0)
+    );
+    println!(
+        "   Injection Protection: {}/{} tests passed",
+        audit_results
+            .get("Injection Attacks")
+            .map(|(p, _, _)| *p)
+            .unwrap_or(0),
+        audit_results
+            .get("Injection Attacks")
+            .map(|(_, t, _)| *t)
+            .unwrap_or(0)
+    );
+    println!(
+        "   Rate Limiting: {}/{} tests passed",
+        audit_results
+            .get("Rate Limiting")
+            .map(|(p, _, _)| *p)
+            .unwrap_or(0),
+        audit_results
+            .get("Rate Limiting")
+            .map(|(_, t, _)| *t)
+            .unwrap_or(0)
+    );
+    println!(
+        "   Password Security: {}/{} tests passed",
+        audit_results
+            .get("Password Security")
+            .map(|(p, _, _)| *p)
+            .unwrap_or(0),
+        audit_results
+            .get("Password Security")
+            .map(|(_, t, _)| *t)
+            .unwrap_or(0)
+    );
+    println!(
+        "   Input Validation: {}/{} tests passed",
+        audit_results
+            .get("Input Validation")
+            .map(|(p, _, _)| *p)
+            .unwrap_or(0),
+        audit_results
+            .get("Input Validation")
+            .map(|(_, t, _)| *t)
+            .unwrap_or(0)
+    );
+    println!(
+        "   Session Management: {}/{} tests passed",
+        audit_results
+            .get("Session Security")
+            .map(|(p, _, _)| *p)
+            .unwrap_or(0),
+        audit_results
+            .get("Session Security")
+            .map(|(_, t, _)| *t)
+            .unwrap_or(0)
+    );
 
     println!("\n{}", "=".repeat(50));
     println!("🛡️  AUDIT COMPLETE - Security Grade: {}", security_grade);
@@ -1524,11 +1713,13 @@ async fn test_comprehensive_security_audit() {
     // Assert final security requirements
     assert!(
         total_vulnerabilities <= 3,
-        "Too many security vulnerabilities detected: {} (max allowed: 3)", total_vulnerabilities
+        "Too many security vulnerabilities detected: {} (max allowed: 3)",
+        total_vulnerabilities
     );
     assert!(
         pass_rate >= 75.0,
-        "Security pass rate too low: {:.1}% (minimum required: 75%)", pass_rate
+        "Security pass rate too low: {:.1}% (minimum required: 75%)",
+        pass_rate
     );
 
     println!("✅ Comprehensive security audit completed successfully");

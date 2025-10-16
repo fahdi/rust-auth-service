@@ -1,9 +1,11 @@
+use super::{
+    NotificationPreferences, PrivacySettings, ProfileVisibility, UserManagementService, UserProfile,
+};
 use anyhow::Result;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use regex::Regex;
-use super::{UserProfile, PrivacySettings, NotificationPreferences, ProfileVisibility, UserManagementService};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// Profile validation rules
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -76,7 +78,7 @@ impl ProfileValidator {
     pub fn new() -> Result<Self> {
         let rules = ProfileValidationRules::default();
         let username_regex = Regex::new(&rules.username_pattern)?;
-        
+
         Ok(Self {
             rules,
             username_regex,
@@ -86,7 +88,7 @@ impl ProfileValidator {
     /// Create profile validator with custom rules
     pub fn with_rules(rules: ProfileValidationRules) -> Result<Self> {
         let username_regex = Regex::new(&rules.username_pattern)?;
-        
+
         Ok(Self {
             rules,
             username_regex,
@@ -152,14 +154,14 @@ impl ProfileValidator {
     pub fn validate_username(&self, username: &str) -> Result<()> {
         if username.len() < self.rules.username_min_length {
             return Err(anyhow::anyhow!(
-                "Username must be at least {} characters", 
+                "Username must be at least {} characters",
                 self.rules.username_min_length
             ));
         }
 
         if username.len() > self.rules.username_max_length {
             return Err(anyhow::anyhow!(
-                "Username must be at most {} characters", 
+                "Username must be at most {} characters",
                 self.rules.username_max_length
             ));
         }
@@ -171,7 +173,9 @@ impl ProfileValidator {
         }
 
         // Check for reserved usernames
-        let reserved = ["admin", "root", "api", "www", "mail", "support", "help", "info"];
+        let reserved = [
+            "admin", "root", "api", "www", "mail", "support", "help", "info",
+        ];
         if reserved.contains(&username.to_lowercase().as_str()) {
             return Err(anyhow::anyhow!("Username '{}' is reserved", username));
         }
@@ -187,13 +191,15 @@ impl ProfileValidator {
 
         if display_name.len() > self.rules.display_name_max_length {
             return Err(anyhow::anyhow!(
-                "Display name must be at most {} characters", 
+                "Display name must be at most {} characters",
                 self.rules.display_name_max_length
             ));
         }
 
         // Check for inappropriate content (basic check)
-        if display_name.to_lowercase().contains("admin") && !display_name.eq_ignore_ascii_case("admin") {
+        if display_name.to_lowercase().contains("admin")
+            && !display_name.eq_ignore_ascii_case("admin")
+        {
             return Err(anyhow::anyhow!("Display name cannot contain 'admin'"));
         }
 
@@ -204,7 +210,7 @@ impl ProfileValidator {
     pub fn validate_bio(&self, bio: &str) -> Result<()> {
         if bio.len() > self.rules.bio_max_length {
             return Err(anyhow::anyhow!(
-                "Bio must be at most {} characters", 
+                "Bio must be at most {} characters",
                 self.rules.bio_max_length
             ));
         }
@@ -215,7 +221,7 @@ impl ProfileValidator {
     /// Validate email format
     pub fn validate_email(&self, email: &str) -> Result<()> {
         let email_regex = Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")?;
-        
+
         if !email_regex.is_match(email) {
             return Err(anyhow::anyhow!("Invalid email format"));
         }
@@ -227,7 +233,7 @@ impl ProfileValidator {
     pub fn validate_phone(&self, phone: &str) -> Result<()> {
         // Basic international phone format validation
         let phone_regex = Regex::new(r"^\+?[1-9]\d{1,14}$")?;
-        
+
         if !phone_regex.is_match(phone) {
             return Err(anyhow::anyhow!("Invalid phone number format"));
         }
@@ -238,7 +244,7 @@ impl ProfileValidator {
     /// Validate URL
     pub fn validate_url(&self, url: &str) -> Result<()> {
         let url_regex = Regex::new(r"^https?://[^\s/$.?#].[^\s]*$")?;
-        
+
         if !url_regex.is_match(url) {
             return Err(anyhow::anyhow!("Invalid URL format"));
         }
@@ -251,7 +257,10 @@ impl ProfileValidator {
         for (platform, url) in social_links {
             // Check if platform is allowed
             if !self.rules.allowed_social_platforms.contains(platform) {
-                return Err(anyhow::anyhow!("Social platform '{}' is not allowed", platform));
+                return Err(anyhow::anyhow!(
+                    "Social platform '{}' is not allowed",
+                    platform
+                ));
             }
 
             // Validate URL format
@@ -282,7 +291,10 @@ impl ProfileValidator {
     }
 
     /// Validate custom attributes
-    pub fn validate_custom_attributes(&self, attributes: &HashMap<String, serde_json::Value>) -> Result<()> {
+    pub fn validate_custom_attributes(
+        &self,
+        attributes: &HashMap<String, serde_json::Value>,
+    ) -> Result<()> {
         for (field_name, value) in attributes {
             if let Some(rule) = self.rules.custom_field_rules.get(field_name) {
                 self.validate_custom_field(field_name, value, rule)?;
@@ -294,10 +306,10 @@ impl ProfileValidator {
 
     /// Validate custom field value
     fn validate_custom_field(
-        &self, 
-        field_name: &str, 
-        value: &serde_json::Value, 
-        rule: &FieldValidationRule
+        &self,
+        field_name: &str,
+        value: &serde_json::Value,
+        rule: &FieldValidationRule,
     ) -> Result<()> {
         // Check if required field is present
         if rule.required && value.is_null() {
@@ -314,23 +326,37 @@ impl ProfileValidator {
                 if let Some(s) = value.as_str() {
                     if let Some(min_len) = rule.min_length {
                         if s.len() < min_len {
-                            return Err(anyhow::anyhow!("Field '{}' must be at least {} characters", field_name, min_len));
+                            return Err(anyhow::anyhow!(
+                                "Field '{}' must be at least {} characters",
+                                field_name,
+                                min_len
+                            ));
                         }
                     }
                     if let Some(max_len) = rule.max_length {
                         if s.len() > max_len {
-                            return Err(anyhow::anyhow!("Field '{}' must be at most {} characters", field_name, max_len));
+                            return Err(anyhow::anyhow!(
+                                "Field '{}' must be at most {} characters",
+                                field_name,
+                                max_len
+                            ));
                         }
                     }
                     if let Some(pattern) = &rule.pattern {
                         let regex = Regex::new(pattern)?;
                         if !regex.is_match(s) {
-                            return Err(anyhow::anyhow!("Field '{}' does not match required pattern", field_name));
+                            return Err(anyhow::anyhow!(
+                                "Field '{}' does not match required pattern",
+                                field_name
+                            ));
                         }
                     }
                     if let Some(allowed) = &rule.allowed_values {
                         if !allowed.contains(&s.to_string()) {
-                            return Err(anyhow::anyhow!("Field '{}' value not in allowed list", field_name));
+                            return Err(anyhow::anyhow!(
+                                "Field '{}' value not in allowed list",
+                                field_name
+                            ));
                         }
                     }
                 } else {
@@ -356,29 +382,42 @@ impl ProfileValidator {
                 if let Some(s) = value.as_str() {
                     self.validate_email(s)?;
                 } else {
-                    return Err(anyhow::anyhow!("Field '{}' must be a valid email", field_name));
+                    return Err(anyhow::anyhow!(
+                        "Field '{}' must be a valid email",
+                        field_name
+                    ));
                 }
             }
             FieldType::Url => {
                 if let Some(s) = value.as_str() {
                     self.validate_url(s)?;
                 } else {
-                    return Err(anyhow::anyhow!("Field '{}' must be a valid URL", field_name));
+                    return Err(anyhow::anyhow!(
+                        "Field '{}' must be a valid URL",
+                        field_name
+                    ));
                 }
             }
             FieldType::Phone => {
                 if let Some(s) = value.as_str() {
                     self.validate_phone(s)?;
                 } else {
-                    return Err(anyhow::anyhow!("Field '{}' must be a valid phone number", field_name));
+                    return Err(anyhow::anyhow!(
+                        "Field '{}' must be a valid phone number",
+                        field_name
+                    ));
                 }
             }
             FieldType::Date => {
                 if let Some(s) = value.as_str() {
-                    DateTime::parse_from_rfc3339(s)
-                        .map_err(|_| anyhow::anyhow!("Field '{}' must be a valid ISO 8601 date", field_name))?;
+                    DateTime::parse_from_rfc3339(s).map_err(|_| {
+                        anyhow::anyhow!("Field '{}' must be a valid ISO 8601 date", field_name)
+                    })?;
                 } else {
-                    return Err(anyhow::anyhow!("Field '{}' must be a valid date string", field_name));
+                    return Err(anyhow::anyhow!(
+                        "Field '{}' must be a valid date string",
+                        field_name
+                    ));
                 }
             }
             FieldType::Json => {
@@ -412,7 +451,10 @@ impl<T: UserManagementService> ProfileManager<T> {
 
         // Check if profile already exists
         if self.service.get_profile(&profile.user_id).await?.is_some() {
-            return Err(anyhow::anyhow!("Profile already exists for user: {}", profile.user_id));
+            return Err(anyhow::anyhow!(
+                "Profile already exists for user: {}",
+                profile.user_id
+            ));
         }
 
         // Check username uniqueness if provided
@@ -431,9 +473,16 @@ impl<T: UserManagementService> ProfileManager<T> {
     }
 
     /// Update profile with validation
-    pub async fn update_profile(&self, user_id: &str, mut profile: UserProfile) -> Result<UserProfile> {
+    pub async fn update_profile(
+        &self,
+        user_id: &str,
+        mut profile: UserProfile,
+    ) -> Result<UserProfile> {
         // Check if profile exists
-        let existing_profile = self.service.get_profile(user_id).await?
+        let existing_profile = self
+            .service
+            .get_profile(user_id)
+            .await?
             .ok_or_else(|| anyhow::anyhow!("Profile not found for user: {}", user_id))?;
 
         // Validate updated profile data
@@ -456,31 +505,43 @@ impl<T: UserManagementService> ProfileManager<T> {
     }
 
     /// Update privacy settings
-    pub async fn update_privacy_settings(&self, user_id: &str, settings: PrivacySettings) -> Result<()> {
+    pub async fn update_privacy_settings(
+        &self,
+        user_id: &str,
+        settings: PrivacySettings,
+    ) -> Result<()> {
         // Check if profile exists
         if self.service.get_profile(user_id).await?.is_none() {
             return Err(anyhow::anyhow!("Profile not found for user: {}", user_id));
         }
 
-        self.service.update_privacy_settings(user_id, settings).await
+        self.service
+            .update_privacy_settings(user_id, settings)
+            .await
     }
 
     /// Update notification preferences
-    pub async fn update_notification_preferences(&self, user_id: &str, preferences: NotificationPreferences) -> Result<()> {
+    pub async fn update_notification_preferences(
+        &self,
+        user_id: &str,
+        preferences: NotificationPreferences,
+    ) -> Result<()> {
         // Check if profile exists
         if self.service.get_profile(user_id).await?.is_none() {
             return Err(anyhow::anyhow!("Profile not found for user: {}", user_id));
         }
 
-        self.service.update_notification_preferences(user_id, preferences).await
+        self.service
+            .update_notification_preferences(user_id, preferences)
+            .await
     }
 
     /// Search profiles with privacy filtering
     pub async fn search_profiles(
-        &self, 
-        query: &str, 
+        &self,
+        query: &str,
         filters: Option<HashMap<String, String>>,
-        requesting_user_id: Option<&str>
+        requesting_user_id: Option<&str>,
     ) -> Result<Vec<UserProfile>> {
         let mut profiles = self.service.search_profiles(query, filters).await?;
 
@@ -529,7 +590,7 @@ impl<T: UserManagementService> ProfileManager<T> {
     /// Apply privacy masking to profile fields
     fn apply_privacy_mask(&self, profile: &mut UserProfile, requesting_user_id: Option<&str>) {
         let is_owner = requesting_user_id == Some(&profile.user_id);
-        
+
         if !is_owner {
             // Hide email if privacy setting is enabled
             if !profile.privacy_settings.email_visibility {
@@ -548,8 +609,7 @@ impl<T: UserManagementService> ProfileManager<T> {
 
             // Remove sensitive custom attributes
             profile.custom_attributes.retain(|key, _| {
-                !key.to_lowercase().contains("sensitive") && 
-                !key.to_lowercase().contains("private")
+                !key.to_lowercase().contains("sensitive") && !key.to_lowercase().contains("private")
             });
         }
     }
@@ -618,7 +678,7 @@ mod tests {
                 max_length: None,
                 pattern: None,
                 allowed_values: None,
-            }
+            },
         );
 
         let validator = ProfileValidator::with_rules(rules)?;
@@ -629,7 +689,10 @@ mod tests {
         assert!(validator.validate_custom_attributes(&attributes).is_ok());
 
         // Test invalid type
-        attributes.insert("age".to_string(), serde_json::Value::String("not-a-number".to_string()));
+        attributes.insert(
+            "age".to_string(),
+            serde_json::Value::String("not-a-number".to_string()),
+        );
         assert!(validator.validate_custom_attributes(&attributes).is_err());
 
         Ok(())
@@ -696,7 +759,7 @@ mod tests {
         // Test privacy filtering
         assert!(manager.can_view_profile(&profile, Some("user123"))); // Owner can view
         assert!(manager.can_view_profile(&profile, Some("other_user"))); // Public profile
-        
+
         let private_profile = UserProfile {
             privacy_settings: PrivacySettings {
                 profile_visibility: ProfileVisibility::Private,
@@ -706,7 +769,8 @@ mod tests {
         };
 
         assert!(manager.can_view_profile(&private_profile, Some("user123"))); // Owner can view
-        assert!(!manager.can_view_profile(&private_profile, Some("other_user"))); // Private profile
+        assert!(!manager.can_view_profile(&private_profile, Some("other_user")));
+        // Private profile
     }
 
     // Mock service for testing
@@ -714,35 +778,140 @@ mod tests {
 
     #[async_trait::async_trait]
     impl UserManagementService for MockUserManagementService {
-        async fn create_role(&self, _role: super::super::UserRole) -> Result<super::super::UserRole> { unimplemented!() }
-        async fn get_role(&self, _role_id: &str) -> Result<Option<super::super::UserRole>> { unimplemented!() }
-        async fn update_role(&self, _role_id: &str, _role: super::super::UserRole) -> Result<super::super::UserRole> { unimplemented!() }
-        async fn delete_role(&self, _role_id: &str) -> Result<bool> { unimplemented!() }
-        async fn list_roles(&self) -> Result<Vec<super::super::UserRole>> { unimplemented!() }
-        async fn assign_role_to_user(&self, _user_id: &str, _role_id: &str) -> Result<()> { unimplemented!() }
-        async fn remove_role_from_user(&self, _user_id: &str, _role_id: &str) -> Result<()> { unimplemented!() }
-        async fn get_user_roles(&self, _user_id: &str) -> Result<Vec<super::super::UserRole>> { unimplemented!() }
-        async fn create_permission(&self, _permission: super::super::Permission) -> Result<super::super::Permission> { unimplemented!() }
-        async fn get_permission(&self, _permission_id: &str) -> Result<Option<super::super::Permission>> { unimplemented!() }
-        async fn update_permission(&self, _permission_id: &str, _permission: super::super::Permission) -> Result<super::super::Permission> { unimplemented!() }
-        async fn delete_permission(&self, _permission_id: &str) -> Result<bool> { unimplemented!() }
-        async fn list_permissions(&self) -> Result<Vec<super::super::Permission>> { unimplemented!() }
-        async fn check_user_permission(&self, _user_id: &str, _permission: &str, _context: Option<super::super::UserContext>) -> Result<super::super::PermissionCheckResult> { unimplemented!() }
-        async fn get_user_permissions(&self, _user_id: &str) -> Result<HashSet<String>> { unimplemented!() }
-        async fn create_group(&self, _group: super::super::UserGroup) -> Result<super::super::UserGroup> { unimplemented!() }
-        async fn get_group(&self, _group_id: &str) -> Result<Option<super::super::UserGroup>> { unimplemented!() }
-        async fn update_group(&self, _group_id: &str, _group: super::super::UserGroup) -> Result<super::super::UserGroup> { unimplemented!() }
-        async fn delete_group(&self, _group_id: &str) -> Result<bool> { unimplemented!() }
-        async fn list_groups(&self) -> Result<Vec<super::super::UserGroup>> { unimplemented!() }
-        async fn add_user_to_group(&self, _user_id: &str, _group_id: &str) -> Result<()> { unimplemented!() }
-        async fn remove_user_from_group(&self, _user_id: &str, _group_id: &str) -> Result<()> { unimplemented!() }
-        async fn get_user_groups(&self, _user_id: &str) -> Result<Vec<super::super::UserGroup>> { unimplemented!() }
-        async fn create_profile(&self, _profile: UserProfile) -> Result<UserProfile> { unimplemented!() }
-        async fn get_profile(&self, _user_id: &str) -> Result<Option<UserProfile>> { unimplemented!() }
-        async fn update_profile(&self, _user_id: &str, _profile: UserProfile) -> Result<UserProfile> { unimplemented!() }
-        async fn delete_profile(&self, _user_id: &str) -> Result<bool> { unimplemented!() }
-        async fn search_profiles(&self, _query: &str, _filters: Option<HashMap<String, String>>) -> Result<Vec<UserProfile>> { unimplemented!() }
-        async fn update_privacy_settings(&self, _user_id: &str, _settings: PrivacySettings) -> Result<()> { unimplemented!() }
-        async fn update_notification_preferences(&self, _user_id: &str, _preferences: NotificationPreferences) -> Result<()> { unimplemented!() }
+        async fn create_role(
+            &self,
+            _role: super::super::UserRole,
+        ) -> Result<super::super::UserRole> {
+            unimplemented!()
+        }
+        async fn get_role(&self, _role_id: &str) -> Result<Option<super::super::UserRole>> {
+            unimplemented!()
+        }
+        async fn update_role(
+            &self,
+            _role_id: &str,
+            _role: super::super::UserRole,
+        ) -> Result<super::super::UserRole> {
+            unimplemented!()
+        }
+        async fn delete_role(&self, _role_id: &str) -> Result<bool> {
+            unimplemented!()
+        }
+        async fn list_roles(&self) -> Result<Vec<super::super::UserRole>> {
+            unimplemented!()
+        }
+        async fn assign_role_to_user(&self, _user_id: &str, _role_id: &str) -> Result<()> {
+            unimplemented!()
+        }
+        async fn remove_role_from_user(&self, _user_id: &str, _role_id: &str) -> Result<()> {
+            unimplemented!()
+        }
+        async fn get_user_roles(&self, _user_id: &str) -> Result<Vec<super::super::UserRole>> {
+            unimplemented!()
+        }
+        async fn create_permission(
+            &self,
+            _permission: super::super::Permission,
+        ) -> Result<super::super::Permission> {
+            unimplemented!()
+        }
+        async fn get_permission(
+            &self,
+            _permission_id: &str,
+        ) -> Result<Option<super::super::Permission>> {
+            unimplemented!()
+        }
+        async fn update_permission(
+            &self,
+            _permission_id: &str,
+            _permission: super::super::Permission,
+        ) -> Result<super::super::Permission> {
+            unimplemented!()
+        }
+        async fn delete_permission(&self, _permission_id: &str) -> Result<bool> {
+            unimplemented!()
+        }
+        async fn list_permissions(&self) -> Result<Vec<super::super::Permission>> {
+            unimplemented!()
+        }
+        async fn check_user_permission(
+            &self,
+            _user_id: &str,
+            _permission: &str,
+            _context: Option<super::super::UserContext>,
+        ) -> Result<super::super::PermissionCheckResult> {
+            unimplemented!()
+        }
+        async fn get_user_permissions(&self, _user_id: &str) -> Result<HashSet<String>> {
+            unimplemented!()
+        }
+        async fn create_group(
+            &self,
+            _group: super::super::UserGroup,
+        ) -> Result<super::super::UserGroup> {
+            unimplemented!()
+        }
+        async fn get_group(&self, _group_id: &str) -> Result<Option<super::super::UserGroup>> {
+            unimplemented!()
+        }
+        async fn update_group(
+            &self,
+            _group_id: &str,
+            _group: super::super::UserGroup,
+        ) -> Result<super::super::UserGroup> {
+            unimplemented!()
+        }
+        async fn delete_group(&self, _group_id: &str) -> Result<bool> {
+            unimplemented!()
+        }
+        async fn list_groups(&self) -> Result<Vec<super::super::UserGroup>> {
+            unimplemented!()
+        }
+        async fn add_user_to_group(&self, _user_id: &str, _group_id: &str) -> Result<()> {
+            unimplemented!()
+        }
+        async fn remove_user_from_group(&self, _user_id: &str, _group_id: &str) -> Result<()> {
+            unimplemented!()
+        }
+        async fn get_user_groups(&self, _user_id: &str) -> Result<Vec<super::super::UserGroup>> {
+            unimplemented!()
+        }
+        async fn create_profile(&self, _profile: UserProfile) -> Result<UserProfile> {
+            unimplemented!()
+        }
+        async fn get_profile(&self, _user_id: &str) -> Result<Option<UserProfile>> {
+            unimplemented!()
+        }
+        async fn update_profile(
+            &self,
+            _user_id: &str,
+            _profile: UserProfile,
+        ) -> Result<UserProfile> {
+            unimplemented!()
+        }
+        async fn delete_profile(&self, _user_id: &str) -> Result<bool> {
+            unimplemented!()
+        }
+        async fn search_profiles(
+            &self,
+            _query: &str,
+            _filters: Option<HashMap<String, String>>,
+        ) -> Result<Vec<UserProfile>> {
+            unimplemented!()
+        }
+        async fn update_privacy_settings(
+            &self,
+            _user_id: &str,
+            _settings: PrivacySettings,
+        ) -> Result<()> {
+            unimplemented!()
+        }
+        async fn update_notification_preferences(
+            &self,
+            _user_id: &str,
+            _preferences: NotificationPreferences,
+        ) -> Result<()> {
+            unimplemented!()
+        }
     }
 }

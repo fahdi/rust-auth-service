@@ -17,7 +17,7 @@ use email::EmailConfig;
 use rate_limit::RateLimitConfig;
 use server::ServerConfig;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub server: ServerConfig,
     pub database: DatabaseConfig,
@@ -26,6 +26,19 @@ pub struct Config {
     pub email: EmailConfig,
     pub rate_limit: RateLimitConfig,
     pub monitoring: MonitoringConfig,
+    pub environment: EnvironmentConfig,
+    pub logging: LoggingConfig,
+    pub security: SecurityConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EnvironmentConfig {
+    pub name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LoggingConfig {
+    pub level: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -33,6 +46,62 @@ pub struct MonitoringConfig {
     pub metrics: bool,
     pub prometheus_port: u16,
     pub health_check_interval: u64,
+    pub prometheus: PrometheusConfig,
+    pub tracing: TracingConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PrometheusConfig {
+    pub enabled: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TracingConfig {
+    pub level: String,
+    pub jaeger_endpoint: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SecurityConfig {
+    pub cors: CorsConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CorsConfig {
+    pub allowed_origins: Vec<String>,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            server: ServerConfig::default(),
+            database: DatabaseConfig::default(),
+            auth: AuthConfig::default(),
+            cache: CacheConfig::default(),
+            email: EmailConfig::default(),
+            rate_limit: RateLimitConfig::default(),
+            monitoring: MonitoringConfig::default(),
+            environment: EnvironmentConfig::default(),
+            logging: LoggingConfig::default(),
+            security: SecurityConfig::default(),
+        }
+    }
+}
+
+impl Default for EnvironmentConfig {
+    fn default() -> Self {
+        Self {
+            name: "development".to_string(),
+        }
+    }
+}
+
+impl Default for LoggingConfig {
+    fn default() -> Self {
+        Self {
+            level: "info".to_string(),
+        }
+    }
 }
 
 impl Default for MonitoringConfig {
@@ -41,6 +110,39 @@ impl Default for MonitoringConfig {
             metrics: true,
             prometheus_port: 9090,
             health_check_interval: 30,
+            prometheus: PrometheusConfig::default(),
+            tracing: TracingConfig::default(),
+        }
+    }
+}
+
+impl Default for PrometheusConfig {
+    fn default() -> Self {
+        Self { enabled: true }
+    }
+}
+
+impl Default for TracingConfig {
+    fn default() -> Self {
+        Self {
+            level: "info".to_string(),
+            jaeger_endpoint: "http://localhost:14268/api/traces".to_string(),
+        }
+    }
+}
+
+impl Default for SecurityConfig {
+    fn default() -> Self {
+        Self {
+            cors: CorsConfig::default(),
+        }
+    }
+}
+
+impl Default for CorsConfig {
+    fn default() -> Self {
+        Self {
+            allowed_origins: vec!["http://localhost:3000".to_string()],
         }
     }
 }
@@ -50,7 +152,7 @@ impl Config {
     pub fn load() -> Result<Self> {
         // Determine environment
         let environment = env::var("ENVIRONMENT").unwrap_or_else(|_| "development".to_string());
-        
+
         // Load from environment-specific config file
         let config_file = format!("config/{}.yml", environment);
         let mut config = if std::path::Path::new(&config_file).exists() {
@@ -161,7 +263,8 @@ impl Config {
             config.auth.jwt_secret = jwt_secret;
         }
         if let Ok(bcrypt_rounds) = env::var("BCRYPT_ROUNDS") {
-            config.auth.password_hash_rounds = bcrypt_rounds.parse().context("Invalid BCRYPT_ROUNDS")?;
+            config.auth.password_hash_rounds =
+                bcrypt_rounds.parse().context("Invalid BCRYPT_ROUNDS")?;
         }
 
         // Cache overrides

@@ -2,9 +2,9 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-pub mod google;
-pub mod github;
 pub mod discord;
+pub mod github;
+pub mod google;
 
 /// Social login provider types
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -74,19 +74,19 @@ pub struct SocialLoginResult {
 pub trait SocialLoginProvider: Send + Sync {
     /// Get the provider type
     fn provider_type(&self) -> SocialProvider;
-    
+
     /// Generate authorization URL for OAuth flow
     async fn get_authorization_url(&self, state: &str) -> Result<SocialAuthUrl>;
-    
+
     /// Exchange authorization code for access token and user profile
     async fn exchange_code(&self, code: &str, state: &str) -> Result<SocialLoginResult>;
-    
+
     /// Get user profile using access token
     async fn get_user_profile(&self, access_token: &str) -> Result<SocialUserProfile>;
-    
+
     /// Refresh access token if supported
     async fn refresh_token(&self, refresh_token: &str) -> Result<SocialLoginResult>;
-    
+
     /// Validate the provider configuration
     fn validate_config(&self) -> Result<()>;
 }
@@ -105,7 +105,7 @@ impl SocialLoginManager {
             http_client: reqwest::Client::new(),
         }
     }
-    
+
     /// Add a social login provider
     pub fn add_provider(&mut self, provider: Box<dyn SocialLoginProvider>) -> Result<()> {
         provider.validate_config()?;
@@ -113,49 +113,74 @@ impl SocialLoginManager {
         self.providers.insert(provider_type, provider);
         Ok(())
     }
-    
+
     /// Get available providers
     pub fn get_available_providers(&self) -> Vec<SocialProvider> {
         self.providers.keys().cloned().collect()
     }
-    
+
     /// Check if provider is available
     pub fn is_provider_available(&self, provider: &SocialProvider) -> bool {
         self.providers.contains_key(provider)
     }
-    
+
     /// Get authorization URL for a provider
-    pub async fn get_authorization_url(&self, provider: &SocialProvider, state: &str) -> Result<SocialAuthUrl> {
-        let provider_impl = self.providers.get(provider)
+    pub async fn get_authorization_url(
+        &self,
+        provider: &SocialProvider,
+        state: &str,
+    ) -> Result<SocialAuthUrl> {
+        let provider_impl = self
+            .providers
+            .get(provider)
             .ok_or_else(|| anyhow::anyhow!("Provider {:?} not configured", provider))?;
-        
+
         provider_impl.get_authorization_url(state).await
     }
-    
+
     /// Handle OAuth callback
-    pub async fn handle_callback(&self, request: SocialCallbackRequest) -> Result<SocialLoginResult> {
-        let provider_impl = self.providers.get(&request.provider)
+    pub async fn handle_callback(
+        &self,
+        request: SocialCallbackRequest,
+    ) -> Result<SocialLoginResult> {
+        let provider_impl = self
+            .providers
+            .get(&request.provider)
             .ok_or_else(|| anyhow::anyhow!("Provider {:?} not configured", request.provider))?;
-        
-        provider_impl.exchange_code(&request.code, &request.state).await
+
+        provider_impl
+            .exchange_code(&request.code, &request.state)
+            .await
     }
-    
+
     /// Get user profile from provider
-    pub async fn get_user_profile(&self, provider: &SocialProvider, access_token: &str) -> Result<SocialUserProfile> {
-        let provider_impl = self.providers.get(provider)
+    pub async fn get_user_profile(
+        &self,
+        provider: &SocialProvider,
+        access_token: &str,
+    ) -> Result<SocialUserProfile> {
+        let provider_impl = self
+            .providers
+            .get(provider)
             .ok_or_else(|| anyhow::anyhow!("Provider {:?} not configured", provider))?;
-        
+
         provider_impl.get_user_profile(access_token).await
     }
-    
+
     /// Refresh token for a provider
-    pub async fn refresh_token(&self, provider: &SocialProvider, refresh_token: &str) -> Result<SocialLoginResult> {
-        let provider_impl = self.providers.get(provider)
+    pub async fn refresh_token(
+        &self,
+        provider: &SocialProvider,
+        refresh_token: &str,
+    ) -> Result<SocialLoginResult> {
+        let provider_impl = self
+            .providers
+            .get(provider)
             .ok_or_else(|| anyhow::anyhow!("Provider {:?} not configured", provider))?;
-        
+
         provider_impl.refresh_token(refresh_token).await
     }
-    
+
     /// Get HTTP client for providers to use
     pub fn http_client(&self) -> &reqwest::Client {
         &self.http_client
@@ -186,7 +211,8 @@ pub fn extract_primary_email(profile: &SocialUserProfile) -> Option<String> {
         Some(profile.email.clone())
     } else {
         // Try to extract from raw profile data
-        profile.raw_profile
+        profile
+            .raw_profile
             .get("email")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string())
@@ -201,26 +227,28 @@ pub fn generate_username_from_profile(profile: &SocialUserProfile) -> String {
             return username.clone();
         }
     }
-    
+
     // Try extracting from email
     if !profile.email.is_empty() {
         if let Some(local_part) = profile.email.split('@').next() {
             return local_part.to_string();
         }
     }
-    
+
     // Try extracting from name
     if !profile.name.is_empty() {
-        return profile.name
+        return profile
+            .name
             .to_lowercase()
             .replace([' ', '.', '-'], "_")
             .chars()
             .filter(|c| c.is_alphanumeric() || *c == '_')
             .collect();
     }
-    
+
     // Fallback to provider + user ID
-    format!("{}_{}", 
+    format!(
+        "{}_{}",
         format!("{:?}", profile.provider).to_lowercase(),
         profile.provider_user_id
     )
@@ -234,7 +262,7 @@ mod tests {
     fn test_generate_state() {
         let state1 = generate_state();
         let state2 = generate_state();
-        
+
         assert_ne!(state1, state2);
         assert!(state1.len() > 10);
         assert!(state2.len() > 10);
@@ -259,22 +287,25 @@ mod tests {
             verified_email: true,
             raw_profile: serde_json::json!({}),
         };
-        
+
         assert_eq!(generate_username_from_profile(&profile), "testuser");
-        
+
         let profile_no_username = SocialUserProfile {
             username: None,
             ..profile.clone()
         };
-        
+
         assert_eq!(generate_username_from_profile(&profile_no_username), "user");
-        
+
         let profile_no_email = SocialUserProfile {
             username: None,
             email: "".to_string(),
             ..profile.clone()
         };
-        
-        assert_eq!(generate_username_from_profile(&profile_no_email), "test_user");
+
+        assert_eq!(
+            generate_username_from_profile(&profile_no_email),
+            "test_user"
+        );
     }
 }

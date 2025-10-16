@@ -68,6 +68,7 @@ lettre = { version = "0.11", features = ["tokio1-native-tls"] }
 # Configuration & Environment
 config = "0.14"
 dotenvy = "0.15"
+num_cpus = "1.0"
 
 # Logging & Monitoring
 tracing = "0.1"

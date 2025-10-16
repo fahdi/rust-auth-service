@@ -1,16 +1,16 @@
 use anyhow::Result;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-pub mod roles;
+pub mod groups;
 pub mod permissions;
 pub mod profiles;
-pub mod groups;
+pub mod roles;
 
 /// User role definition
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct UserRole {
     pub id: String,
     pub name: String,
@@ -23,7 +23,7 @@ pub struct UserRole {
 }
 
 /// Permission definition
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Permission {
     pub id: String,
     pub name: String,
@@ -35,28 +35,28 @@ pub struct Permission {
 }
 
 /// Permission conditions for fine-grained access control
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PermissionConditions {
     pub time_based: Option<TimeBasedCondition>,
     pub ip_based: Option<IpBasedCondition>,
     pub attribute_based: Option<AttributeBasedCondition>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TimeBasedCondition {
     pub allowed_hours: Option<Vec<u8>>, // 0-23
-    pub allowed_days: Option<Vec<u8>>, // 0-6 (Sunday-Saturday)
+    pub allowed_days: Option<Vec<u8>>,  // 0-6 (Sunday-Saturday)
     pub timezone: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct IpBasedCondition {
     pub allowed_ips: Vec<String>,
     pub blocked_ips: Vec<String>,
     pub allowed_countries: Option<Vec<String>>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AttributeBasedCondition {
     pub required_attributes: HashMap<String, String>,
     pub forbidden_attributes: HashMap<String, String>,
@@ -194,10 +194,19 @@ pub trait UserManagementService: Send + Sync {
     // Permission management
     async fn create_permission(&self, permission: Permission) -> Result<Permission>;
     async fn get_permission(&self, permission_id: &str) -> Result<Option<Permission>>;
-    async fn update_permission(&self, permission_id: &str, permission: Permission) -> Result<Permission>;
+    async fn update_permission(
+        &self,
+        permission_id: &str,
+        permission: Permission,
+    ) -> Result<Permission>;
     async fn delete_permission(&self, permission_id: &str) -> Result<bool>;
     async fn list_permissions(&self) -> Result<Vec<Permission>>;
-    async fn check_user_permission(&self, user_id: &str, permission: &str, context: Option<UserContext>) -> Result<PermissionCheckResult>;
+    async fn check_user_permission(
+        &self,
+        user_id: &str,
+        permission: &str,
+        context: Option<UserContext>,
+    ) -> Result<PermissionCheckResult>;
     async fn get_user_permissions(&self, user_id: &str) -> Result<HashSet<String>>;
 
     // Group management
@@ -215,15 +224,24 @@ pub trait UserManagementService: Send + Sync {
     async fn get_profile(&self, user_id: &str) -> Result<Option<UserProfile>>;
     async fn update_profile(&self, user_id: &str, profile: UserProfile) -> Result<UserProfile>;
     async fn delete_profile(&self, user_id: &str) -> Result<bool>;
-    async fn search_profiles(&self, query: &str, filters: Option<HashMap<String, String>>) -> Result<Vec<UserProfile>>;
-    async fn update_privacy_settings(&self, user_id: &str, settings: PrivacySettings) -> Result<()>;
-    async fn update_notification_preferences(&self, user_id: &str, preferences: NotificationPreferences) -> Result<()>;
+    async fn search_profiles(
+        &self,
+        query: &str,
+        filters: Option<HashMap<String, String>>,
+    ) -> Result<Vec<UserProfile>>;
+    async fn update_privacy_settings(&self, user_id: &str, settings: PrivacySettings)
+        -> Result<()>;
+    async fn update_notification_preferences(
+        &self,
+        user_id: &str,
+        preferences: NotificationPreferences,
+    ) -> Result<()>;
 }
 
 /// Default system roles
 pub fn get_default_system_roles() -> Vec<UserRole> {
     let now = Utc::now();
-    
+
     vec![
         UserRole {
             id: "admin".to_string(),
@@ -235,7 +253,9 @@ pub fn get_default_system_roles() -> Vec<UserRole> {
                 "permissions:*".to_string(),
                 "groups:*".to_string(),
                 "system:*".to_string(),
-            ].into_iter().collect(),
+            ]
+            .into_iter()
+            .collect(),
             inherits_from: vec![],
             is_system_role: true,
             created_at: now,
@@ -251,7 +271,9 @@ pub fn get_default_system_roles() -> Vec<UserRole> {
                 "users:suspend".to_string(),
                 "content:moderate".to_string(),
                 "reports:manage".to_string(),
-            ].into_iter().collect(),
+            ]
+            .into_iter()
+            .collect(),
             inherits_from: vec!["user".to_string()],
             is_system_role: true,
             created_at: now,
@@ -267,7 +289,9 @@ pub fn get_default_system_roles() -> Vec<UserRole> {
                 "auth:login".to_string(),
                 "auth:logout".to_string(),
                 "auth:change_password".to_string(),
-            ].into_iter().collect(),
+            ]
+            .into_iter()
+            .collect(),
             inherits_from: vec![],
             is_system_role: true,
             created_at: now,
@@ -277,9 +301,7 @@ pub fn get_default_system_roles() -> Vec<UserRole> {
             id: "guest".to_string(),
             name: "Guest".to_string(),
             description: "Limited read-only access for unauthenticated users".to_string(),
-            permissions: vec![
-                "public:read".to_string(),
-            ].into_iter().collect(),
+            permissions: vec!["public:read".to_string()].into_iter().collect(),
             inherits_from: vec![],
             is_system_role: true,
             created_at: now,
@@ -291,7 +313,7 @@ pub fn get_default_system_roles() -> Vec<UserRole> {
 /// Default system permissions
 pub fn get_default_system_permissions() -> Vec<Permission> {
     let now = Utc::now();
-    
+
     vec![
         // User management permissions
         Permission {
@@ -339,7 +361,6 @@ pub fn get_default_system_permissions() -> Vec<Permission> {
             conditions: None,
             created_at: now,
         },
-        
         // Role management permissions
         Permission {
             id: "roles:create".to_string(),
@@ -377,7 +398,6 @@ pub fn get_default_system_permissions() -> Vec<Permission> {
             conditions: None,
             created_at: now,
         },
-        
         // Profile management permissions
         Permission {
             id: "profile:read".to_string(),
@@ -397,7 +417,6 @@ pub fn get_default_system_permissions() -> Vec<Permission> {
             conditions: None,
             created_at: now,
         },
-        
         // Authentication permissions
         Permission {
             id: "auth:login".to_string(),
@@ -426,7 +445,6 @@ pub fn get_default_system_permissions() -> Vec<Permission> {
             conditions: None,
             created_at: now,
         },
-        
         // System permissions
         Permission {
             id: "system:health".to_string(),
@@ -446,7 +464,6 @@ pub fn get_default_system_permissions() -> Vec<Permission> {
             conditions: None,
             created_at: now,
         },
-        
         // Public permissions
         Permission {
             id: "public:read".to_string(),
@@ -524,11 +541,11 @@ mod tests {
     fn test_default_system_roles() {
         let roles = get_default_system_roles();
         assert_eq!(roles.len(), 4);
-        
+
         let admin_role = roles.iter().find(|r| r.id == "admin").unwrap();
         assert!(admin_role.is_system_role);
         assert!(admin_role.permissions.contains("users:*"));
-        
+
         let user_role = roles.iter().find(|r| r.id == "user").unwrap();
         assert!(user_role.permissions.contains("profile:read"));
     }
@@ -537,7 +554,7 @@ mod tests {
     fn test_default_system_permissions() {
         let permissions = get_default_system_permissions();
         assert!(!permissions.is_empty());
-        
+
         let login_perm = permissions.iter().find(|p| p.id == "auth:login").unwrap();
         assert_eq!(login_perm.resource, "auth");
         assert_eq!(login_perm.action, "login");
@@ -546,11 +563,16 @@ mod tests {
     #[test]
     fn test_create_default_profile() {
         let profile = create_default_profile("user123", "test@example.com", "Test User");
-        
+
         assert_eq!(profile.user_id, "user123");
         assert_eq!(profile.email, "test@example.com");
         assert_eq!(profile.display_name, "Test User");
-        assert!(profile.notification_preferences.email_notifications.security_alerts);
+        assert!(
+            profile
+                .notification_preferences
+                .email_notifications
+                .security_alerts
+        );
         assert!(!profile.privacy_settings.email_visibility);
     }
 }

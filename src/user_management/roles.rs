@@ -1,8 +1,8 @@
+use super::{Permission, UserManagementService, UserRole};
 use anyhow::Result;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use chrono::{DateTime, Utc};
-use super::{UserRole, Permission, UserManagementService};
 
 /// Role hierarchy resolver for inheritance
 pub struct RoleHierarchyResolver {
@@ -36,9 +36,13 @@ impl RoleHierarchyResolver {
     pub fn resolve_role_permissions(&self, role_id: &str) -> Result<HashSet<String>> {
         let mut resolved_permissions = HashSet::new();
         let mut visited_roles = HashSet::new();
-        
-        self.resolve_role_permissions_recursive(role_id, &mut resolved_permissions, &mut visited_roles)?;
-        
+
+        self.resolve_role_permissions_recursive(
+            role_id,
+            &mut resolved_permissions,
+            &mut visited_roles,
+        )?;
+
         Ok(resolved_permissions)
     }
 
@@ -50,10 +54,15 @@ impl RoleHierarchyResolver {
         visited_roles: &mut HashSet<String>,
     ) -> Result<()> {
         if visited_roles.contains(role_id) {
-            return Err(anyhow::anyhow!("Circular role inheritance detected: {}", role_id));
+            return Err(anyhow::anyhow!(
+                "Circular role inheritance detected: {}",
+                role_id
+            ));
         }
 
-        let role = self.roles.get(role_id)
+        let role = self
+            .roles
+            .get(role_id)
             .ok_or_else(|| anyhow::anyhow!("Role not found: {}", role_id))?;
 
         visited_roles.insert(role_id.to_string());
@@ -71,7 +80,11 @@ impl RoleHierarchyResolver {
 
         // Add inherited permissions
         for parent_role_id in &role.inherits_from {
-            self.resolve_role_permissions_recursive(parent_role_id, resolved_permissions, visited_roles)?;
+            self.resolve_role_permissions_recursive(
+                parent_role_id,
+                resolved_permissions,
+                visited_roles,
+            )?;
         }
 
         visited_roles.remove(role_id);
@@ -81,7 +94,7 @@ impl RoleHierarchyResolver {
     /// Expand wildcard permissions to concrete permissions
     fn expand_wildcard_permission(&self, wildcard: &str) -> HashSet<String> {
         let mut expanded = HashSet::new();
-        
+
         if wildcard.ends_with(":*") {
             let resource = wildcard.trim_end_matches(":*");
             for permission in self.permissions.values() {
@@ -95,13 +108,14 @@ impl RoleHierarchyResolver {
                 expanded.insert(permission.id.clone());
             }
         }
-        
+
         expanded
     }
 
     /// Check if a role exists and is valid
     pub fn validate_role(&self, role_id: &str) -> Result<()> {
-        self.roles.get(role_id)
+        self.roles
+            .get(role_id)
             .ok_or_else(|| anyhow::anyhow!("Role not found: {}", role_id))?;
         Ok(())
     }
@@ -112,12 +126,18 @@ impl RoleHierarchyResolver {
         self.get_role_depth_recursive(role_id, &mut visited)
     }
 
-    fn get_role_depth_recursive(&self, role_id: &str, visited: &mut HashSet<String>) -> Result<usize> {
+    fn get_role_depth_recursive(
+        &self,
+        role_id: &str,
+        visited: &mut HashSet<String>,
+    ) -> Result<usize> {
         if visited.contains(role_id) {
             return Err(anyhow::anyhow!("Circular role inheritance detected"));
         }
 
-        let role = self.roles.get(role_id)
+        let role = self
+            .roles
+            .get(role_id)
             .ok_or_else(|| anyhow::anyhow!("Role not found: {}", role_id))?;
 
         if role.inherits_from.is_empty() {
@@ -139,13 +159,13 @@ impl RoleHierarchyResolver {
     /// Get all child roles of a parent role
     pub fn get_child_roles(&self, parent_role_id: &str) -> Vec<String> {
         let mut children = Vec::new();
-        
+
         for role in self.roles.values() {
             if role.inherits_from.contains(&parent_role_id.to_string()) {
                 children.push(role.id.clone());
             }
         }
-        
+
         children
     }
 
@@ -153,23 +173,25 @@ impl RoleHierarchyResolver {
     pub fn get_role_inheritance_chain(&self, role_id: &str) -> Result<Vec<String>> {
         let mut chain = vec![role_id.to_string()];
         let mut visited = HashSet::new();
-        
+
         self.build_inheritance_chain(role_id, &mut chain, &mut visited)?;
-        
+
         Ok(chain)
     }
 
     fn build_inheritance_chain(
-        &self, 
-        role_id: &str, 
-        chain: &mut Vec<String>, 
-        visited: &mut HashSet<String>
+        &self,
+        role_id: &str,
+        chain: &mut Vec<String>,
+        visited: &mut HashSet<String>,
     ) -> Result<()> {
         if visited.contains(role_id) {
             return Err(anyhow::anyhow!("Circular role inheritance detected"));
         }
 
-        let role = self.roles.get(role_id)
+        let role = self
+            .roles
+            .get(role_id)
             .ok_or_else(|| anyhow::anyhow!("Role not found: {}", role_id))?;
 
         visited.insert(role_id.to_string());
@@ -251,7 +273,10 @@ impl<T: UserManagementService> RoleManager<T> {
     /// Update role with inheritance validation
     pub async fn update_role(&self, role_id: &str, mut role: UserRole) -> Result<UserRole> {
         // Check if role exists
-        let existing_role = self.service.get_role(role_id).await?
+        let existing_role = self
+            .service
+            .get_role(role_id)
+            .await?
             .ok_or_else(|| anyhow::anyhow!("Role not found: {}", role_id))?;
 
         // Prevent modification of system roles
@@ -275,7 +300,10 @@ impl<T: UserManagementService> RoleManager<T> {
 
     /// Delete role with dependency checking
     pub async fn delete_role(&self, role_id: &str) -> Result<bool> {
-        let role = self.service.get_role(role_id).await?
+        let role = self
+            .service
+            .get_role(role_id)
+            .await?
             .ok_or_else(|| anyhow::anyhow!("Role not found: {}", role_id))?;
 
         // Prevent deletion of system roles
@@ -288,8 +316,8 @@ impl<T: UserManagementService> RoleManager<T> {
         for other_role in &all_roles {
             if other_role.inherits_from.contains(&role_id.to_string()) {
                 return Err(anyhow::anyhow!(
-                    "Cannot delete role {} - it is inherited by role {}", 
-                    role_id, 
+                    "Cannot delete role {} - it is inherited by role {}",
+                    role_id,
                     other_role.id
                 ));
             }
@@ -304,7 +332,7 @@ impl<T: UserManagementService> RoleManager<T> {
         let mut resolver = RoleHierarchyResolver::new();
         let roles = self.service.list_roles().await?;
         let permissions = self.service.list_permissions().await?;
-        
+
         resolver.load_roles(roles);
         resolver.load_permissions(permissions);
 
@@ -336,7 +364,7 @@ impl<T: UserManagementService> RoleManager<T> {
         // Create temporary hierarchy resolver for validation
         let mut resolver = RoleHierarchyResolver::new();
         let mut roles = self.service.list_roles().await?;
-        
+
         // Add the new/updated role to the list for validation
         roles.push(role.clone());
         resolver.load_roles(roles);
@@ -389,14 +417,16 @@ impl<T: UserManagementService> RoleAssignmentManager<T> {
 
     /// Assign role to user with optional expiration
     pub async fn assign_role(
-        &self, 
-        user_id: &str, 
-        role_id: &str, 
+        &self,
+        user_id: &str,
+        role_id: &str,
         assigned_by: &str,
-        expires_at: Option<DateTime<Utc>>
+        expires_at: Option<DateTime<Utc>>,
     ) -> Result<()> {
         // Validate role exists
-        self.service.get_role(role_id).await?
+        self.service
+            .get_role(role_id)
+            .await?
             .ok_or_else(|| anyhow::anyhow!("Role not found: {}", role_id))?;
 
         // Check if user already has this role
@@ -428,7 +458,7 @@ impl<T: UserManagementService> RoleAssignmentManager<T> {
         let mut resolver = RoleHierarchyResolver::new();
         let all_roles = self.service.list_roles().await?;
         let all_permissions_def = self.service.list_permissions().await?;
-        
+
         resolver.load_roles(all_roles);
         resolver.load_permissions(all_permissions_def);
 
@@ -450,7 +480,7 @@ mod tests {
     #[test]
     fn test_role_hierarchy_resolver() {
         let mut resolver = RoleHierarchyResolver::new();
-        
+
         let admin_role = UserRole {
             id: "admin".to_string(),
             name: "Admin".to_string(),
@@ -483,7 +513,7 @@ mod tests {
     #[test]
     fn test_circular_inheritance_detection() {
         let mut resolver = RoleHierarchyResolver::new();
-        
+
         let role_a = UserRole {
             id: "a".to_string(),
             name: "A".to_string(),

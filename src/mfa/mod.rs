@@ -3,32 +3,32 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-pub mod totp;
-pub mod sms;
 pub mod backup_codes;
+pub mod sms;
+pub mod totp;
 pub mod webauthn;
 
 /// Multi-Factor Authentication types
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum MfaType {
-    Totp,          // Time-based One-Time Password (Google Authenticator, etc.)
-    Sms,           // SMS verification
-    Email,         // Email verification
-    BackupCodes,   // Backup recovery codes
-    WebAuthn,      // FIDO2/WebAuthn (hardware keys, biometrics)
-    Push,          // Push notifications
+    Totp,        // Time-based One-Time Password (Google Authenticator, etc.)
+    Sms,         // SMS verification
+    Email,       // Email verification
+    BackupCodes, // Backup recovery codes
+    WebAuthn,    // FIDO2/WebAuthn (hardware keys, biometrics)
+    Push,        // Push notifications
 }
 
 /// MFA challenge status
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum MfaStatus {
-    Pending,       // Challenge issued, awaiting response
-    Verified,      // Successfully verified
-    Failed,        // Verification failed
-    Expired,       // Challenge expired
-    Disabled,      // MFA method disabled
+    Pending,  // Challenge issued, awaiting response
+    Verified, // Successfully verified
+    Failed,   // Verification failed
+    Expired,  // Challenge expired
+    Disabled, // MFA method disabled
 }
 
 /// MFA challenge
@@ -55,7 +55,7 @@ pub struct MfaMethod {
     pub mfa_type: MfaType,
     pub is_enabled: bool,
     pub is_primary: bool,
-    pub name: String,          // User-friendly name (e.g., "iPhone", "YubiKey")
+    pub name: String,              // User-friendly name (e.g., "iPhone", "YubiKey")
     pub config: serde_json::Value, // Type-specific configuration
     pub created_at: DateTime<Utc>,
     pub last_used_at: Option<DateTime<Utc>>,
@@ -151,13 +151,13 @@ pub struct MfaConfig {
     pub allow_totp: bool,
     pub allow_webauthn: bool,
     pub allow_backup_codes: bool,
-    pub challenge_timeout: u64,        // seconds
+    pub challenge_timeout: u64, // seconds
     pub max_attempts: u32,
-    pub lockout_duration: u64,         // seconds after max attempts
+    pub lockout_duration: u64, // seconds after max attempts
     pub backup_codes_count: u32,
     pub backup_code_length: u32,
-    pub totp_window: u32,              // time steps (usually 1-2)
-    pub totp_digits: u32,              // usually 6
+    pub totp_window: u32, // time steps (usually 1-2)
+    pub totp_digits: u32, // usually 6
     pub sms_provider: Option<String>,
     pub webauthn_rp_id: String,
     pub webauthn_rp_name: String,
@@ -174,9 +174,9 @@ impl Default for MfaConfig {
             allow_totp: true,
             allow_webauthn: true,
             allow_backup_codes: true,
-            challenge_timeout: 300,         // 5 minutes
+            challenge_timeout: 300, // 5 minutes
             max_attempts: 3,
-            lockout_duration: 900,          // 15 minutes
+            lockout_duration: 900, // 15 minutes
             backup_codes_count: 10,
             backup_code_length: 8,
             totp_window: 1,
@@ -203,11 +203,10 @@ impl<T: MfaService> MfaManager<T> {
         config: MfaConfig,
         sms_provider: Option<sms::SmsProvider>,
     ) -> Result<Self> {
-        let totp_provider = totp::TotpProvider::new(config.totp_digits as usize, config.totp_window as i64)?;
-        let webauthn_provider = webauthn::WebAuthnProvider::new(
-            &config.webauthn_rp_id,
-            &config.webauthn_rp_name,
-        )?;
+        let totp_provider =
+            totp::TotpProvider::new(config.totp_digits as usize, config.totp_window as i64)?;
+        let webauthn_provider =
+            webauthn::WebAuthnProvider::new(&config.webauthn_rp_id, &config.webauthn_rp_name)?;
 
         Ok(Self {
             service,
@@ -228,7 +227,9 @@ impl<T: MfaService> MfaManager<T> {
             return Ok(true);
         }
 
-        if self.config.require_for_admin_users && (user_role == "admin" || user_role == "super_admin") {
+        if self.config.require_for_admin_users
+            && (user_role == "admin" || user_role == "super_admin")
+        {
             return Ok(true);
         }
 
@@ -267,11 +268,15 @@ impl<T: MfaService> MfaManager<T> {
         }
 
         let method = if let Some(id) = method_id {
-            enabled_methods.iter().find(|m| m.method_id == id)
+            enabled_methods
+                .iter()
+                .find(|m| m.method_id == id)
                 .ok_or_else(|| anyhow::anyhow!("MFA method not found or disabled"))?
         } else {
             // Use primary method or first available
-            enabled_methods.iter().find(|m| m.is_primary)
+            enabled_methods
+                .iter()
+                .find(|m| m.is_primary)
                 .unwrap_or(&enabled_methods[0])
         };
 
@@ -290,7 +295,10 @@ impl<T: MfaService> MfaManager<T> {
         &self,
         request: MfaVerificationRequest,
     ) -> Result<MfaVerificationResponse> {
-        let mut challenge = self.service.get_challenge(&request.challenge_id).await?
+        let mut challenge = self
+            .service
+            .get_challenge(&request.challenge_id)
+            .await?
             .ok_or_else(|| anyhow::anyhow!("Challenge not found"))?;
 
         // Check if challenge is expired
@@ -345,7 +353,12 @@ impl<T: MfaService> MfaManager<T> {
         };
 
         let backup_codes_remaining = if challenge.mfa_type == MfaType::BackupCodes {
-            Some(self.service.get_backup_codes_count(&challenge.user_id).await.unwrap_or(0))
+            Some(
+                self.service
+                    .get_backup_codes_count(&challenge.user_id)
+                    .await
+                    .unwrap_or(0),
+            )
         } else {
             None
         };
@@ -383,8 +396,10 @@ impl<T: MfaService> MfaManager<T> {
     // Private helper methods for each MFA type
     async fn setup_totp(&self, user_id: &str, name: &str) -> Result<MfaSetupResponse> {
         let secret = self.totp_provider.generate_secret();
-        let totp_setup = self.totp_provider.setup_totp(&secret, user_id, "Auth Service")?;
-        
+        let totp_setup = self
+            .totp_provider
+            .setup_totp(&secret, user_id, "Auth Service")?;
+
         let method_id = uuid::Uuid::new_v4().to_string();
         let config = serde_json::json!({
             "secret": secret,
@@ -417,7 +432,12 @@ impl<T: MfaService> MfaManager<T> {
         })
     }
 
-    async fn setup_sms(&self, user_id: &str, name: &str, config: Option<serde_json::Value>) -> Result<MfaSetupResponse> {
+    async fn setup_sms(
+        &self,
+        user_id: &str,
+        name: &str,
+        config: Option<serde_json::Value>,
+    ) -> Result<MfaSetupResponse> {
         let phone_number = config
             .as_ref()
             .and_then(|c| c.get("phone_number"))
@@ -489,8 +509,10 @@ impl<T: MfaService> MfaManager<T> {
             username: user_id.to_string(),
             display_name: name.to_string(),
         };
-        let registration_challenge = self.webauthn_provider.start_registration(&registration_request)?;
-        
+        let registration_challenge = self
+            .webauthn_provider
+            .start_registration(&registration_request)?;
+
         let method_id = uuid::Uuid::new_v4().to_string();
 
         Ok(MfaSetupResponse {
@@ -507,7 +529,9 @@ impl<T: MfaService> MfaManager<T> {
             self.config.backup_code_length as usize,
         );
 
-        self.service.create_backup_codes(user_id, codes.clone()).await?;
+        self.service
+            .create_backup_codes(user_id, codes.clone())
+            .await?;
 
         Ok(MfaSetupResponse {
             method_id: format!("{}_backup_codes", user_id),
@@ -521,9 +545,13 @@ impl<T: MfaService> MfaManager<T> {
     }
 
     // Challenge creation methods
-    async fn create_totp_challenge(&self, user_id: &str, method: &MfaMethod) -> Result<MfaChallenge> {
+    async fn create_totp_challenge(
+        &self,
+        user_id: &str,
+        method: &MfaMethod,
+    ) -> Result<MfaChallenge> {
         let challenge_id = uuid::Uuid::new_v4().to_string();
-        
+
         let challenge = MfaChallenge {
             challenge_id: challenge_id.clone(),
             user_id: user_id.to_string(),
@@ -535,7 +563,8 @@ impl<T: MfaService> MfaManager<T> {
             }),
             attempts: 0,
             max_attempts: self.config.max_attempts,
-            expires_at: Utc::now() + chrono::Duration::seconds(self.config.challenge_timeout as i64),
+            expires_at: Utc::now()
+                + chrono::Duration::seconds(self.config.challenge_timeout as i64),
             created_at: Utc::now(),
             verified_at: None,
             metadata: HashMap::new(),
@@ -545,11 +574,17 @@ impl<T: MfaService> MfaManager<T> {
         Ok(challenge)
     }
 
-    async fn create_sms_challenge(&self, user_id: &str, method: &MfaMethod) -> Result<MfaChallenge> {
+    async fn create_sms_challenge(
+        &self,
+        user_id: &str,
+        method: &MfaMethod,
+    ) -> Result<MfaChallenge> {
         let challenge_id = uuid::Uuid::new_v4().to_string();
         let code = backup_codes::generate_backup_codes(1, 6)[0].clone();
 
-        let phone_number = method.config.get("phone_number")
+        let phone_number = method
+            .config
+            .get("phone_number")
             .and_then(|p| p.as_str())
             .ok_or_else(|| anyhow::anyhow!("Phone number not configured"))?;
 
@@ -570,7 +605,8 @@ impl<T: MfaService> MfaManager<T> {
             }),
             attempts: 0,
             max_attempts: self.config.max_attempts,
-            expires_at: Utc::now() + chrono::Duration::seconds(self.config.challenge_timeout as i64),
+            expires_at: Utc::now()
+                + chrono::Duration::seconds(self.config.challenge_timeout as i64),
             created_at: Utc::now(),
             verified_at: None,
             metadata: HashMap::new(),
@@ -580,7 +616,11 @@ impl<T: MfaService> MfaManager<T> {
         Ok(challenge)
     }
 
-    async fn create_email_challenge(&self, user_id: &str, method: &MfaMethod) -> Result<MfaChallenge> {
+    async fn create_email_challenge(
+        &self,
+        user_id: &str,
+        method: &MfaMethod,
+    ) -> Result<MfaChallenge> {
         let challenge_id = uuid::Uuid::new_v4().to_string();
         let code = backup_codes::generate_backup_codes(1, 6)[0].clone();
 
@@ -597,7 +637,8 @@ impl<T: MfaService> MfaManager<T> {
             }),
             attempts: 0,
             max_attempts: self.config.max_attempts,
-            expires_at: Utc::now() + chrono::Duration::seconds(self.config.challenge_timeout as i64),
+            expires_at: Utc::now()
+                + chrono::Duration::seconds(self.config.challenge_timeout as i64),
             created_at: Utc::now(),
             verified_at: None,
             metadata: HashMap::new(),
@@ -607,7 +648,11 @@ impl<T: MfaService> MfaManager<T> {
         Ok(challenge)
     }
 
-    async fn create_webauthn_challenge(&self, user_id: &str, method: &MfaMethod) -> Result<MfaChallenge> {
+    async fn create_webauthn_challenge(
+        &self,
+        user_id: &str,
+        method: &MfaMethod,
+    ) -> Result<MfaChallenge> {
         let challenge_id = uuid::Uuid::new_v4().to_string();
         let auth_request = crate::mfa::webauthn::WebAuthnAuthenticationRequest {
             user_id: user_id.to_string(),
@@ -622,7 +667,8 @@ impl<T: MfaService> MfaManager<T> {
             challenge_data: serde_json::to_value(auth_challenge)?,
             attempts: 0,
             max_attempts: self.config.max_attempts,
-            expires_at: Utc::now() + chrono::Duration::seconds(self.config.challenge_timeout as i64),
+            expires_at: Utc::now()
+                + chrono::Duration::seconds(self.config.challenge_timeout as i64),
             created_at: Utc::now(),
             verified_at: None,
             metadata: HashMap::new(),
@@ -645,7 +691,8 @@ impl<T: MfaService> MfaManager<T> {
             }),
             attempts: 0,
             max_attempts: self.config.max_attempts,
-            expires_at: Utc::now() + chrono::Duration::seconds(self.config.challenge_timeout as i64),
+            expires_at: Utc::now()
+                + chrono::Duration::seconds(self.config.challenge_timeout as i64),
             created_at: Utc::now(),
             verified_at: None,
             metadata: HashMap::new(),
@@ -657,14 +704,21 @@ impl<T: MfaService> MfaManager<T> {
 
     // Verification methods
     async fn verify_totp(&self, challenge: &MfaChallenge, code: &str) -> Result<bool> {
-        let method_id = challenge.challenge_data.get("method_id")
+        let method_id = challenge
+            .challenge_data
+            .get("method_id")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("Method ID not found in challenge"))?;
 
-        let method = self.service.get_method(method_id).await?
+        let method = self
+            .service
+            .get_method(method_id)
+            .await?
             .ok_or_else(|| anyhow::anyhow!("MFA method not found"))?;
 
-        let secret = method.config.get("secret")
+        let secret = method
+            .config
+            .get("secret")
             .and_then(|s| s.as_str())
             .ok_or_else(|| anyhow::anyhow!("TOTP secret not found"))?;
 
@@ -672,7 +726,9 @@ impl<T: MfaService> MfaManager<T> {
     }
 
     async fn verify_sms(&self, challenge: &MfaChallenge, code: &str) -> Result<bool> {
-        let expected_code = challenge.challenge_data.get("code")
+        let expected_code = challenge
+            .challenge_data
+            .get("code")
             .and_then(|c| c.as_str())
             .ok_or_else(|| anyhow::anyhow!("SMS code not found in challenge"))?;
 
@@ -680,7 +736,9 @@ impl<T: MfaService> MfaManager<T> {
     }
 
     async fn verify_email(&self, challenge: &MfaChallenge, code: &str) -> Result<bool> {
-        let expected_code = challenge.challenge_data.get("code")
+        let expected_code = challenge
+            .challenge_data
+            .get("code")
             .and_then(|c| c.as_str())
             .ok_or_else(|| anyhow::anyhow!("Email code not found in challenge"))?;
 
@@ -690,10 +748,15 @@ impl<T: MfaService> MfaManager<T> {
     async fn verify_webauthn(&self, challenge: &MfaChallenge, response: &str) -> Result<bool> {
         // Parse WebAuthn response and verify
         let response_data: serde_json::Value = serde_json::from_str(response)?;
-        Ok(self.webauthn_provider.finish_authentication(&challenge.user_id, &response_data)?)
+        Ok(self
+            .webauthn_provider
+            .finish_authentication(&challenge.user_id, &response_data)?)
     }
 
     async fn verify_backup_code(&self, challenge: &MfaChallenge, code: &str) -> Result<bool> {
-        Ok(self.service.use_backup_code(&challenge.user_id, code).await?)
+        Ok(self
+            .service
+            .use_backup_code(&challenge.user_id, code)
+            .await?)
     }
 }

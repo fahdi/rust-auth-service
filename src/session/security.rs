@@ -1,8 +1,8 @@
+use super::{SecurityWarning, SecurityWarningType, Session, SessionService, WarningSevertiy};
 use anyhow::Result;
+use chrono::{DateTime, Duration, Utc, Timelike};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use chrono::{DateTime, Utc, Duration};
-use super::{Session, SessionService, SecurityWarning, SecurityWarningType, WarningSevertiy};
 
 /// Security policy configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -101,7 +101,10 @@ impl ThreatDetector {
 
         // Check for unusual location
         if let Some(location) = &session.location {
-            if let Some(risk) = self.analyze_location_risk(location, &session.user_id).await? {
+            if let Some(risk) = self
+                .analyze_location_risk(location, &session.user_id)
+                .await?
+            {
                 threats.push(risk.clone());
                 risk_score += risk.risk_score;
             }
@@ -114,7 +117,10 @@ impl ThreatDetector {
         }
 
         // Check for device anomalies
-        if let Some(risk) = self.analyze_device_risk(&session.device_info, &session.user_id).await? {
+        if let Some(risk) = self
+            .analyze_device_risk(&session.device_info, &session.user_id)
+            .await?
+        {
             threats.push(risk.clone());
             risk_score += risk.risk_score;
         }
@@ -139,9 +145,9 @@ impl ThreatDetector {
 
     /// Analyze location-based risk
     async fn analyze_location_risk(
-        &self, 
-        location: &super::SessionLocation, 
-        user_id: &str
+        &self,
+        location: &super::SessionLocation,
+        user_id: &str,
     ) -> Result<Option<ThreatIndicator>> {
         // Check if country is allowed
         if let Some(allowed_countries) = &self.policy.allowed_countries {
@@ -196,9 +202,9 @@ impl ThreatDetector {
 
     /// Analyze device-based risk
     async fn analyze_device_risk(
-        &self, 
-        device_info: &super::DeviceInfo, 
-        user_id: &str
+        &self,
+        device_info: &super::DeviceInfo,
+        user_id: &str,
     ) -> Result<Option<ThreatIndicator>> {
         // Check for new device
         if !device_info.is_trusted {
@@ -250,9 +256,9 @@ impl ThreatDetector {
 
     /// Get recommended security actions
     fn get_recommended_actions(
-        &self, 
+        &self,
         threat_level: &ThreatLevel,
-        threats: &[ThreatIndicator]
+        threats: &[ThreatIndicator],
     ) -> Vec<SecurityRecommendation> {
         let mut actions = Vec::new();
 
@@ -297,7 +303,11 @@ impl ThreatDetector {
             }
         }
 
-        actions.into_iter().collect::<HashSet<_>>().into_iter().collect()
+        actions
+            .into_iter()
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect()
     }
 }
 
@@ -381,11 +391,12 @@ impl RateLimiter {
     /// Check if request should be rate limited
     pub fn check_rate_limit(&mut self, identifier: &str, limit: u32, window: Duration) -> bool {
         let now = Utc::now();
-        
+
         // Clean up old entries
         self.cleanup_expired(now);
 
-        let counter = self.attempts
+        let counter = self
+            .attempts
             .entry(identifier.to_string())
             .or_insert_with(|| AttemptCounter::new(now));
 
@@ -396,18 +407,18 @@ impl RateLimiter {
     /// Record failed attempt
     pub fn record_failure(&mut self, identifier: &str) {
         let now = Utc::now();
-        let counter = self.attempts
+        let counter = self
+            .attempts
             .entry(identifier.to_string())
             .or_insert_with(|| AttemptCounter::new(now));
-        
+
         counter.add_attempt(now, Duration::minutes(15));
     }
 
     /// Clean up expired counters
     fn cleanup_expired(&mut self, now: DateTime<Utc>) {
-        self.attempts.retain(|_, counter| {
-            now - counter.window_start < self.cleanup_interval
-        });
+        self.attempts
+            .retain(|_, counter| now - counter.window_start < self.cleanup_interval);
     }
 }
 
@@ -530,16 +541,16 @@ mod tests {
     #[test]
     fn test_rate_limiter() {
         let mut limiter = RateLimiter::new();
-        
+
         // Should allow first few attempts
         assert!(limiter.check_rate_limit("user1", 5, Duration::minutes(1)));
         assert!(limiter.check_rate_limit("user1", 5, Duration::minutes(1)));
-        
+
         // Add more attempts
         for _ in 0..4 {
             limiter.record_failure("user1");
         }
-        
+
         // Should now be rate limited
         assert!(!limiter.check_rate_limit("user1", 5, Duration::minutes(1)));
     }
@@ -548,7 +559,7 @@ mod tests {
     fn test_threat_detector_risk_calculation() {
         let policy = SecurityPolicy::default();
         let detector = ThreatDetector::new(policy);
-        
+
         assert_eq!(detector.calculate_threat_level(0.1), ThreatLevel::Minimal);
         assert_eq!(detector.calculate_threat_level(0.3), ThreatLevel::Low);
         assert_eq!(detector.calculate_threat_level(0.5), ThreatLevel::Medium);
@@ -559,12 +570,16 @@ mod tests {
     #[tokio::test]
     async fn test_location_risk_analysis() {
         let policy = SecurityPolicy {
-            allowed_countries: Some(vec!["US".to_string(), "CA".to_string()].into_iter().collect()),
+            allowed_countries: Some(
+                vec!["US".to_string(), "CA".to_string()]
+                    .into_iter()
+                    .collect(),
+            ),
             ..SecurityPolicy::default()
         };
-        
+
         let detector = ThreatDetector::new(policy);
-        
+
         let unauthorized_location = super::super::SessionLocation {
             country: Some("CN".to_string()),
             region: None,
@@ -576,9 +591,15 @@ mod tests {
             is_vpn: Some(false),
             is_proxy: Some(false),
         };
-        
-        let risk = detector.analyze_location_risk(&unauthorized_location, "user123").await.unwrap();
+
+        let risk = detector
+            .analyze_location_risk(&unauthorized_location, "user123")
+            .await
+            .unwrap();
         assert!(risk.is_some());
-        assert_eq!(risk.unwrap().indicator_type, ThreatType::UnauthorizedLocation);
+        assert_eq!(
+            risk.unwrap().indicator_type,
+            ThreatType::UnauthorizedLocation
+        );
     }
 }

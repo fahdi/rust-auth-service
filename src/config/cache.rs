@@ -6,6 +6,13 @@ pub struct CacheConfig {
     pub url: Option<String>,
     pub ttl: u64,
     pub lru_size: usize,
+    pub redis: Option<RedisConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RedisConfig {
+    pub url: String,
+    pub ssl: bool,
 }
 
 impl Default for CacheConfig {
@@ -15,6 +22,7 @@ impl Default for CacheConfig {
             url: Some("redis://localhost:6379".to_string()),
             ttl: 3600,
             lru_size: 1000,
+            redis: None,
         }
     }
 }

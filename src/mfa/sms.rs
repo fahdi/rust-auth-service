@@ -42,7 +42,7 @@ impl SmsProvider {
     pub async fn send_code(&self, phone_number: &str, user_id: &str) -> Result<String> {
         let code = self.generate_code();
         let expires_at = SystemTime::now() + Duration::from_secs(self.config.expiry_minutes * 60);
-        
+
         // Store the code
         {
             let mut codes = self.pending_codes.lock().unwrap();
@@ -64,7 +64,12 @@ impl SmsProvider {
                 // Mock provider for testing - just log the code
                 tracing::info!("SMS code for {}: {}", phone_number, code);
             }
-            _ => return Err(anyhow::anyhow!("Unsupported SMS provider: {}", self.config.provider)),
+            _ => {
+                return Err(anyhow::anyhow!(
+                    "Unsupported SMS provider: {}",
+                    self.config.provider
+                ))
+            }
         }
 
         Ok(code)
@@ -73,19 +78,19 @@ impl SmsProvider {
     /// Verify SMS code
     pub fn verify_code(&self, user_id: &str, code: &str) -> Result<bool> {
         let mut codes = self.pending_codes.lock().unwrap();
-        
+
         if let Some(stored_code) = codes.get(user_id) {
             if SystemTime::now() > stored_code.expires_at {
                 codes.remove(user_id);
                 return Ok(false);
             }
-            
+
             if stored_code.code == code {
                 codes.remove(user_id);
                 return Ok(true);
             }
         }
-        
+
         Ok(false)
     }
 
@@ -121,12 +126,15 @@ impl SmsProvider {
 
     /// Format phone number to international format
     pub fn format_phone_number(&self, phone: &str) -> Result<String> {
-        let cleaned = phone.chars().filter(|c| c.is_ascii_digit()).collect::<String>();
-        
+        let cleaned = phone
+            .chars()
+            .filter(|c| c.is_ascii_digit())
+            .collect::<String>();
+
         if cleaned.len() < 10 || cleaned.len() > 15 {
             return Err(anyhow::anyhow!("Invalid phone number length"));
         }
-        
+
         // Add country code if missing (assumes US +1)
         if cleaned.len() == 10 {
             Ok(format!("+1{}", cleaned))
@@ -163,14 +171,14 @@ mod tests {
         let provider = create_test_provider();
         let phone = "+1234567890";
         let user_id = "test_user";
-        
+
         // Send code
         let code = provider.send_code(phone, user_id).await.unwrap();
         assert_eq!(code.len(), 6);
-        
+
         // Verify correct code
         assert!(provider.verify_code(user_id, &code).unwrap());
-        
+
         // Code should be consumed after verification
         assert!(!provider.verify_code(user_id, &code).unwrap());
     }
@@ -178,11 +186,20 @@ mod tests {
     #[test]
     fn test_phone_number_formatting() {
         let provider = create_test_provider();
-        
-        assert_eq!(provider.format_phone_number("1234567890").unwrap(), "+11234567890");
-        assert_eq!(provider.format_phone_number("11234567890").unwrap(), "+11234567890");
-        assert_eq!(provider.format_phone_number("+11234567890").unwrap(), "+11234567890");
-        
+
+        assert_eq!(
+            provider.format_phone_number("1234567890").unwrap(),
+            "+11234567890"
+        );
+        assert_eq!(
+            provider.format_phone_number("11234567890").unwrap(),
+            "+11234567890"
+        );
+        assert_eq!(
+            provider.format_phone_number("+11234567890").unwrap(),
+            "+11234567890"
+        );
+
         assert!(provider.format_phone_number("123").is_err());
         assert!(provider.format_phone_number("123456789012345678").is_err());
     }
@@ -190,7 +207,7 @@ mod tests {
     #[test]
     fn test_phone_number_validation() {
         let provider = create_test_provider();
-        
+
         assert!(provider.validate_phone_number("1234567890"));
         assert!(provider.validate_phone_number("+11234567890"));
         assert!(!provider.validate_phone_number("123"));

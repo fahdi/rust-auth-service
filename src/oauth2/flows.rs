@@ -1,15 +1,12 @@
 use anyhow::{anyhow, Result};
 use chrono::{Duration, Utc};
-use std::collections::HashMap;
-use uuid::Uuid;
-
+use super::pkce::{verify_pkce, PKCEVerificationResult};
+use super::scopes::ScopeManager;
+use super::tokens::TokenManager;
 use super::{
     AuthorizationCode, DeviceAuthorization, GrantType, OAuth2Client, OAuth2Config, OAuth2Error,
     OAuth2ErrorResponse, OAuth2Service, ResponseType, TokenResponse,
 };
-use super::pkce::{verify_pkce, PKCEVerificationResult};
-use super::scopes::ScopeManager;
-use super::tokens::{TokenManager, AccessTokenClaims};
 
 /// OAuth2 flow handler for different authorization flows
 pub struct OAuth2FlowHandler<T: OAuth2Service> {
@@ -58,7 +55,10 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
         };
 
         // Get and validate client
-        let client = self.service.get_client(client_id).await?
+        let client = self
+            .service
+            .get_client(client_id)
+            .await?
             .ok_or_else(|| anyhow!("Invalid client_id"))?;
 
         if !client.is_active {
@@ -77,11 +77,17 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
         let scopes = crate::oauth2::scopes::utils::parse_scope_string(requested_scopes);
         let validation_result = self.scope_manager.validate_scopes(&scopes);
         if !validation_result.invalid.is_empty() {
-            return Err(anyhow!("Invalid scopes: {}", validation_result.invalid.join(", ")));
+            return Err(anyhow!(
+                "Invalid scopes: {}",
+                validation_result.invalid.join(", ")
+            ));
         }
         if !validation_result.conflicts.is_empty() {
-            return Err(anyhow!("Scope conflicts: {}", 
-                validation_result.conflicts.iter()
+            return Err(anyhow!(
+                "Scope conflicts: {}",
+                validation_result
+                    .conflicts
+                    .iter()
                     .map(|c| &c.reason)
                     .cloned()
                     .collect::<Vec<_>>()
@@ -89,7 +95,8 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
             ));
         }
         // Filter scopes to only include those allowed for the client
-        let validated_scopes: Vec<String> = scopes.into_iter()
+        let validated_scopes: Vec<String> = scopes
+            .into_iter()
             .filter(|scope| client.allowed_scopes.contains(scope))
             .collect();
 
@@ -101,17 +108,22 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
         }
 
         // Generate authorization code for code flows
-        if matches!(response_type, ResponseType::Code | ResponseType::CodeToken | ResponseType::CodeIdToken) {
-            let code = self.generate_authorization_code(
-                &client,
-                user_id,
-                redirect_uri,
-                &validated_scopes,
-                code_challenge,
-                code_challenge_method,
-                nonce,
-                state,
-            ).await?;
+        if matches!(
+            response_type,
+            ResponseType::Code | ResponseType::CodeToken | ResponseType::CodeIdToken
+        ) {
+            let code = self
+                .generate_authorization_code(
+                    &client,
+                    user_id,
+                    redirect_uri,
+                    &validated_scopes,
+                    code_challenge,
+                    code_challenge_method,
+                    nonce,
+                    state,
+                )
+                .await?;
 
             // For hybrid flows, also generate tokens
             match response_type {
@@ -132,8 +144,10 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
                         None,
                     )?;
 
-                    let mut url = format!("{}?code={}&access_token={}&token_type=Bearer",
-                        redirect_uri, code, access_token);
+                    let mut url = format!(
+                        "{}?code={}&access_token={}&token_type=Bearer",
+                        redirect_uri, code, access_token
+                    );
                     if let Some(state) = state {
                         url.push_str(&format!("&state={}", urlencoding::encode(state)));
                     }
@@ -171,8 +185,10 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
                         None,
                     )?;
 
-                    let mut url = format!("{}#access_token={}&token_type=Bearer&expires_in={}",
-                        redirect_uri, access_token, self.config.access_token_lifetime);
+                    let mut url = format!(
+                        "{}#access_token={}&token_type=Bearer&expires_in={}",
+                        redirect_uri, access_token, self.config.access_token_lifetime
+                    );
                     if let Some(state) = state {
                         url.push_str(&format!("&state={}", urlencoding::encode(state)));
                     }
@@ -210,7 +226,10 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
         code_verifier: Option<&str>,
     ) -> Result<TokenResponse> {
         // Get and validate authorization code
-        let auth_code = self.service.get_auth_code(code).await?
+        let auth_code = self
+            .service
+            .get_auth_code(code)
+            .await?
             .ok_or_else(|| anyhow!("Invalid authorization code"))?;
 
         if auth_code.used {
@@ -230,7 +249,10 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
         }
 
         // Get and validate client
-        let client = self.service.get_client(client_id).await?
+        let client = self
+            .service
+            .get_client(client_id)
+            .await?
             .ok_or_else(|| anyhow!("Invalid client"))?;
 
         // Authenticate client
@@ -244,19 +266,19 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
         );
 
         match pkce_result {
-            PKCEVerificationResult::Valid => {},
+            PKCEVerificationResult::Valid => {}
             PKCEVerificationResult::Invalid => return Err(anyhow!("PKCE verification failed")),
             PKCEVerificationResult::MethodMismatch => return Err(anyhow!("PKCE method mismatch")),
             PKCEVerificationResult::MissingVerifier => {
                 if auth_code.code_challenge.is_some() {
                     return Err(anyhow!("PKCE verifier required"));
                 }
-            },
+            }
             PKCEVerificationResult::MissingChallenge => {
                 if code_verifier.is_some() {
                     return Err(anyhow!("PKCE not used in authorization"));
                 }
-            },
+            }
         }
 
         // Mark authorization code as used
@@ -273,7 +295,9 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
         )?;
 
         // Store access token
-        self.service.create_access_token(access_token_record).await?;
+        self.service
+            .create_access_token(access_token_record)
+            .await?;
 
         let mut response = TokenResponse {
             access_token,
@@ -294,7 +318,9 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
                 None,
             )?;
 
-            self.service.create_refresh_token(refresh_token_record).await?;
+            self.service
+                .create_refresh_token(refresh_token_record)
+                .await?;
             response.refresh_token = Some(refresh_token);
         }
 
@@ -328,11 +354,19 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
         }
 
         // Get and validate client
-        let client = self.service.get_client(client_id).await?
+        let client = self
+            .service
+            .get_client(client_id)
+            .await?
             .ok_or_else(|| anyhow!("Invalid client"))?;
 
-        if !client.allowed_grant_types.contains(&GrantType::ClientCredentials) {
-            return Err(anyhow!("Client credentials grant not allowed for this client"));
+        if !client
+            .allowed_grant_types
+            .contains(&GrantType::ClientCredentials)
+        {
+            return Err(anyhow!(
+                "Client credentials grant not allowed for this client"
+            ));
         }
 
         // Authenticate client
@@ -344,11 +378,17 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
         let scopes = crate::oauth2::scopes::utils::parse_scope_string(requested_scopes);
         let validation_result = self.scope_manager.validate_scopes(&scopes);
         if !validation_result.invalid.is_empty() {
-            return Err(anyhow!("Invalid scopes: {}", validation_result.invalid.join(", ")));
+            return Err(anyhow!(
+                "Invalid scopes: {}",
+                validation_result.invalid.join(", ")
+            ));
         }
         if !validation_result.conflicts.is_empty() {
-            return Err(anyhow!("Scope conflicts: {}", 
-                validation_result.conflicts.iter()
+            return Err(anyhow!(
+                "Scope conflicts: {}",
+                validation_result
+                    .conflicts
+                    .iter()
                     .map(|c| &c.reason)
                     .cloned()
                     .collect::<Vec<_>>()
@@ -356,7 +396,8 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
             ));
         }
         // Filter scopes to only include those allowed for the client
-        let validated_scopes: Vec<String> = scopes.into_iter()
+        let validated_scopes: Vec<String> = scopes
+            .into_iter()
             .filter(|scope| client.allowed_scopes.contains(scope))
             .collect();
 
@@ -371,7 +412,9 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
         )?;
 
         // Store access token
-        self.service.create_access_token(access_token_record).await?;
+        self.service
+            .create_access_token(access_token_record)
+            .await?;
 
         Ok(TokenResponse {
             access_token,
@@ -396,7 +439,10 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
         }
 
         // Get and validate refresh token
-        let token_record = self.service.get_refresh_token(refresh_token).await?
+        let token_record = self
+            .service
+            .get_refresh_token(refresh_token)
+            .await?
             .ok_or_else(|| anyhow!("Invalid refresh token"))?;
 
         if token_record.used {
@@ -414,7 +460,10 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
         }
 
         // Get and validate client
-        let client = self.service.get_client(client_id).await?
+        let client = self
+            .service
+            .get_client(client_id)
+            .await?
             .ok_or_else(|| anyhow!("Invalid client"))?;
 
         // Authenticate client
@@ -424,11 +473,14 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
         let scopes = if let Some(scope) = scope {
             let requested_scopes = crate::oauth2::scopes::utils::parse_scope_string(scope);
             let original_scopes = &token_record.scopes;
-            
+
             // Ensure requested scopes are subset of original
             for requested_scope in &requested_scopes {
                 if !original_scopes.contains(requested_scope) {
-                    return Err(anyhow!("Cannot request scope not in original token: {}", requested_scope));
+                    return Err(anyhow!(
+                        "Cannot request scope not in original token: {}",
+                        requested_scope
+                    ));
                 }
             }
             requested_scopes
@@ -440,7 +492,9 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
         self.service.use_refresh_token(refresh_token).await?;
 
         // Revoke old access token
-        self.service.revoke_access_token(&token_record.access_token).await?;
+        self.service
+            .revoke_access_token(&token_record.access_token)
+            .await?;
 
         // Generate new tokens
         let user_id = token_record.user_id.as_deref().unwrap_or("");
@@ -454,7 +508,9 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
         )?;
 
         // Store new access token
-        self.service.create_access_token(access_token_record).await?;
+        self.service
+            .create_access_token(access_token_record)
+            .await?;
 
         let mut response = TokenResponse {
             access_token,
@@ -466,15 +522,13 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
         };
 
         // Generate new refresh token
-        let (new_refresh_token, new_refresh_token_record) = self.token_manager.generate_refresh_token(
-            &response.access_token,
-            user_id,
-            client_id,
-            &scopes,
-            None,
-        )?;
+        let (new_refresh_token, new_refresh_token_record) = self
+            .token_manager
+            .generate_refresh_token(&response.access_token, user_id, client_id, &scopes, None)?;
 
-        self.service.create_refresh_token(new_refresh_token_record).await?;
+        self.service
+            .create_refresh_token(new_refresh_token_record)
+            .await?;
         response.refresh_token = Some(new_refresh_token);
 
         // Generate ID token if openid scope present
@@ -506,7 +560,10 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
         }
 
         // Get and validate client
-        let client = self.service.get_client(client_id).await?
+        let client = self
+            .service
+            .get_client(client_id)
+            .await?
             .ok_or_else(|| anyhow!("Invalid client"))?;
 
         if !client.allowed_grant_types.contains(&GrantType::DeviceCode) {
@@ -519,11 +576,17 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
         let scopes = crate::oauth2::scopes::utils::parse_scope_string(requested_scopes);
         let validation_result = self.scope_manager.validate_scopes(&scopes);
         if !validation_result.invalid.is_empty() {
-            return Err(anyhow!("Invalid scopes: {}", validation_result.invalid.join(", ")));
+            return Err(anyhow!(
+                "Invalid scopes: {}",
+                validation_result.invalid.join(", ")
+            ));
         }
         if !validation_result.conflicts.is_empty() {
-            return Err(anyhow!("Scope conflicts: {}", 
-                validation_result.conflicts.iter()
+            return Err(anyhow!(
+                "Scope conflicts: {}",
+                validation_result
+                    .conflicts
+                    .iter()
                     .map(|c| &c.reason)
                     .cloned()
                     .collect::<Vec<_>>()
@@ -531,7 +594,8 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
             ));
         }
         // Filter scopes to only include those allowed for the client
-        let validated_scopes: Vec<String> = scopes.into_iter()
+        let validated_scopes: Vec<String> = scopes
+            .into_iter()
             .filter(|scope| client.allowed_scopes.contains(scope))
             .collect();
 
@@ -548,14 +612,17 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
             verification_uri_complete: verification_uri_complete.clone(),
             client_id: client_id.to_string(),
             scopes: validated_scopes,
-            expires_at: (Utc::now() + Duration::seconds(self.config.device_code_lifetime as i64)).into(),
+            expires_at: (Utc::now() + Duration::seconds(self.config.device_code_lifetime as i64))
+                .into(),
             interval: self.config.device_code_interval,
             user_id: None,
             authorized: false,
         };
 
         // Store device authorization
-        self.service.create_device_authorization(device_auth).await?;
+        self.service
+            .create_device_authorization(device_auth)
+            .await?;
 
         Ok(super::DeviceAuthorizationResponse {
             device_code,
@@ -579,7 +646,10 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
         }
 
         // Get and validate device authorization
-        let device_auth = self.service.get_device_authorization_by_device_code(device_code).await?
+        let device_auth = self
+            .service
+            .get_device_authorization_by_device_code(device_code)
+            .await?
             .ok_or_else(|| anyhow!("Invalid device code"))?;
 
         if device_auth.expires_at < Utc::now() {
@@ -595,13 +665,18 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
         }
 
         // Get and validate client
-        let client = self.service.get_client(client_id).await?
+        let client = self
+            .service
+            .get_client(client_id)
+            .await?
             .ok_or_else(|| anyhow!("Invalid client"))?;
 
         // Authenticate client
         self.authenticate_client(&client, client_secret).await?;
 
-        let user_id = device_auth.user_id.as_ref()
+        let user_id = device_auth
+            .user_id
+            .as_ref()
             .ok_or_else(|| anyhow!("Device authorization not completed"))?;
 
         // Generate tokens
@@ -615,7 +690,9 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
         )?;
 
         // Store access token
-        self.service.create_access_token(access_token_record).await?;
+        self.service
+            .create_access_token(access_token_record)
+            .await?;
 
         let mut response = TokenResponse {
             access_token,
@@ -636,7 +713,9 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
                 None,
             )?;
 
-            self.service.create_refresh_token(refresh_token_record).await?;
+            self.service
+                .create_refresh_token(refresh_token_record)
+                .await?;
             response.refresh_token = Some(refresh_token);
         }
 
@@ -676,7 +755,8 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
         state: Option<&str>,
     ) -> Result<String> {
         let code = Uuid::new_v4().to_string();
-        let expires_at = Utc::now() + Duration::seconds(self.config.authorization_code_lifetime as i64);
+        let expires_at =
+            Utc::now() + Duration::seconds(self.config.authorization_code_lifetime as i64);
 
         let auth_code = AuthorizationCode {
             code: code.clone(),
@@ -697,7 +777,11 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
     }
 
     /// Authenticate client based on authentication method
-    async fn authenticate_client(&self, client: &OAuth2Client, client_secret: Option<&str>) -> Result<()> {
+    async fn authenticate_client(
+        &self,
+        client: &OAuth2Client,
+        client_secret: Option<&str>,
+    ) -> Result<()> {
         if client.is_public {
             // Public clients don't require authentication
             return Ok(());
@@ -705,7 +789,9 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
 
         // Confidential clients require secret
         let provided_secret = client_secret.ok_or_else(|| anyhow!("Client secret required"))?;
-        let expected_secret = client.client_secret.as_ref()
+        let expected_secret = client
+            .client_secret
+            .as_ref()
             .ok_or_else(|| anyhow!("Client secret not configured"))?;
 
         if provided_secret != expected_secret {
@@ -718,11 +804,11 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
     /// Generate user-friendly device code
     fn generate_user_code(&self) -> String {
         use rand::Rng;
-        
+
         // Generate 8-character alphanumeric code (excluding confusing characters)
         let charset: &[u8] = b"ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
         let mut rng = rand::thread_rng();
-        
+
         (0..8)
             .map(|_| {
                 let idx = rng.gen_range(0..charset.len());
@@ -741,7 +827,10 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
 }
 
 /// Error response helper
-pub fn create_error_response(error: OAuth2Error, description: Option<String>) -> OAuth2ErrorResponse {
+pub fn create_error_response(
+    error: OAuth2Error,
+    description: Option<String>,
+) -> OAuth2ErrorResponse {
     OAuth2ErrorResponse {
         error,
         error_description: description,
@@ -752,8 +841,7 @@ pub fn create_error_response(error: OAuth2Error, description: Option<String>) ->
 
 /// Validate redirect URI format
 pub fn validate_redirect_uri(uri: &str) -> Result<()> {
-    let parsed = url::Url::parse(uri)
-        .map_err(|_| anyhow!("Invalid redirect URI format"))?;
+    let parsed = url::Url::parse(uri).map_err(|_| anyhow!("Invalid redirect URI format"))?;
 
     // Reject fragment identifiers
     if parsed.fragment().is_some() {
@@ -771,7 +859,10 @@ pub fn validate_redirect_uri(uri: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::oauth2::{OAuth2Service, OAuth2Client, AuthorizationCode, AccessToken, RefreshToken, DeviceAuthorization};
+    use crate::oauth2::{
+        AccessToken, AuthorizationCode, DeviceAuthorization, OAuth2Client, OAuth2Service,
+        RefreshToken,
+    };
     use async_trait::async_trait;
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
@@ -801,7 +892,10 @@ mod tests {
     #[async_trait]
     impl OAuth2Service for MockOAuth2Service {
         async fn create_client(&self, client: OAuth2Client) -> Result<OAuth2Client> {
-            self.clients.lock().unwrap().insert(client.client_id.clone(), client.clone());
+            self.clients
+                .lock()
+                .unwrap()
+                .insert(client.client_id.clone(), client.clone());
             Ok(client)
         }
 
@@ -810,7 +904,10 @@ mod tests {
         }
 
         async fn update_client(&self, client: OAuth2Client) -> Result<OAuth2Client> {
-            self.clients.lock().unwrap().insert(client.client_id.clone(), client.clone());
+            self.clients
+                .lock()
+                .unwrap()
+                .insert(client.client_id.clone(), client.clone());
             Ok(client)
         }
 
@@ -818,12 +915,19 @@ mod tests {
             Ok(self.clients.lock().unwrap().remove(client_id).is_some())
         }
 
-        async fn list_clients(&self, _limit: Option<u64>, _offset: Option<u64>) -> Result<Vec<OAuth2Client>> {
+        async fn list_clients(
+            &self,
+            _limit: Option<u64>,
+            _offset: Option<u64>,
+        ) -> Result<Vec<OAuth2Client>> {
             Ok(self.clients.lock().unwrap().values().cloned().collect())
         }
 
         async fn create_auth_code(&self, code: AuthorizationCode) -> Result<AuthorizationCode> {
-            self.auth_codes.lock().unwrap().insert(code.code.clone(), code.clone());
+            self.auth_codes
+                .lock()
+                .unwrap()
+                .insert(code.code.clone(), code.clone());
             Ok(code)
         }
 
@@ -845,7 +949,10 @@ mod tests {
         }
 
         async fn create_access_token(&self, token: AccessToken) -> Result<AccessToken> {
-            self.access_tokens.lock().unwrap().insert(token.token.clone(), token.clone());
+            self.access_tokens
+                .lock()
+                .unwrap()
+                .insert(token.token.clone(), token.clone());
             Ok(token)
         }
 
@@ -867,7 +974,10 @@ mod tests {
         }
 
         async fn create_refresh_token(&self, token: RefreshToken) -> Result<RefreshToken> {
-            self.refresh_tokens.lock().unwrap().insert(token.token.clone(), token.clone());
+            self.refresh_tokens
+                .lock()
+                .unwrap()
+                .insert(token.token.clone(), token.clone());
             Ok(token)
         }
 
@@ -888,17 +998,33 @@ mod tests {
             Ok(self.refresh_tokens.lock().unwrap().remove(token).is_some())
         }
 
-        async fn create_device_authorization(&self, auth: DeviceAuthorization) -> Result<DeviceAuthorization> {
-            self.device_auths.lock().unwrap().insert(auth.device_code.clone(), auth.clone());
+        async fn create_device_authorization(
+            &self,
+            auth: DeviceAuthorization,
+        ) -> Result<DeviceAuthorization> {
+            self.device_auths
+                .lock()
+                .unwrap()
+                .insert(auth.device_code.clone(), auth.clone());
             Ok(auth)
         }
 
-        async fn get_device_authorization_by_device_code(&self, device_code: &str) -> Result<Option<DeviceAuthorization>> {
+        async fn get_device_authorization_by_device_code(
+            &self,
+            device_code: &str,
+        ) -> Result<Option<DeviceAuthorization>> {
             Ok(self.device_auths.lock().unwrap().get(device_code).cloned())
         }
 
-        async fn get_device_authorization_by_user_code(&self, user_code: &str) -> Result<Option<DeviceAuthorization>> {
-            Ok(self.device_auths.lock().unwrap().values()
+        async fn get_device_authorization_by_user_code(
+            &self,
+            user_code: &str,
+        ) -> Result<Option<DeviceAuthorization>> {
+            Ok(self
+                .device_auths
+                .lock()
+                .unwrap()
+                .values()
                 .find(|auth| auth.user_code == user_code)
                 .cloned())
         }
@@ -994,15 +1120,16 @@ mod tests {
             config.clone(),
             b"test-secret-key-for-jwt-signing-must-be-long-enough",
             None,
-        ).unwrap();
+        )
+        .unwrap();
         let scope_manager = ScopeManager::new();
-        
+
         let flow_handler = OAuth2FlowHandler::new(service, config, token_manager, scope_manager);
-        
+
         let user_code = flow_handler.generate_user_code();
         assert_eq!(user_code.len(), 8);
         assert!(user_code.chars().all(|c| c.is_ascii_alphanumeric()));
-        
+
         // Should not contain confusing characters
         assert!(!user_code.contains('0'));
         assert!(!user_code.contains('O'));

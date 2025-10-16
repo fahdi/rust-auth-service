@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Query, State, Form},
+    extract::{Form, Query, State},
     http::StatusCode,
     response::{Html, Json, Redirect},
     Extension,
@@ -9,13 +9,15 @@ use std::collections::HashMap;
 
 use crate::{
     oauth2::{
-        AuthorizeRequest, TokenRequest, DeviceAuthorizationRequest, DeviceAuthorizationResponse,
-        TokenResponse, OAuth2ErrorResponse, OAuth2Error, OAuth2Metadata,
-        client::{ClientRegistrationRequest, ClientRegistrationResponse, ClientUpdateRequest, ClientQuery},
-        server::OAuth2Server,
         client::OAuth2ClientManager,
+        client::{
+            ClientQuery, ClientRegistrationRequest, ClientRegistrationResponse, ClientUpdateRequest,
+        },
+        server::OAuth2Server,
+        AuthorizeRequest, DeviceAuthorizationRequest, DeviceAuthorizationResponse, OAuth2Error,
+        OAuth2ErrorResponse, OAuth2Metadata, TokenRequest, TokenResponse,
     },
-    utils::response::{ApiResponse, ApiError},
+    utils::response::{ApiError, ApiResponse},
     AppState,
 };
 
@@ -139,7 +141,11 @@ pub async fn authorize_consent(
         "#,
         client.name,
         client.description.as_deref().unwrap_or(""),
-        scopes.iter().map(|scope| format!("<div class=\"scope\">{}</div>", describe_scope(scope))).collect::<Vec<_>>().join(""),
+        scopes
+            .iter()
+            .map(|scope| format!("<div class=\"scope\">{}</div>", describe_scope(scope)))
+            .collect::<Vec<_>>()
+            .join(""),
         params.response_type,
         params.client_id,
         params.redirect_uri.as_deref().unwrap_or(""),
@@ -176,13 +182,19 @@ pub async fn authorize_consent_post(
 ) -> Result<Redirect, ApiError> {
     let oauth2_server = &app_state.oauth2_server;
     let user_id = user_id.ok_or_else(|| {
-        ApiError::new(StatusCode::UNAUTHORIZED, "User must be authenticated".to_string())
+        ApiError::new(
+            StatusCode::UNAUTHORIZED,
+            "User must be authenticated".to_string(),
+        )
     })?;
 
     if form.action == "deny" {
         // User denied authorization
         let redirect_uri = form.redirect_uri.as_deref().unwrap_or("");
-        let mut error_url = format!("{}?error=access_denied&error_description=User%20denied%20access", redirect_uri);
+        let mut error_url = format!(
+            "{}?error=access_denied&error_description=User%20denied%20access",
+            redirect_uri
+        );
         if let Some(state) = &form.state {
             error_url.push_str(&format!("&state={}", urlencoding::encode(state)));
         }
@@ -234,7 +246,10 @@ pub async fn device_authorization(
     Form(params): Form<DeviceAuthorizationRequest>,
 ) -> Result<Json<DeviceAuthorizationResponse>, Json<OAuth2ErrorResponse>> {
     let oauth2_server = &app_state.oauth2_server;
-    match oauth2_server.handle_device_authorization(&params.client_id, params.scope.as_deref()).await {
+    match oauth2_server
+        .handle_device_authorization(&params.client_id, params.scope.as_deref())
+        .await
+    {
         Ok(response) => Ok(Json(response)),
         Err(e) => {
             let error_response = OAuth2ErrorResponse {
@@ -308,7 +323,10 @@ pub async fn device_verify_post(
 ) -> Result<Html<String>, ApiError> {
     let oauth2_server = &app_state.oauth2_server;
     let user_id = user_id.ok_or_else(|| {
-        ApiError::new(StatusCode::UNAUTHORIZED, "User must be authenticated".to_string())
+        ApiError::new(
+            StatusCode::UNAUTHORIZED,
+            "User must be authenticated".to_string(),
+        )
     })?;
 
     let success = oauth2_server
@@ -424,17 +442,13 @@ pub async fn revoke(
 }
 
 /// OAuth2 metadata endpoint (RFC 8414)
-pub async fn metadata(
-    State(app_state): State<AppState>,
-) -> Json<OAuth2Metadata> {
+pub async fn metadata(State(app_state): State<AppState>) -> Json<OAuth2Metadata> {
     let oauth2_server = &app_state.oauth2_server;
     Json(oauth2_server.get_metadata())
 }
 
 /// JWKS endpoint for public keys
-pub async fn jwks(
-    State(app_state): State<AppState>,
-) -> Result<Json<serde_json::Value>, ApiError> {
+pub async fn jwks(State(app_state): State<AppState>) -> Result<Json<serde_json::Value>, ApiError> {
     let oauth2_server = &app_state.oauth2_server;
     let jwks = oauth2_server
         .get_jwks()
@@ -498,7 +512,10 @@ pub async fn delete_client(
         .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     if !deleted {
-        return Err(ApiError::new(StatusCode::NOT_FOUND, "Client not found".to_string()));
+        return Err(ApiError::new(
+            StatusCode::NOT_FOUND,
+            "Client not found".to_string(),
+        ));
     }
 
     Ok(Json(ApiResponse::success(true)))
