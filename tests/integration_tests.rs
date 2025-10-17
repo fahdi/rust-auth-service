@@ -35,6 +35,9 @@ impl TestContext {
             r#type: db_type.to_string(),
             url: connection_url.to_string(),
             pool: pool_config,
+            mongodb: None,
+            postgresql: None,
+            mysql: None,
         };
 
         let db = create_database(&db_config)

@@ -1135,7 +1135,7 @@ pub struct UserInfo {
 }
 
 /// Stub implementation of OAuth2Service for temporary use
-struct StubOAuth2Service;
+pub struct StubOAuth2Service;
 
 #[async_trait::async_trait]
 impl OAuth2Service for StubOAuth2Service {

@@ -63,7 +63,7 @@ impl AuthTestContext {
 
         match create_database(&db_config).await {
             Ok(db) => {
-                self.db = Some(Arc::new(db));
+                self.db = Some(db.into());
             }
             Err(e) => {
                 panic!("Failed to create {} database: {}", db_type, e);
@@ -224,6 +224,7 @@ impl AuthFlow {
 
         let response = ctx
             .client
+            .get(&format!("{}/auth/me", ctx.base_url))
             .bearer_auth(token)
             .send()
             .await?;
@@ -253,6 +254,8 @@ impl AuthFlow {
             .ok_or_else(|| anyhow::anyhow!("No access token available"))?;
 
         let response = ctx
+            .client
+            .put(&format!("{}/auth/profile", ctx.base_url))
             .bearer_auth(token)
             .json(&updates)
             .send()

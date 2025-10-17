@@ -298,7 +298,7 @@ impl<T: UserManagementService> PermissionEvaluator<T> {
     }
 
     /// Convert wildcard pattern to regex
-    fn wildcard_to_regex(&self, wildcard: &str) -> Result<String> {
+    fn wildcard_to_regex(&self, wildcard: &str) -> anyhow::Result<String> {
         let mut regex = String::new();
         regex.push('^');
 
@@ -683,19 +683,19 @@ mod tests {
 
     #[async_trait::async_trait]
     impl UserManagementService for MockUserManagementService {
-        async fn create_role(&self, _role: crate::models::user::UserRole) -> Result<crate::models::user::UserRole> {
+        async fn create_role(&self, _role: super::UserRole) -> Result<super::UserRole> {
             unimplemented!()
         }
-        async fn get_role(&self, _role_id: &str) -> Result<Option<crate::models::user::UserRole>> {
+        async fn get_role(&self, _role_id: &str) -> Result<Option<super::UserRole>> {
             unimplemented!()
         }
-        async fn update_role(&self, _role_id: &str, _role: crate::models::user::UserRole) -> Result<crate::models::user::UserRole> {
+        async fn update_role(&self, _role_id: &str, _role: super::UserRole) -> Result<super::UserRole> {
             unimplemented!()
         }
         async fn delete_role(&self, _role_id: &str) -> Result<bool> {
             unimplemented!()
         }
-        async fn list_roles(&self) -> Result<Vec<crate::models::user::UserRole>> {
+        async fn list_roles(&self) -> Result<Vec<super::UserRole>> {
             unimplemented!()
         }
         async fn assign_role_to_user(&self, _user_id: &str, _role_id: &str) -> Result<()> {
@@ -704,7 +704,7 @@ mod tests {
         async fn remove_role_from_user(&self, _user_id: &str, _role_id: &str) -> Result<()> {
             unimplemented!()
         }
-        async fn get_user_roles(&self, _user_id: &str) -> Result<Vec<crate::models::user::UserRole>> {
+        async fn get_user_roles(&self, _user_id: &str) -> Result<Vec<super::UserRole>> {
             unimplemented!()
         }
         async fn create_permission(&self, _permission: Permission) -> Result<Permission> {
@@ -734,7 +734,7 @@ mod tests {
         ) -> Result<PermissionCheckResult> {
             unimplemented!()
         }
-        async fn get_user_permissions(&self, _user_id: &str) -> Result<HashSet<String>> {
+        async fn get_user_permissions(&self, _user_id: &str) -> anyhow::Result<HashSet<String>> {
             unimplemented!()
         }
         async fn create_group(&self, _group: UserGroup) -> Result<UserGroup> {

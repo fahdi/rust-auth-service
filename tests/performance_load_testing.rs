@@ -147,6 +147,9 @@ async fn create_performance_test_databases() -> Vec<(String, Box<dyn AuthDatabas
                 r#type: "mongodb".to_string(),
                 url: mongo_url,
                 pool: Default::default(),
+                mongodb: None,
+                postgresql: None,
+                mysql: None,
             };
 
             if let Ok(adapter) = create_database(&config).await {
@@ -164,6 +167,9 @@ async fn create_performance_test_databases() -> Vec<(String, Box<dyn AuthDatabas
                 r#type: "postgresql".to_string(),
                 url: pg_url,
                 pool: Default::default(),
+                mongodb: None,
+                postgresql: None,
+                mysql: None,
             };
 
             if let Ok(adapter) = create_database(&config).await {
@@ -181,6 +187,9 @@ async fn create_performance_test_databases() -> Vec<(String, Box<dyn AuthDatabas
                 r#type: "mysql".to_string(),
                 url: mysql_url,
                 pool: Default::default(),
+                mongodb: None,
+                postgresql: None,
+                mysql: None,
             };
 
             if let Ok(adapter) = create_database(&config).await {
@@ -862,6 +871,8 @@ async fn test_performance_regression_baseline() {
             url: Some(redis_url),
             ttl: 3600,
             lru_size: 1000,
+            memory: Default::default(),
+            redis: None,
         };
 
         if let Ok(cache_provider) = create_cache_provider(&config).await {
