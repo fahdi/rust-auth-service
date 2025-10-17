@@ -286,30 +286,30 @@ async fn test_database_operation_performance() {
 #[tokio::test]
 #[cfg(any(feature = "mongodb", feature = "postgresql", feature = "mysql"))]
 async fn test_cache_operation_performance() {
-        let cache_configs = vec![
-            (
-                "memory",
-                CacheConfig {
-                    r#type: "memory".to_string(),
-                    url: None,
-                    ttl: 3600,
-                    lru_size: 1000,
-                    redis: None,
-                    memory: Default::default(),
-                },
-            ),
-            (
-                "redis",
-                CacheConfig {
-                    r#type: "redis".to_string(),
-                    url: std::env::var("REDIS_TEST_URL").ok(),
-                    ttl: 3600,
-                    lru_size: 1000,
-                    redis: None,
-                    memory: Default::default(),
-                },
-            ),
-        ];
+    let cache_configs = vec![
+        (
+            "memory",
+            CacheConfig {
+                r#type: "memory".to_string(),
+                url: None,
+                ttl: 3600,
+                lru_size: 1000,
+                redis: None,
+                memory: Default::default(),
+            },
+        ),
+        (
+            "redis",
+            CacheConfig {
+                r#type: "redis".to_string(),
+                url: std::env::var("REDIS_TEST_URL").ok(),
+                ttl: 3600,
+                lru_size: 1000,
+                redis: None,
+                memory: Default::default(),
+            },
+        ),
+    ];
 
     const CACHE_OPERATIONS: usize = 1000;
 

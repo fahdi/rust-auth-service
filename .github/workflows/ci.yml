@@ -153,10 +153,10 @@ jobs:
         ports:
           - 27017:27017
         options: >-
-          --health-cmd "mongosh --eval 'db.adminCommand(\"ping\")'"
+          --health-cmd "mongosh --eval 'db.runCommand({ping: 1})'"
           --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+          --health-timeout 10s
+          --health-retries 10
 
       postgres:
         image: postgres:16
@@ -167,10 +167,10 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U postgres"
           --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+          --health-timeout 10s
+          --health-retries 10
 
       mysql:
         image: mysql:8.0
@@ -180,10 +180,10 @@ jobs:
         ports:
           - 3306:3306
         options: >-
-          --health-cmd="mysqladmin ping"
+          --health-cmd="mysqladmin ping -h localhost"
           --health-interval=10s
-          --health-timeout=5s
-          --health-retries=3
+          --health-timeout=10s
+          --health-retries=10
 
       redis:
         image: redis:7.2
@@ -192,8 +192,8 @@ jobs:
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+          --health-timeout 10s
+          --health-retries 10
 
     env:
       MONGODB_TEST_URL: mongodb://localhost:27017/auth_test
@@ -218,19 +218,39 @@ jobs:
           target
         key: ${{ runner.os }}-cargo-integration-${{ hashFiles('**/Cargo.lock') }}
 
+    - name: Install database clients
+      run: |
+        # Install MongoDB client
+        wget -qO - https://www.mongodb.org/static/pgp/server-7.0.asc | sudo apt-key add -
+        echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+        sudo apt-get update
+        sudo apt-get install -y mongodb-mongosh postgresql-client mysql-client redis-tools
+        
     - name: Wait for database services
       run: |
-        # Wait for MongoDB
-        timeout 60 bash -c 'until mongosh --eval "db.adminCommand(\"ping\")" >/dev/null 2>&1; do sleep 2; done'
+        echo "Waiting for database services to be ready..."
+        
+        # Wait for MongoDB (with simpler ping)
+        echo "Waiting for MongoDB..."
+        timeout 120 bash -c 'until mongosh --eval "db.runCommand({ping: 1})" >/dev/null 2>&1; do echo "MongoDB not ready, waiting..."; sleep 3; done'
+        echo "MongoDB is ready"
         
         # Wait for PostgreSQL
-        timeout 60 bash -c 'until pg_isready -h localhost -p 5432 >/dev/null 2>&1; do sleep 2; done'
+        echo "Waiting for PostgreSQL..."
+        timeout 120 bash -c 'until pg_isready -h localhost -p 5432 >/dev/null 2>&1; do echo "PostgreSQL not ready, waiting..."; sleep 3; done'
+        echo "PostgreSQL is ready"
         
         # Wait for MySQL
-        timeout 60 bash -c 'until mysqladmin ping -h localhost -P 3306 --silent >/dev/null 2>&1; do sleep 2; done'
+        echo "Waiting for MySQL..."
+        timeout 120 bash -c 'until mysqladmin ping -h localhost -P 3306 --silent >/dev/null 2>&1; do echo "MySQL not ready, waiting..."; sleep 3; done'
+        echo "MySQL is ready"
         
         # Wait for Redis
-        timeout 60 bash -c 'until redis-cli -h localhost -p 6379 ping >/dev/null 2>&1; do sleep 2; done'
+        echo "Waiting for Redis..."
+        timeout 120 bash -c 'until redis-cli -h localhost -p 6379 ping >/dev/null 2>&1; do echo "Redis not ready, waiting..."; sleep 3; done'
+        echo "Redis is ready"
+        
+        echo "All database services are ready!"
 
     - name: Run authentication flow integration tests
       if: matrix.test-suite == 'auth-flow'

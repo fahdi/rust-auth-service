@@ -1,8 +1,8 @@
 use anyhow::Result;
 use reqwest::{Client, StatusCode};
 use serde_json::{json, Value};
-use std::time::Duration;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::time::sleep;
 use uuid::Uuid;
 
