@@ -1,139 +1,150 @@
-# Docker Development Environment
+# Docker Configuration
 
-This directory contains Docker-related files for the Rust Auth Service development environment.
+This directory contains all Docker-related configuration files for the Rust Auth Service project.
+
+## Directory Structure
+
+```
+docker/
+├── README.md                    # This file
+├── auth-service/               # Main auth service Docker config
+│   └── Dockerfile             # Production Dockerfile for auth service
+├── nextjs-integration/         # Next.js example Docker config  
+│   ├── Dockerfile             # Next.js application Dockerfile
+│   └── docker-compose.yml     # Next.js + Auth service compose
+└── compose/                   # Docker Compose configurations
+    ├── docker-compose.yml     # Main production compose
+    └── docker-compose.dev.yml # Development environment compose
+```
 
 ## Quick Start
 
-1. **Run the setup script:**
-   ```bash
-   ./scripts/setup-dev.sh
-   ```
-
-2. **Or manually start services:**
-   ```bash
-   # Copy example configs
-   cp .env.example .env
-   cp config.yml.example config.yml
-   
-   # Start all services
-   docker-compose up --build -d
-   
-   # Check service status
-   docker-compose ps
-   ```
-
-## Services
-
-### Core Services
-- **Auth Service**: `http://localhost:8080` - Main Rust authentication service
-- **MongoDB**: `localhost:27018` - Database with admin panel
-- **Redis**: `localhost:6380` - Caching layer
-- **MailHog**: `http://localhost:8026` - Email testing UI
-
-### Optional Admin Tools
+### Development Environment
 ```bash
-# Start with admin tools
-docker-compose --profile admin up -d
+# Run full development stack
+docker-compose -f docker/compose/docker-compose.dev.yml up
 
-# Access admin interfaces
-# MongoDB Express: http://localhost:8081 (admin/admin)
-# Redis Insight: http://localhost:8082
+# Run with monitoring
+docker-compose -f docker/compose/docker-compose.dev.yml -f monitoring/docker-compose.monitoring.yml up
 ```
+
+### Production Environment
+```bash
+# Run production stack
+docker-compose -f docker/compose/docker-compose.yml up
+```
+
+### Next.js Integration Example
+```bash
+# Run Next.js example with auth service
+cd docker/nextjs-integration
+docker-compose up
+```
+
+## Configuration Files
+
+### Auth Service Dockerfile
+- **Location**: `docker/auth-service/Dockerfile`
+- **Purpose**: Multi-stage build for the Rust auth service
+- **Features**: Optimized production image with minimal dependencies
+
+### Docker Compose Files
+
+#### Development (`docker-compose.dev.yml`)
+- Auth service with debug logging
+- PostgreSQL database
+- Redis cache
+- Volume mounts for development
+
+#### Production (`docker-compose.yml`)
+- Optimized auth service build
+- Production database configuration
+- Health checks and restart policies
+
+#### Next.js Integration (`nextjs-integration/docker-compose.yml`)
+- Complete full-stack setup
+- Auth service + Next.js frontend
+- Shared database and cache services
+
+## Environment Variables
+
+Each compose file supports environment variable overrides:
+- `DATABASE_URL` - Database connection string
+- `JWT_SECRET` - JWT signing secret
+- `REDIS_URL` - Redis cache connection
+- `RUST_LOG` - Logging level for development
+
+## Build Commands
+
+### Build Auth Service Image
+```bash
+docker build -f docker/auth-service/Dockerfile -t rust-auth-service .
+```
+
+### Build Next.js Integration
+```bash
+docker build -f docker/nextjs-integration/Dockerfile -t nextjs-auth-example ./examples/nextjs-integration
+```
+
+## Networking
+
+All services use the `auth-network` bridge network for internal communication:
+- Auth service: `http://auth-service:8080`
+- Database: `postgresql://postgres:5432/auth_db`
+- Redis: `redis://redis:6379`
+- Next.js: `http://nextjs-app:3000`
+
+## Volumes
+
+### Development Volumes
+- Source code mounted for hot reload
+- Database data persistence
+- Redis data persistence
+
+### Production Volumes
+- Database data only
+- Log file persistence
+- SSL certificate storage (if configured)
 
 ## Health Checks
 
-- **Service Health**: `http://localhost:8080/health`
-- **Readiness**: `http://localhost:8080/ready` 
-- **Liveness**: `http://localhost:8080/live`
+All services include health checks:
+- Auth service: `GET /health`
+- Database: PostgreSQL connection check
+- Redis: PING command
+- Next.js: Next.js health endpoint
 
-## Development
+## Monitoring
 
-### Hot Reload
-The development container automatically reloads when code changes:
+Monitoring stack is available separately in the `monitoring/` directory:
 ```bash
-# Watch logs
-docker-compose logs -f auth-service
-
-# Manual restart
-docker-compose restart auth-service
+# Start monitoring with auth service
+docker-compose -f docker/compose/docker-compose.dev.yml -f monitoring/docker-compose.monitoring.yml up
 ```
 
-### Testing
-```bash
-# Run tests in container
-docker-compose exec auth-service cargo test
-
-# Shell access
-docker-compose exec auth-service bash
-```
-
-### Database Access
-```bash
-# MongoDB shell
-docker-compose exec mongodb mongosh -u admin -p password123
-
-# Check collections
-docker-compose exec mongodb mongosh -u admin -p password123 auth_service --eval "db.users.find().limit(5)"
-```
+Includes:
+- Prometheus metrics collection
+- Grafana dashboards  
+- Alertmanager notifications
+- Loki log aggregation
 
 ## Troubleshooting
 
-### Port Conflicts
-If ports are in use, modify `docker-compose.yml`:
-- Auth Service: Change `8080:8080` to `8081:8080`
-- MongoDB: Change `27018:27017` to `27019:27017`
-- Redis: Change `6380:6379` to `6381:6379`
+### Common Issues
 
-### Container Issues
+1. **Port Conflicts**: Ensure ports 3000, 5432, 6379, 8080 are available
+2. **Permission Issues**: Check Docker daemon permissions
+3. **Build Failures**: Verify Rust toolchain in development environment
+4. **Network Issues**: Ensure Docker networks are properly configured
+
+### Debug Commands
 ```bash
-# Restart everything
-docker-compose down && docker-compose up -d
+# Check service logs
+docker-compose -f docker/compose/docker-compose.dev.yml logs auth-service
 
-# Clean rebuild
-docker-compose down --volumes
-docker-compose build --no-cache
-docker-compose up -d
+# Inspect running containers
+docker-compose -f docker/compose/docker-compose.dev.yml ps
+
+# Execute commands in running container
+docker-compose -f docker/compose/docker-compose.dev.yml exec auth-service /bin/sh
 ```
-
-### Logs
-```bash
-# All services
-docker-compose logs
-
-# Specific service
-docker-compose logs auth-service
-docker-compose logs mongodb
-docker-compose logs redis
-```
-
-## Production Deployment
-
-### Ultra-Secure MongoDB-Only Build
-
-**Security Notice**: Only ultra-secure MongoDB-only builds are available due to security vulnerabilities in SQL dependencies.
-
-```bash
-# Ultra-secure build (MongoDB only, zero vulnerabilities)
-docker build -t rust-auth-service:ultra-secure .
-
-# Production deployment
-docker run -d --name auth-service \
-  -p 8080:8080 \
-  -e DATABASE_URL="mongodb://user:pass@mongo:27017/auth" \
-  -e JWT_SECRET="your-256-bit-production-secret" \
-  rust-auth-service:ultra-secure
-```
-
-### Security Features
-- **Zero vulnerabilities** confirmed by cargo audit
-- **MongoDB-only** - eliminates all SQL-related security risks
-- **Minimal attack surface** - only essential dependencies included
-- **Secure by default** - no vulnerable or unmaintained dependencies
-
-### Production Security Checklist
-- ✅ **Strong JWT secrets** (256-bit minimum)
-- ✅ **Secure MongoDB connection strings** with authentication
-- ✅ **HTTPS termination** via load balancer or reverse proxy
-- ✅ **Rate limiting** configured appropriately
-- ✅ **Monitoring** via Prometheus metrics at `/metrics`
-- ✅ **Health checks** configured for `/health`, `/ready`, `/live`
