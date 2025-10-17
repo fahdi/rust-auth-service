@@ -52,6 +52,29 @@ services:
       retries: 5
       start_period: 30s
 
+  # PostgreSQL Database  
+  postgresql:
+    image: postgres:16.1-alpine
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_DB=auth_service
+      - POSTGRES_USER=auth_user
+      - POSTGRES_PASSWORD=auth_password
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - postgresql_data:/var/lib/postgresql/data
+      - ../../migrations/postgresql:/docker-entrypoint-initdb.d:ro
+    networks:
+      - auth-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auth_user -d auth_service"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
   # Redis Cache
   redis:
     image: redis:7.2-alpine
@@ -115,6 +138,8 @@ services:
 
 volumes:
   mongodb_data:
+    driver: local
+  postgresql_data:
     driver: local
   redis_data:
     driver: local  
