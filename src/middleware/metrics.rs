@@ -7,6 +7,7 @@ use std::time::Instant;
 use tracing::debug;
 
 use crate::{metrics, AppState};
+use crate::observability::{RequestContext, log_request};
 
 /// Middleware to collect HTTP request metrics
 ///
@@ -32,24 +33,67 @@ pub async fn metrics_middleware(
     // Normalize endpoint path for better grouping in metrics
     let endpoint = normalize_endpoint_path(&path);
 
-    debug!("Recording metrics for {} {}", method, endpoint);
+    // Extract client IP and user agent for logging
+    let client_ip = request
+        .headers()
+        .get("x-forwarded-for")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("unknown")
+        .to_string();
+    
+    let user_agent = request
+        .headers()
+        .get("user-agent")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string());
+
+    // Create request context for structured logging
+    let request_id = uuid::Uuid::new_v4().to_string();
+    let request_context = RequestContext::new(
+        request_id.clone(),
+        client_ip,
+        method.clone(),
+        endpoint.clone(),
+    )
+    .with_user_agent(user_agent.unwrap_or_default());
+
+    debug!(
+        request_id = %request_id,
+        "Recording metrics for {} {}",
+        method,
+        endpoint
+    );
 
     // Process the request
     let response = next.run(request).await;
 
-    // Calculate request duration
-    let duration = start_time.elapsed().as_secs_f64();
+    // Calculate request duration and sizes
+    let duration = start_time.elapsed();
     let status = response.status().as_u16();
 
-    // Record HTTP metrics
-    metrics::record_http_request(&method, &endpoint, status, duration);
+    // Record comprehensive metrics
+    // 1. Old metrics system
+    metrics::record_http_request(&method, &endpoint, status, duration.as_secs_f64());
+
+    // 2. New observability metrics
+    state.metrics.record_http_request(
+        &method,
+        &endpoint,
+        status,
+        duration,
+        None, // request_size - would need to be captured before processing
+        None, // response_size - would need body inspection
+    );
+
+    // 3. Structured logging
+    log_request(&request_context, status, None);
 
     debug!(
         "HTTP request completed: {} {} -> {} in {:.3}ms",
         method,
         endpoint,
         status,
-        duration * 1000.0
+        duration.as_millis()
     );
 
     response
