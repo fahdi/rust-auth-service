@@ -1,0 +1,111 @@
+version: '3.8'
+
+services:
+  # Rust Auth Service
+  rust-auth-service:
+    build:
+      context: ../../
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=mongodb://admin:password123@mongodb:27017/auth_service
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=your-ultra-secure-jwt-secret-for-development-only
+      - RUST_LOG=debug
+      - ENVIRONMENT=development
+    depends_on:
+      - mongodb
+      - redis
+    volumes:
+      - ../../:/app
+    networks:
+      - rust-auth-network
+
+  # Next.js Frontend
+  nextjs-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - API_BASE_URL=http://rust-auth-service:8080
+      - NODE_ENV=development
+    depends_on:
+      - rust-auth-service
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - rust-auth-network
+
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    restart: unless-stopped
+    ports:
+      - "27018:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=password123
+      - MONGO_INITDB_DATABASE=auth_service
+    volumes:
+      - mongodb_data:/data/db
+      - ./docker/mongodb-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - rust-auth-network
+
+  # Redis Cache
+  redis:
+    image: redis:7.2-alpine
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - rust-auth-network
+
+  # MongoDB Admin Interface (optional)
+  mongo-express:
+    image: mongo-express:1.0.2
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      - ME_CONFIG_MONGODB_ADMINUSERNAME=admin
+      - ME_CONFIG_MONGODB_ADMINPASSWORD=password123
+      - ME_CONFIG_MONGODB_URL=mongodb://admin:password123@mongodb:27017/
+      - ME_CONFIG_BASICAUTH=false
+    depends_on:
+      - mongodb
+    networks:
+      - rust-auth-network
+    profiles:
+      - admin
+
+  # Redis Admin Interface (optional)
+  redis-insight:
+    image: redislabs/redisinsight:latest
+    restart: unless-stopped
+    ports:
+      - "8082:8001"
+    volumes:
+      - redis_insight_data:/data
+    depends_on:
+      - redis
+    networks:
+      - rust-auth-network
+    profiles:
+      - admin
+
+volumes:
+  mongodb_data:
+  redis_data:
+  redis_insight_data:
+
+networks:
+  rust-auth-network:
+    driver: bridge
