@@ -10,10 +10,20 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 export default function LoginPage() {
   const { isAuthenticated, loading } = useAuth();
   const router = useRouter();
+  
+  // Get redirect parameter from URL (client-side)
+  const getRedirectTo = () => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get('redirectTo') || '/dashboard';
+    }
+    return '/dashboard';
+  };
 
   useEffect(() => {
     if (!loading && isAuthenticated) {
-      router.push('/dashboard');
+      const redirectTo = getRedirectTo();
+      router.push(redirectTo);
     }
   }, [isAuthenticated, loading, router]);
 
@@ -56,18 +66,22 @@ export default function LoginPage() {
       {/* Main Content */}
       <main className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12">
         <div className="w-full max-w-md">
-          <LoginForm />
+          <LoginForm onSuccess={() => {
+            const redirectTo = getRedirectTo();
+            router.push(redirectTo);
+          }} />
           
           {/* Additional Info */}
           <div className="mt-8 text-center">
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <h3 className="text-sm font-medium text-blue-800 mb-2">
-                Demo Credentials (if needed)
+                Demo Credentials
               </h3>
-              <p className="text-xs text-blue-600">
-                Create a new account or use existing credentials.
-                This example connects to the Rust Auth Service running on localhost:8080.
-              </p>
+              <div className="text-xs text-blue-600 space-y-1">
+                <p><strong>Email:</strong> test@demo.com</p>
+                <p><strong>Password:</strong> Test123!</p>
+                <p className="mt-2 text-xs">Or create a new account above.</p>
+              </div>
             </div>
           </div>
         </div>

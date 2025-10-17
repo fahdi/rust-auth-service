@@ -32,10 +32,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setError(null);
 
       // Check if we have a token
-      if (apiClient.hasValidToken()) {
+      const hasToken = apiClient.hasValidToken();
+      console.log('Has token:', hasToken);
+      console.log('Access token:', apiClient.getAccessToken());
+      
+      if (hasToken) {
         // Try to get user profile to verify token validity
+        console.log('Attempting to get user profile...');
         const userProfile = await apiClient.getProfile();
+        console.log('User profile retrieved:', userProfile);
         setUser(userProfile);
+      } else {
+        console.log('No valid token found');
+        setUser(null);
       }
     } catch (err) {
       // Token is invalid or expired, clear it
@@ -43,6 +52,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUser(null);
     } finally {
       setLoading(false);
+      console.log('Auth initialization complete. User:', user);
     }
   };
 
@@ -51,10 +61,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setLoading(true);
       setError(null);
 
+      console.log('Attempting login with:', credentials.email);
       const response = await apiClient.login(credentials);
+      console.log('Login response:', response);
+      console.log('Setting user:', response.user);
       setUser(response.user);
+      console.log('Login successful, tokens saved');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Login failed';
+      console.log('Login failed:', errorMessage);
       setError(errorMessage);
       throw err;
     } finally {

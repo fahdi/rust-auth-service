@@ -1,11 +1,11 @@
 use anyhow::Result;
 use axum::{
-    extract::State,
+    extract::{ConnectInfo, State},
     middleware::from_fn_with_state,
     routing::{get, post, put},
     Router,
 };
-use observability::AppMetrics;
+use observability::{AppMetrics, LoggingConfig, MetricsConfig};
 use std::sync::Arc;
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
@@ -64,18 +64,11 @@ async fn observability_metrics_handler(
 async fn main() -> Result<()> {
     // Initialize comprehensive observability
     let logging_config = LoggingConfig::default();
-    let tracing_config = TracingConfig::default();
     let metrics_config = MetricsConfig::default();
 
     // Initialize structured logging
     observability::init_logging(&logging_config)?;
     info!("Structured logging initialized");
-
-    // Initialize distributed tracing if enabled
-    if tracing_config.enabled {
-        observability::init_tracing(&tracing_config).await?;
-        info!("Distributed tracing initialized");
-    }
 
     // Initialize metrics collection
     let app_metrics = Arc::new(AppMetrics::new()?);
@@ -245,7 +238,11 @@ async fn main() -> Result<()> {
         config.server.host, config.server.port
     );
 
-    axum::serve(listener, app).await?;
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .await?;
 
     Ok(())
 }

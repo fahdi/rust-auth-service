@@ -14,9 +14,12 @@ export function middleware(request: NextRequest) {
   const accessToken = request.cookies.get('access_token')?.value;
   const hasToken = !!accessToken;
 
+  console.log('Middleware: accessing', pathname, 'hasToken:', hasToken);
+
   // Protect routes that require authentication
   if (protectedRoutes.some(route => pathname.startsWith(route))) {
     if (!hasToken) {
+      console.log('Middleware: redirecting to login from', pathname);
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('redirectTo', pathname);
       return NextResponse.redirect(loginUrl);
@@ -26,6 +29,7 @@ export function middleware(request: NextRequest) {
   // Redirect authenticated users away from auth pages
   if (authRoutes.some(route => pathname.startsWith(route))) {
     if (hasToken) {
+      console.log('Middleware: redirecting authenticated user from', pathname, 'to dashboard');
       const redirectTo = request.nextUrl.searchParams.get('redirectTo') || '/dashboard';
       return NextResponse.redirect(new URL(redirectTo, request.url));
     }

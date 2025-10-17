@@ -27,6 +27,16 @@ class AuthApiClient {
     if (typeof window !== 'undefined') {
       this.accessToken = localStorage.getItem('access_token');
       this.refreshToken = localStorage.getItem('refresh_token');
+      
+      // Fallback to cookies if localStorage is empty
+      if (!this.accessToken) {
+        const cookies = document.cookie.split(';');
+        for (const cookie of cookies) {
+          const [name, value] = cookie.trim().split('=');
+          if (name === 'access_token') this.accessToken = value;
+          if (name === 'refresh_token') this.refreshToken = value;
+        }
+      }
     }
   }
 
@@ -34,6 +44,11 @@ class AuthApiClient {
     if (typeof window !== 'undefined') {
       localStorage.setItem('access_token', accessToken);
       localStorage.setItem('refresh_token', refreshToken);
+      
+      // Also store in cookies for middleware access (secure only in production)
+      const isSecure = window.location.protocol === 'https:' ? '; secure' : '';
+      document.cookie = `access_token=${accessToken}; path=/${isSecure}; samesite=strict`;
+      document.cookie = `refresh_token=${refreshToken}; path=/${isSecure}; samesite=strict`;
     }
     this.accessToken = accessToken;
     this.refreshToken = refreshToken;
@@ -43,6 +58,10 @@ class AuthApiClient {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
+      
+      // Also clear cookies
+      document.cookie = 'access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      document.cookie = 'refresh_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
     }
     this.accessToken = null;
     this.refreshToken = null;
@@ -79,9 +98,23 @@ class AuthApiClient {
         try {
           errorData = await response.json();
         } catch {
+          // Provide user-friendly messages for common HTTP status codes
+          let message = `Request failed with status ${response.status}`;
+          if (response.status === 423) {
+            message = 'Account is temporarily locked due to too many failed login attempts. Please try again later.';
+          } else if (response.status === 401) {
+            message = 'Invalid email or password. Please check your credentials and try again.';
+          } else if (response.status === 429) {
+            message = 'Too many requests. Please wait a moment before trying again.';
+          } else if (response.status >= 500) {
+            message = 'Server error. Please try again later.';
+          } else if (response.status >= 400) {
+            message = 'Invalid request. Please check your input and try again.';
+          }
+          
           errorData = {
             error: 'network_error',
-            message: `Request failed with status ${response.status}`,
+            message,
           };
         }
 

@@ -2,27 +2,24 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import { useHealthCheck } from '@/hooks/useApi';
 import { HealthResponse } from '@/lib/types';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
 export default function HomePage() {
-  const { isAuthenticated, user, loading: authLoading } = useAuth();
+  const { isAuthenticated, user, loading: authLoading, logout } = useAuth();
   const { data: health, loading: healthLoading, execute: checkHealth } = useHealthCheck();
+  const router = useRouter();
   
   useEffect(() => {
     checkHealth();
   }, []);
 
-  const formatUptime = (seconds: number) => {
-    const days = Math.floor(seconds / 86400);
-    const hours = Math.floor((seconds % 86400) / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    
-    if (days > 0) return `${days}d ${hours}h ${minutes}m`;
-    if (hours > 0) return `${hours}h ${minutes}m`;
-    return `${minutes}m`;
+  const formatTimestamp = (timestamp: string) => {
+    const date = new Date(timestamp);
+    return date.toLocaleString();
   };
 
   return (
@@ -51,6 +48,20 @@ export default function HomePage() {
                   <Link href="/dashboard" className="btn-primary">
                     Dashboard
                   </Link>
+                  <button 
+                    onClick={async () => {
+                      try {
+                        await logout();
+                        router.push('/');
+                      } catch (error) {
+                        console.error('Logout failed:', error);
+                        router.push('/');
+                      }
+                    }}
+                    className="btn-secondary"
+                  >
+                    Sign Out
+                  </button>
                 </>
               ) : (
                 <>
@@ -134,11 +145,11 @@ export default function HomePage() {
               <div className="flex items-center justify-between">
                 <span className="font-medium">Service Status:</span>
                 <span className={`px-2 py-1 rounded-full text-sm ${
-                  health.status === 'healthy' 
+                  health.status === 'ok' 
                     ? 'bg-green-100 text-green-800' 
                     : 'bg-red-100 text-red-800'
                 }`}>
-                  {health.status === 'healthy' ? '✅ Healthy' : '❌ Unhealthy'}
+                  {health.status === 'ok' ? '✅ Healthy' : '❌ Unhealthy'}
                 </span>
               </div>
               
@@ -148,13 +159,13 @@ export default function HomePage() {
               </div>
               
               <div className="flex items-center justify-between">
-                <span className="font-medium">Environment:</span>
-                <span className="text-gray-600 capitalize">{health.environment}</span>
+                <span className="font-medium">Service:</span>
+                <span className="text-gray-600">{health.service}</span>
               </div>
               
               <div className="flex items-center justify-between">
-                <span className="font-medium">Uptime:</span>
-                <span className="text-gray-600">{formatUptime(health.uptime_seconds)}</span>
+                <span className="font-medium">Timestamp:</span>
+                <span className="text-gray-600">{formatTimestamp(health.timestamp)}</span>
               </div>
               
               <div className="grid grid-cols-2 gap-4 mt-4">
@@ -163,7 +174,7 @@ export default function HomePage() {
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">{health.database.type}</span>
                     <span className={`text-sm ${
-                      health.database.status === 'connected' 
+                      health.database.connected 
                         ? 'text-green-600' 
                         : 'text-red-600'
                     }`}>
@@ -180,15 +191,15 @@ export default function HomePage() {
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">{health.cache.type}</span>
                     <span className={`text-sm ${
-                      health.cache.status === 'connected' 
+                      health.cache.healthy 
                         ? 'text-green-600' 
                         : 'text-red-600'
                     }`}>
-                      {health.cache.status}
+                      {health.cache.healthy ? 'healthy' : 'unhealthy'}
                     </span>
                   </div>
                   <div className="text-xs text-gray-500">
-                    {health.cache.response_time_ms}ms response
+                    Hit ratio: {(health.cache.stats.hit_ratio * 100).toFixed(1)}%
                   </div>
                 </div>
               </div>

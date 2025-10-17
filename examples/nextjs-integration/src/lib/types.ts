@@ -73,20 +73,25 @@ export interface ApiError {
 // Health check types
 export interface HealthResponse {
   status: string;
+  timestamp: string;
   version: string;
-  environment: string;
+  service: string;
   database: {
     status: string;
     type: string;
+    connected: boolean;
     response_time_ms: number;
   };
   cache: {
-    status: string;
+    healthy: boolean;
     type: string;
-    response_time_ms: number;
+    stats: {
+      hits: number;
+      misses: number;
+      hit_ratio: number;
+      total_operations: number;
+    };
   };
-  timestamp: string;
-  uptime_seconds: number;
 }
 
 // Auth context types

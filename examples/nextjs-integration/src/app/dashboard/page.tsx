@@ -335,14 +335,12 @@ function DashboardContent() {
             <div className="mt-8 pt-6 border-t border-gray-200">
               <h3 className="text-sm font-medium text-gray-700 mb-4">Quick Actions</h3>
               <div className="space-y-2">
-                <a 
-                  href="http://localhost:8080/docs" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
+                <Link 
+                  href="/"
                   className="btn-secondary w-full text-center block"
                 >
-                  📖 View API Documentation
-                </a>
+                  🏠 Back to Homepage
+                </Link>
                 <a 
                   href="http://localhost:8080/health" 
                   target="_blank" 
@@ -350,6 +348,14 @@ function DashboardContent() {
                   className="btn-secondary w-full text-center block"
                 >
                   🏥 Check Service Health
+                </a>
+                <a 
+                  href="http://localhost:8080/metrics" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="btn-secondary w-full text-center block"
+                >
+                  📊 View Metrics
                 </a>
               </div>
             </div>

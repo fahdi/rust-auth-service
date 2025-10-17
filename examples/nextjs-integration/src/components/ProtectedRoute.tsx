@@ -14,12 +14,15 @@ export default function ProtectedRoute({
   children, 
   redirectTo = '/login' 
 }: ProtectedRouteProps) {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
-      router.push(redirectTo);
+      // Add current path as redirectTo parameter
+      const currentPath = window.location.pathname;
+      const loginUrl = `${redirectTo}?redirectTo=${encodeURIComponent(currentPath)}`;
+      router.push(loginUrl);
     }
   }, [isAuthenticated, loading, router, redirectTo]);
 

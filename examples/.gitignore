@@ -1,0 +1,50 @@
+# General examples directory gitignore
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+
+# Node.js (for Next.js and other JS examples)
+node_modules/
+.next/
+.cache/
+dist/
+build/
+
+# Python (for potential Python examples)
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Docker
+docker-compose.override.yml
+
+# Backup files
+*.bak
+*.backup
+
+# Test databases
+test.db
+*.sqlite
+*.sqlite3
