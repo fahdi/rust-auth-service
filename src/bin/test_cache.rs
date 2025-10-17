@@ -244,7 +244,7 @@ async fn performance_test() -> Result<()> {
             // Warm up
             for i in 0..100 {
                 cache
-                    .set(&format!("warm_{value}"), i), &format!("value_{value}"), i))
+                    .set(&format!("warm_{i}"), &format!("value_{i}"))
                     .await?;
             }
 
@@ -252,7 +252,7 @@ async fn performance_test() -> Result<()> {
             let start = Instant::now();
             for i in 0..OPERATIONS {
                 cache
-                    .set(&format!("perf_key_{value}"), i), &format!("value_{value}"), i))
+                    .set(&format!("perf_key_{i}"), &format!("value_{i}"))
                     .await?;
             }
             let write_duration = start.elapsed();
@@ -260,7 +260,7 @@ async fn performance_test() -> Result<()> {
             // Test read performance
             let start = Instant::now();
             for i in 0..OPERATIONS {
-                let _ = cache.get(&format!("perf_key_{value}"), i)).await?;
+                let _ = cache.get(&format!("perf_key_{i}")).await?;
             }
             let read_duration = start.elapsed();
 

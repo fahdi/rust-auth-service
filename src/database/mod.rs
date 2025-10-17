@@ -118,13 +118,13 @@ pub async fn create_database(config: &DatabaseConfig) -> Result<Box<dyn AuthData
             Ok(Box::new(db))
         }
         // PostgreSQL support removed due to RSA vulnerability in sqlx dependency tree
-        "postgresql" => {
-            Err(anyhow::anyhow!("PostgreSQL support removed due to security vulnerability. Use 'mongodb' instead."))
-        }
+        "postgresql" => Err(anyhow::anyhow!(
+            "PostgreSQL support removed due to security vulnerability. Use 'mongodb' instead."
+        )),
         // MySQL support removed due to RSA vulnerability (RUSTSEC-2023-0071)
-        "mysql" => {
-            Err(anyhow::anyhow!("MySQL support removed due to security vulnerability. Use 'mongodb' instead."))
-        }
+        "mysql" => Err(anyhow::anyhow!(
+            "MySQL support removed due to security vulnerability. Use 'mongodb' instead."
+        )),
         _ => {
             // Both PostgreSQL and MySQL removed due to security vulnerabilities
             Err(anyhow::anyhow!(

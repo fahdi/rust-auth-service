@@ -535,6 +535,12 @@ pub struct MetricsTimer {
     start_time: Instant,
 }
 
+impl Default for MetricsTimer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MetricsTimer {
     pub fn new() -> Self {
         Self {

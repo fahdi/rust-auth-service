@@ -75,7 +75,7 @@ async fn main() -> Result<()> {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| format!("migrate={},rust_auth_service=info", log_level).into()),
+                .unwrap_or_else(|_| format!("migrate={log_level},rust_auth_service=info").into()),
         )
         .with(tracing_subscriber::fmt::layer())
         .init();

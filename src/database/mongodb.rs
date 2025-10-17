@@ -149,8 +149,7 @@ impl MongoDatabase {
                 }
             }
             Err(e) => Err(UserError::Database(format!(
-                "Failed to {}: {}",
-                operation_name, e
+                "Failed to {operation_name}: {e}"
             ))),
         }
     }
@@ -213,8 +212,7 @@ impl AuthDatabase for MongoDatabase {
         match self.users.find_one(filter).await {
             Ok(user) => Ok(user),
             Err(e) => Err(UserError::Database(format!(
-                "Failed to find user by email: {}",
-                e
+                "Failed to find user by email: {e}"
             ))),
         }
     }
@@ -225,8 +223,7 @@ impl AuthDatabase for MongoDatabase {
         match self.users.find_one(filter).await {
             Ok(user) => Ok(user),
             Err(e) => Err(UserError::Database(format!(
-                "Failed to find user by ID: {}",
-                e
+                "Failed to find user by ID: {e}"
             ))),
         }
     }
@@ -415,8 +412,7 @@ impl AuthDatabase for MongoDatabase {
         match self.users.count_documents(filter).await {
             Ok(count) => Ok(count > 0),
             Err(e) => Err(UserError::Database(format!(
-                "Failed to check user existence: {}",
-                e
+                "Failed to check user existence: {e}"
             ))),
         }
     }
@@ -462,8 +458,7 @@ impl AuthDatabase for MongoDatabase {
         match self.users.find_one(filter).await {
             Ok(user) => Ok(user),
             Err(e) => Err(UserError::Database(format!(
-                "Failed to find user by verification token: {}",
-                e
+                "Failed to find user by verification token: {e}"
             ))),
         }
     }
@@ -474,8 +469,7 @@ impl AuthDatabase for MongoDatabase {
         match self.users.find_one(filter).await {
             Ok(user) => Ok(user),
             Err(e) => Err(UserError::Database(format!(
-                "Failed to find user by reset token: {}",
-                e
+                "Failed to find user by reset token: {e}"
             ))),
         }
     }
@@ -500,8 +494,7 @@ impl AuthDatabase for MongoDatabase {
                 }
             }
             Err(e) => Err(UserError::Database(format!(
-                "Failed to verify email: {}",
-                e
+                "Failed to verify email: {e}"
             ))),
         }
     }
@@ -538,8 +531,7 @@ impl AuthDatabase for MongoDatabase {
                 }
             }
             Err(e) => Err(UserError::Database(format!(
-                "Failed to update login attempts: {}",
-                e
+                "Failed to update login attempts: {e}"
             ))),
         }
     }
@@ -571,8 +563,7 @@ impl AuthDatabase for MongoDatabase {
         {
             Ok(_) => Ok(()),
             Err(e) => Err(UserError::Database(format!(
-                "Failed to record login attempt: {}",
-                e
+                "Failed to record login attempt: {e}"
             ))),
         }
     }

@@ -48,7 +48,7 @@ impl MemoryRateLimitStore {
 
         // Calculate window start
         let window_start = (current_time / rule.window_seconds) * rule.window_seconds;
-        let full_key = format!("{}:{}", key, window_start);
+        let full_key = format!("{key}:{window_start}");
 
         // Clean up old entries if store is getting too large
         if store.len() > self.max_size {
@@ -100,7 +100,7 @@ impl RedisRateLimitStore {
     ) -> Result<RateLimitStatus, AppError> {
         let mut conn = self.connection.clone();
         let window_start = (current_time / rule.window_seconds) * rule.window_seconds;
-        let full_key = format!("{}:{}", key, window_start);
+        let full_key = format!("{key}:{window_start}");
 
         // Use Redis MULTI/EXEC for atomic operations
         let (current_count,): (u32,) = redis::pipe()
@@ -128,6 +128,7 @@ impl RedisRateLimitStore {
 
 /// Rate limiting store trait for abstraction
 pub trait RateLimitStore: Send + Sync {
+    #[allow(dead_code)]
     async fn check_and_increment(
         &self,
         key: &str,
@@ -197,8 +198,8 @@ pub async fn rate_limit_middleware(
     };
 
     let identifier = match (rule.per_ip, rule.per_user, user_id) {
-        (_, true, Some(uid)) => format!("user:{}", uid), // Per-user takes precedence when authenticated
-        (true, _, _) => format!("ip:{}", client_ip),     // Per-IP when no user or per_user disabled
+        (_, true, Some(uid)) => format!("user:{uid}"), // Per-user takes precedence when authenticated
+        (true, _, _) => format!("ip:{client_ip}"),     // Per-IP when no user or per_user disabled
         _ => "global".to_string(),                       // Global rate limiting
     };
 

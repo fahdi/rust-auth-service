@@ -1,10 +1,10 @@
 #![allow(dead_code)]
 
+#[cfg(test)]
+use super::MigrationRecord;
 use super::{
     calculate_migration_plan, Migration, MigrationLoader, MigrationPlan, MigrationProvider,
 };
-#[cfg(test)]
-use super::MigrationRecord;
 use anyhow::{Context, Result};
 use std::sync::Arc;
 use std::time::Instant;
@@ -144,7 +144,7 @@ impl MigrationRunner {
         if !plan.conflicts.is_empty() {
             println!("\n⚠️  CONFLICTS DETECTED:");
             for conflict in &plan.conflicts {
-                println!("   {}", conflict);
+                println!("   {conflict}");
             }
         }
 

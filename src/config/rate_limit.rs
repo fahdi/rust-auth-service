@@ -115,7 +115,7 @@ pub struct RateLimitStatus {
 
 /// Rate limit key generation
 pub fn generate_rate_limit_key(category: &str, identifier: &str, window_start: u64) -> String {
-    format!("rate_limit:{}:{}:{}", category, identifier, window_start)
+    format!("rate_limit:{category}:{identifier}:{window_start}")
 }
 
 /// Endpoint category detection
