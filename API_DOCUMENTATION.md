@@ -1,224 +1,433 @@
 # API Documentation
 
-## 🚀 Interactive Swagger UI
+## 🔒 Ultra-Secure Authentication API
 
-The Rust Auth Service provides comprehensive interactive API documentation through Swagger UI.
-
-### Access Documentation
-
-**When the server is running:**
-- **Interactive Swagger UI**: http://localhost:8080/docs
-- **OpenAPI JSON Specification**: http://localhost:8080/api-docs/openapi.json
-
-### Features
-
-- **🔥 Real-time API Testing**: Test all endpoints directly from your browser
-- **📋 Complete Schema Documentation**: All request/response models with validation rules
-- **🔐 JWT Authentication Integration**: Built-in Bearer token authentication testing
-- **📊 Professional Documentation**: Production-ready API reference with examples
-- **🛠️ Client SDK Generation**: Download OpenAPI spec for automatic SDK generation
+**Security Notice**: This documentation is for our ultra-secure, zero-vulnerability MongoDB-only build. OpenAPI/Swagger UI was removed due to security vulnerabilities in dependencies.
 
 ## 📊 API Overview
 
-### Authentication Endpoints
-- `POST /auth/register` - User registration with email verification
-- `POST /auth/login` - JWT authentication with security analytics  
-- `POST /auth/verify` - Email verification with token validation
-- `POST /auth/forgot-password` - Password reset request
-- `POST /auth/reset-password` - Password reset with token
-- `POST /auth/refresh` - JWT token refresh with blacklist check
-- `GET /auth/me` - Get authenticated user profile (requires auth)
-- `PUT /auth/profile` - Update user profile information (requires auth)
-- `POST /auth/logout` - User logout with token blacklisting (requires auth)
+### Core Authentication Endpoints
 
-### System Endpoints
-- `GET /health` - Comprehensive health check with database status
-- `GET /ready` - Kubernetes readiness probe
-- `GET /live` - Kubernetes liveness probe
-- `GET /metrics` - Prometheus metrics endpoint
-- `GET /stats` - System statistics in JSON format
+#### User Registration
+```http
+POST /auth/register
+Content-Type: application/json
 
-### Documentation Endpoints
-- `GET /docs` - Interactive Swagger UI
-- `GET /api-docs/openapi.json` - OpenAPI 3.0.3 specification
+{
+  "email": "user@example.com",
+  "password": "SecurePassword123!",
+  "first_name": "John",
+  "last_name": "Doe"
+}
+```
+
+**Response (201 Created):**
+```json
+{
+  "user": {
+    "user_id": "user_12345",
+    "email": "user@example.com",
+    "first_name": "John",
+    "last_name": "Doe",
+    "role": "user",
+    "is_active": true,
+    "email_verified": false,
+    "created_at": "2025-01-17T10:30:00Z"
+  },
+  "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+  "refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+  "expires_in": 604800
+}
+```
+
+#### User Login
+```http
+POST /auth/login
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "SecurePassword123!"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "user": {
+    "user_id": "user_12345",
+    "email": "user@example.com",
+    "first_name": "John",
+    "last_name": "Doe",
+    "role": "user",
+    "is_active": true,
+    "email_verified": true,
+    "last_login": "2025-01-17T10:30:00Z"
+  },
+  "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+  "refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+  "expires_in": 604800
+}
+```
+
+#### Email Verification
+```http
+POST /auth/verify
+Content-Type: application/json
+
+{
+  "token": "verification_token_here"
+}
+```
+
+#### Password Reset Request
+```http
+POST /auth/forgot-password
+Content-Type: application/json
+
+{
+  "email": "user@example.com"
+}
+```
+
+#### Password Reset
+```http
+POST /auth/reset-password
+Content-Type: application/json
+
+{
+  "token": "reset_token_here",
+  "new_password": "NewSecurePassword123!"
+}
+```
+
+#### Token Refresh
+```http
+POST /auth/refresh
+Content-Type: application/json
+Authorization: Bearer <refresh_token>
+
+{
+  "refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
+}
+```
+
+### Protected Endpoints (Require Authentication)
+
+#### Get User Profile
+```http
+GET /auth/me
+Authorization: Bearer <access_token>
+```
+
+**Response:**
+```json
+{
+  "user_id": "user_12345",
+  "email": "user@example.com",
+  "first_name": "John",
+  "last_name": "Doe",
+  "role": "user",
+  "is_active": true,
+  "email_verified": true,
+  "last_login": "2025-01-17T10:30:00Z",
+  "created_at": "2025-01-17T09:00:00Z",
+  "updated_at": "2025-01-17T10:30:00Z"
+}
+```
+
+#### Update User Profile
+```http
+PUT /auth/profile
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{
+  "first_name": "Johnny",
+  "last_name": "Smith"
+}
+```
+
+#### Logout
+```http
+POST /auth/logout
+Authorization: Bearer <access_token>
+```
+
+### System & Monitoring Endpoints
+
+#### Health Check
+```http
+GET /health
+```
+
+**Response:**
+```json
+{
+  "status": "healthy",
+  "version": "0.1.0",
+  "environment": "production",
+  "database": {
+    "status": "connected",
+    "type": "mongodb",
+    "response_time_ms": 12
+  },
+  "cache": {
+    "status": "connected",
+    "type": "redis",
+    "response_time_ms": 3
+  },
+  "timestamp": "2025-01-17T10:30:00Z",
+  "uptime_seconds": 86400
+}
+```
+
+#### Readiness Probe
+```http
+GET /ready
+```
+
+#### Liveness Probe  
+```http
+GET /live
+```
+
+#### Prometheus Metrics
+```http
+GET /metrics
+```
+
+#### System Statistics
+```http
+GET /stats
+```
+
+**Response:**
+```json
+{
+  "server": {
+    "host": "0.0.0.0",
+    "port": 8080,
+    "version": "0.1.0"
+  },
+  "database": {
+    "type": "mongodb",
+    "status": "connected"
+  },
+  "cache": {
+    "type": "redis",
+    "status": "connected"
+  },
+  "security": {
+    "vulnerabilities": 0,
+    "build_type": "ultra-secure"
+  },
+  "performance": {
+    "avg_response_time_ms": 45,
+    "requests_per_second": 1200
+  }
+}
+```
 
 ## 🔐 Authentication
 
 ### JWT Bearer Token Authentication
 
-Most endpoints require authentication using JWT Bearer tokens:
+Protected endpoints require authentication via JWT Bearer tokens:
 
-```bash
-# Include the Authorization header with your requests
-Authorization: Bearer YOUR_JWT_TOKEN
+```http
+Authorization: Bearer <access_token>
 ```
 
-### Getting Started
+### Token Structure
 
-1. **Register a new user** or **login** to get JWT tokens
-2. **Copy the access_token** from the response
-3. **Use the "Authorize" button** in Swagger UI to set your Bearer token
-4. **Test protected endpoints** directly in the browser
+**Access Token Claims:**
+```json
+{
+  "sub": "user_12345",
+  "email": "user@example.com", 
+  "role": "user",
+  "exp": 1737201000,
+  "iat": 1737114600,
+  "jti": "token_uuid",
+  "token_type": "access"
+}
+```
 
-## 📝 Data Models
+**Refresh Token Claims:**
+```json
+{
+  "sub": "user_12345",
+  "email": "user@example.com",
+  "role": "user", 
+  "exp": 1739792600,
+  "iat": 1737114600,
+  "jti": "refresh_uuid",
+  "token_type": "refresh"
+}
+```
 
-All API data models are fully documented with:
-- **Field descriptions and validation rules**
-- **Required vs optional fields**
-- **Data types and formats**
-- **Example values**
+### Security Features
 
-### Core Models
-- `CreateUserRequest` - User registration data
-- `UpdateUserRequest` - User profile update data
-- `AuthResponse` - Authentication response with tokens
-- `UserResponse` - User profile information
-- `LoginRequest` - Login credentials
-- `RefreshTokenRequest` - Token refresh data
+- **Token Blacklisting**: Logout immediately invalidates tokens
+- **Configurable Expiration**: Default 7 days for access tokens
+- **Secure Claims**: All tokens include user context and type validation
+- **Rate Limiting**: Prevents brute force attacks
+- **bcrypt Hashing**: Secure password storage with configurable rounds
 
-## 🧪 Testing the API
+## 📋 Request/Response Models
 
-### Option 1: Swagger UI (Recommended)
-1. Start the server: `cargo run`
-2. Open: http://localhost:8080/docs
-3. Click "Authorize" and enter your Bearer token
-4. Test endpoints directly in the browser
+### User Registration Request
+```json
+{
+  "email": "string (email format, required)",
+  "password": "string (min 8 chars, required)",
+  "first_name": "string (2-50 chars, required)",
+  "last_name": "string (2-50 chars, required)",
+  "role": "string (optional, default: user)",
+  "metadata": "object (optional)"
+}
+```
 
-### Option 2: Command Line (curl)
+### User Update Request
+```json
+{
+  "email": "string (email format, optional)",
+  "first_name": "string (2-50 chars, optional)",
+  "last_name": "string (2-50 chars, optional)",
+  "role": "string (optional)",
+  "is_active": "boolean (optional)",
+  "metadata": "object (optional)"
+}
+```
+
+### Authentication Response
+```json
+{
+  "user": "UserResponse object",
+  "access_token": "string (JWT)",
+  "refresh_token": "string (JWT)",
+  "expires_in": "number (seconds)"
+}
+```
+
+## ⚠️ Error Responses
+
+### Standard Error Format
+```json
+{
+  "error": "error_code",
+  "message": "Human readable error message",
+  "details": "Additional error context (optional)"
+}
+```
+
+### Common HTTP Status Codes
+
+- **200 OK**: Successful request
+- **201 Created**: Resource created successfully
+- **400 Bad Request**: Invalid request data
+- **401 Unauthorized**: Missing or invalid authentication
+- **403 Forbidden**: Insufficient permissions
+- **404 Not Found**: Resource not found
+- **409 Conflict**: Resource already exists
+- **422 Unprocessable Entity**: Validation failed
+- **429 Too Many Requests**: Rate limit exceeded
+- **500 Internal Server Error**: Server error
+- **503 Service Unavailable**: Database/cache unavailable
+
+## 🧪 Testing Examples
+
+### Using curl
+
+#### Register a new user
 ```bash
-# Register a new user
 curl -X POST http://localhost:8080/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "email": "test@example.com",
-    "password": "SecurePass123!",
-    "first_name": "John",
-    "last_name": "Doe"
+    "password": "SecurePassword123!",
+    "first_name": "Test",
+    "last_name": "User"
   }'
+```
 
-# Login to get tokens
+#### Login
+```bash
 curl -X POST http://localhost:8080/auth/login \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "test@example.com",
-    "password": "SecurePass123!"
+    "email": "test@example.com", 
+    "password": "SecurePassword123!"
   }'
+```
 
-# Use protected endpoints
+#### Access protected endpoint
+```bash
 curl -X GET http://localhost:8080/auth/me \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+  -H "Authorization: Bearer <your_access_token>"
 ```
 
-### Option 3: Client SDK Generation
-
-Download the OpenAPI specification and generate client SDKs:
-
+#### Check health
 ```bash
-# Download OpenAPI spec
-curl http://localhost:8080/api-docs/openapi.json > openapi.json
-
-# Generate client SDK (example with OpenAPI Generator)
-openapi-generator generate -i openapi.json -g javascript -o ./client-sdk
+curl http://localhost:8080/health
 ```
 
-## 🔧 Development
+### Using httpie
 
-### Adding New Endpoints
-
-When adding new API endpoints, ensure proper documentation:
-
-1. **Add OpenAPI annotations** to handler functions:
-```rust
-#[utoipa::path(
-    post,
-    path = "/auth/new-endpoint",
-    tag = "authentication"
-)]
-pub async fn new_endpoint() {
-    // implementation
-}
-```
-
-2. **Add ToSchema derives** to data models:
-```rust
-#[derive(Serialize, Deserialize, ToSchema)]
-pub struct NewRequest {
-    // fields
-}
-```
-
-3. **Update OpenAPI configuration** in `main.rs`:
-```rust
-#[openapi(
-    paths(
-        // ... existing paths
-        handlers::new_endpoint,
-    ),
-    // ...
-)]
-```
-
-4. **Test documentation**:
+#### Register
 ```bash
-cargo test --test openapi_tests
-cargo run --bin generate_openapi
+http POST :8080/auth/register \
+  email=test@example.com \
+  password=SecurePassword123! \
+  first_name=Test \
+  last_name=User
 ```
 
-### Testing Documentation
-
-The API documentation includes comprehensive automated testing:
-
+#### Login
 ```bash
-# Run OpenAPI documentation tests
-cargo test --test openapi_tests
-
-# Generate OpenAPI specification for inspection
-cargo run --bin generate_openapi
+http POST :8080/auth/login \
+  email=test@example.com \
+  password=SecurePassword123!
 ```
 
-#### Test Coverage
-- **8 comprehensive test cases** validating documentation accuracy
-- **Schema validation** ensuring all models are properly documented  
-- **Endpoint coverage** verification for all API routes
-- **JSON serialization** testing for OpenAPI specification
-- **Contact and license** metadata validation
+## 🔒 Security Considerations
 
-## 📖 OpenAPI Specification
+### Environment Setup
+```bash
+# Required environment variables
+export DATABASE_URL="mongodb://localhost:27017/auth"
+export JWT_SECRET="your-256-bit-secret-key"
 
-### Specification Details
-- **Version**: OpenAPI 3.0.3
-- **Format**: JSON
-- **Security**: JWT Bearer token authentication
-- **Contact**: Comprehensive contact and licensing information
-- **Servers**: Development and production server configurations
+# Optional security settings
+export BCRYPT_ROUNDS=12
+export RATE_LIMIT_REQUESTS=100
+export RATE_LIMIT_WINDOW=60
+```
 
-### Client SDK Support
-The OpenAPI specification enables automatic client SDK generation for:
-- **JavaScript/TypeScript** (axios, fetch)
-- **Python** (requests, httpx)
-- **Java** (OkHttp, Retrofit)
-- **C#** (.NET HttpClient)
-- **Go** (net/http)
-- **Swift** (URLSession)
-- **And many more...**
+### Production Security
+- **Use strong JWT secrets** (256-bit minimum)
+- **Enable HTTPS** in production
+- **Configure rate limiting** appropriately
+- **Use secure MongoDB connection strings**
+- **Monitor security metrics** via Prometheus
+- **Regular security audits** with `cargo audit`
 
-## 🎯 Production Use
+## 📊 Monitoring
 
-### Benefits for Integration
-- **Reduced Integration Time**: Clear documentation and examples
-- **Automatic Client Generation**: SDKs for multiple programming languages
-- **Interactive Testing**: Developers can test APIs before integration
-- **Professional Documentation**: Production-ready API reference
-- **Standards Compliance**: OpenAPI 3.0.3 following industry best practices
+### Prometheus Metrics Available
+- Authentication request rates
+- Response time histograms  
+- Error rate counters
+- Database connection status
+- Cache hit/miss ratios
+- Security event counters
 
-### API Versioning
-The API documentation supports versioning through:
-- **Server configurations** for different environments
-- **Version-specific OpenAPI specs** for backward compatibility
-- **Clear migration guides** for API changes
+### Health Check Integration
+- **Kubernetes**: Use `/ready` and `/live` endpoints
+- **Load Balancers**: Use `/health` for backend health
+- **Monitoring**: Use `/metrics` for Prometheus scraping
 
-For production deployments, ensure you:
-1. **Configure proper server URLs** in the OpenAPI specification
-2. **Set up authentication** with production JWT secrets
-3. **Monitor API usage** through the metrics endpoints
-4. **Keep documentation updated** with any API changes
+---
+
+**🔒 Built for uncompromising security with zero vulnerabilities.**
