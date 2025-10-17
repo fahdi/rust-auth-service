@@ -4,7 +4,8 @@ use serde::{Deserialize, Serialize};
 
 pub mod mongodb;
 // pub mod mysql;  // Removed due to RSA vulnerability (RUSTSEC-2023-0071)
-// pub mod postgresql;  // Removed due to RSA vulnerability in sqlx dependency tree
+#[cfg(feature = "postgresql")]
+pub mod postgresql;
 
 use crate::config::database::DatabaseConfig;
 use crate::models::user::{LoginAttempt, User, UserError};
@@ -117,19 +118,29 @@ pub async fn create_database(config: &DatabaseConfig) -> Result<Box<dyn AuthData
             db.initialize().await?;
             Ok(Box::new(db))
         }
-        // PostgreSQL support removed due to RSA vulnerability in sqlx dependency tree
+        #[cfg(feature = "postgresql")]
+        "postgresql" => {
+            let db = postgresql::PostgresDatabase::new(&config.url, &config.pool).await?;
+            db.initialize().await?;
+            Ok(Box::new(db))
+        }
+        #[cfg(not(feature = "postgresql"))]
         "postgresql" => Err(anyhow::anyhow!(
-            "PostgreSQL support removed due to security vulnerability. Use 'mongodb' instead."
+            "PostgreSQL support not enabled. Compile with --features postgresql"
         )),
         // MySQL support removed due to RSA vulnerability (RUSTSEC-2023-0071)
         "mysql" => Err(anyhow::anyhow!(
             "MySQL support removed due to security vulnerability. Use 'mongodb' instead."
         )),
         _ => {
-            // Both PostgreSQL and MySQL removed due to security vulnerabilities
+            let mut available_types = vec!["mongodb"];
+            #[cfg(feature = "postgresql")]
+            available_types.push("postgresql");
+            
             Err(anyhow::anyhow!(
-                "Unsupported database type: {}. Available types: mongodb (PostgreSQL and MySQL removed due to security vulnerabilities)",
-                config.r#type
+                "Unsupported database type: {}. Available types: {}",
+                config.r#type,
+                available_types.join(", ")
             ))
         }
     }
@@ -139,5 +150,6 @@ pub async fn create_database(config: &DatabaseConfig) -> Result<Box<dyn AuthData
 // Note: These are currently unused but may be needed for migration tools
 #[allow(unused_imports)]
 pub use mongodb::create_database as create_mongo_database;
+#[cfg(feature = "postgresql")]
+pub use postgresql::create_pool as create_pg_pool;
 // MySQL pool creation removed due to security vulnerability
-// PostgreSQL pool creation removed due to security vulnerability
