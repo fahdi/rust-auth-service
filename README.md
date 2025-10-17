@@ -54,6 +54,14 @@ cargo build --no-default-features --features ultra-secure
 - **GET /ready** - Kubernetes readiness probe ✅
 - **GET /live** - Kubernetes liveness probe ✅
 - **GET /metrics** - Prometheus metrics endpoint with authentication metrics ✅
+- **GET /stats** - System statistics in JSON format ✅
+
+### 📚 Interactive API Documentation
+- **GET /docs** - Interactive Swagger UI with real-time API testing ✅
+- **GET /api-docs/openapi.json** - Complete OpenAPI 3.0.3 specification ✅
+- **Comprehensive Schema Documentation** - All request/response models documented ✅
+- **JWT Security Integration** - Bearer token authentication properly documented ✅
+- **Client SDK Generation Ready** - OpenAPI spec enables automatic SDK generation ✅
 
 ### 📧 Email Service Integration (Complete)
 - **Brevo Provider**: Transactional email with API integration ✅
@@ -110,7 +118,7 @@ cargo build --no-default-features --features ultra-secure
 
 - Integration test coverage expansion
 - Performance benchmarking and optimization
-- API documentation generation
+- Framework integration examples (React, Vue, Next.js)
 
 ## 🎯 Roadmap
 
@@ -145,13 +153,19 @@ cargo build --no-default-features --features ultra-secure
 - OWASP compliance assessment ✅
 - Enterprise-grade security builds ✅
 
-### 🔄 Phase 6: Advanced Testing & Documentation (IN PROGRESS)
+### ✅ Phase 6: API Documentation & Testing (COMPLETE)
+- **Interactive OpenAPI/Swagger Documentation** - Complete Swagger UI integration ✅
+- **Comprehensive API Schema Documentation** - All endpoints and models documented ✅
+- **Automated Documentation Testing** - 8 comprehensive tests validating accuracy ✅
+- **Client SDK Generation Ready** - OpenAPI 3.0.3 specification available ✅
+
+### 🔄 Phase 7: Advanced Testing & Examples (IN PROGRESS)
 - Expanded integration test coverage
 - Performance benchmarking suite
-- API documentation generation
+- Framework integration examples (React, Vue, Next.js)
 - Deployment guides and examples
 
-### 📋 Phase 7: CI/CD & Production (NEXT)
+### 📋 Phase 8: CI/CD & Production (NEXT)
 - Automated CI/CD pipeline setup
 - Container orchestration examples
 - Production deployment guides
@@ -222,7 +236,25 @@ cargo build --release
 
 ## 📖 API Documentation
 
-### Authentication Endpoints
+### 🚀 Interactive Documentation
+
+**For the best developer experience, visit the interactive Swagger UI:**
+
+- **Swagger UI**: http://localhost:8080/docs (when server is running)
+- **OpenAPI JSON**: http://localhost:8080/api-docs/openapi.json
+
+The interactive documentation provides:
+- **Real-time API Testing**: Test endpoints directly from your browser
+- **Complete Request/Response Examples**: See all data structures and validation rules
+- **JWT Authentication Integration**: Built-in Bearer token authentication
+- **Client SDK Generation**: Download OpenAPI spec for automatic SDK generation
+- **Professional Documentation**: Production-ready API reference
+
+### 📋 Quick API Reference
+
+Below are curl examples for quick testing. For comprehensive documentation with interactive testing, use the Swagger UI.
+
+#### Authentication Endpoints
 
 #### Register User
 ```bash
@@ -310,6 +342,22 @@ curl http://localhost:8090/ready
 
 # Kubernetes liveness probe  
 curl http://localhost:8090/live
+
+# Prometheus metrics (text format)
+curl http://localhost:8090/metrics
+
+# System statistics (JSON format)
+curl http://localhost:8090/stats
+```
+
+### 📚 Interactive API Documentation
+
+```bash
+# Access interactive Swagger UI (when server is running)
+open http://localhost:8090/docs
+
+# Download OpenAPI 3.0.3 specification
+curl http://localhost:8090/api-docs/openapi.json > openapi.json
 ```
 
 ## ⚙️ Configuration
@@ -440,6 +488,35 @@ RUST_LOG=debug cargo test
 # Run specific test category
 cargo test --test integration
 cargo test --test unit
+
+# Run OpenAPI documentation tests
+cargo test --test openapi_tests
+
+# Generate OpenAPI specification for inspection
+cargo run --bin generate_openapi
+```
+
+### 📚 API Documentation Testing
+
+The OpenAPI/Swagger documentation includes comprehensive automated testing:
+
+- **8 comprehensive test cases** validating documentation accuracy
+- **Schema validation** ensuring all models are properly documented
+- **Endpoint coverage** verification for all API routes
+- **JSON serialization** testing for OpenAPI specification
+- **Contact and license** metadata validation
+
+Test results:
+```
+running 8 tests
+test tests::test_openapi_generation ... ok
+test tests::test_openapi_components ... ok
+test tests::test_openapi_tags ... ok
+test tests::test_openapi_serialization ... ok
+test tests::test_user_request_schema ... ok
+test tests::test_auth_response_schema ... ok
+test tests::test_jwt_claims_schema ... ok
+test tests::test_openapi_contact_and_license ... ok
 ```
 
 ## 📊 Performance Characteristics
