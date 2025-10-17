@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Rust Auth Service</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            font-weight: 600;
+        }
+
+        .header .subtitle {
+            opacity: 0.9;
+            margin-top: 0.2rem;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .nav-tabs {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .nav-tabs button {
+            background: none;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            margin-right: 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .nav-tabs button:hover {
+            background-color: #f0f0f0;
+        }
+
+        .nav-tabs button.active {
+            background-color: #667eea;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-left: 4px solid #667eea;
+        }
+
+        .card h3 {
+            color: #667eea;
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+        }
+
+        .stat-card {
+            text-align: center;
+            border-left: 4px solid #4CAF50;
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #4CAF50;
+            margin: 0.5rem 0;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .table-container {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .badge {
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .badge.active {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .badge.inactive {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        .badge.verified {
+            background-color: #cce5ff;
+            color: #004085;
+        }
+
+        .badge.unverified {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+
+        .action-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            margin-right: 0.5rem;
+            transition: all 0.3s;
+        }
+
+        .action-btn:hover {
+            background: #5a67d8;
+        }
+
+        .action-btn.danger {
+            background: #e53e3e;
+        }
+
+        .action-btn.danger:hover {
+            background: #c53030;
+        }
+
+        .search-controls {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            align-items: center;
+        }
+
+        .search-input {
+            flex: 1;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.95rem;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+        }
+
+        .system-metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .metric-item {
+            background: white;
+            padding: 1rem;
+            border-radius: 6px;
+            text-align: center;
+            border-left: 3px solid #667eea;
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .metric-label {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 0.3rem;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 2rem;
+        }
+
+        .pagination button {
+            padding: 0.5rem 1rem;
+            border: 1px solid #ddd;
+            background: white;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .pagination button:hover {
+            background: #f0f0f0;
+        }
+
+        .pagination button.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🛡️ Rust Auth Service - Admin Dashboard</h1>
+        <div class="subtitle">Comprehensive user and system management</div>
+    </div>
+
+    <div class="container">
+        <div class="nav-tabs">
+            <button class="active" onclick="showTab('overview')">📊 Overview</button>
+            <button onclick="showTab('users')">👥 Users</button>
+            <button onclick="showTab('clients')">🔑 OAuth2 Clients</button>
+            <button onclick="showTab('security')">🔒 Security</button>
+            <button onclick="showTab('metrics')">📈 Metrics</button>
+        </div>
+
+        <!-- Overview Tab -->
+        <div id="overview" class="tab-content active">
+            <div class="dashboard-grid">
+                <div class="card stat-card">
+                    <div class="stat-number" id="total-users">-</div>
+                    <div class="stat-label">Total Users</div>
+                </div>
+                <div class="card stat-card">
+                    <div class="stat-number" id="active-users">-</div>
+                    <div class="stat-label">Active Users</div>
+                </div>
+                <div class="card stat-card">
+                    <div class="stat-number" id="auth-attempts">-</div>
+                    <div class="stat-label">Auth Attempts (24h)</div>
+                </div>
+                <div class="card stat-card">
+                    <div class="stat-number" id="success-rate">-</div>
+                    <div class="stat-label">Success Rate</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>🏥 System Health</h3>
+                <div id="system-health">
+                    <div class="loading">Loading system health...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Users Tab -->
+        <div id="users" class="tab-content">
+            <div class="card">
+                <div class="search-controls">
+                    <input type="text" class="search-input" placeholder="Search users by email or name..." id="user-search">
+                    <button class="action-btn" onclick="searchUsers()">🔍 Search</button>
+                    <button class="action-btn" onclick="exportUsers()">📥 Export</button>
+                </div>
+                
+                <div class="table-container">
+                    <table id="users-table">
+                        <thead>
+                            <tr>
+                                <th>User ID</th>
+                                <th>Email</th>
+                                <th>Name</th>
+                                <th>Role</th>
+                                <th>Status</th>
+                                <th>Verified</th>
+                                <th>Last Login</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-tbody">
+                            <tr><td colspan="8" class="loading">Loading users...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="pagination" id="users-pagination"></div>
+            </div>
+        </div>
+
+        <!-- OAuth2 Clients Tab -->
+        <div id="clients" class="tab-content">
+            <div class="card">
+                <h3>🔑 OAuth2 Client Management</h3>
+                <div class="table-container">
+                    <table id="clients-table">
+                        <thead>
+                            <tr>
+                                <th>Client ID</th>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th>Scopes</th>
+                                <th>Status</th>
+                                <th>Tokens Issued</th>
+                                <th>Last Used</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="clients-tbody">
+                            <tr><td colspan="8" class="loading">Loading clients...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Security Tab -->
+        <div id="security" class="tab-content">
+            <div class="card">
+                <h3>🔒 Security Events</h3>
+                <div class="table-container">
+                    <table id="security-table">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Event Type</th>
+                                <th>IP Address</th>
+                                <th>User ID</th>
+                                <th>Risk Level</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody id="security-tbody">
+                            <tr><td colspan="6" class="loading">Loading security events...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Metrics Tab -->
+        <div id="metrics" class="tab-content">
+            <div class="card">
+                <h3>📈 System Metrics</h3>
+                <div class="system-metrics" id="system-metrics">
+                    <div class="loading">Loading system metrics...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let authToken = '';
+        
+        // Tab functionality
+        function showTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Remove active class from all buttons
+            document.querySelectorAll('.nav-tabs button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+            
+            // Load data for the selected tab
+            loadTabData(tabName);
+        }
+
+        function loadTabData(tabName) {
+            switch(tabName) {
+                case 'overview':
+                    loadDashboardStats();
+                    break;
+                case 'users':
+                    loadUsers();
+                    break;
+                case 'clients':
+                    loadClients();
+                    break;
+                case 'security':
+                    loadSecurityEvents();
+                    break;
+                case 'metrics':
+                    loadSystemMetrics();
+                    break;
+            }
+        }
+
+        async function apiCall(endpoint, options = {}) {
+            const response = await fetch(`/admin/api${endpoint}`, {
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json',
+                    ...options.headers
+                },
+                ...options
+            });
+            
+            if (!response.ok) {
+                throw new Error(`API call failed: ${response.statusText}`);
+            }
+            
+            return response.json();
+        }
+
+        async function loadDashboardStats() {
+            try {
+                const stats = await apiCall('/stats');
+                
+                document.getElementById('total-users').textContent = stats.total_users.toLocaleString();
+                document.getElementById('active-users').textContent = stats.active_users.toLocaleString();
+                document.getElementById('auth-attempts').textContent = stats.auth_attempts_24h.toLocaleString();
+                document.getElementById('success-rate').textContent = stats.success_rate + '%';
+                
+                const healthHtml = `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                        <div class="metric-item">
+                            <div class="metric-value" style="color: ${stats.database_healthy ? '#4CAF50' : '#f44336'}">
+                                ${stats.database_healthy ? '✅' : '❌'}
+                            </div>
+                            <div class="metric-label">Database</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-value" style="color: ${stats.cache_healthy ? '#4CAF50' : '#f44336'}">
+                                ${stats.cache_healthy ? '✅' : '❌'}
+                            </div>
+                            <div class="metric-label">Cache</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-value">${stats.active_sessions}</div>
+                            <div class="metric-label">Active Sessions</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-value">${Math.floor(stats.uptime_seconds / 3600)}h</div>
+                            <div class="metric-label">Uptime</div>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('system-health').innerHTML = healthHtml;
+                
+            } catch (error) {
+                console.error('Failed to load dashboard stats:', error);
+                showError('Failed to load dashboard statistics');
+            }
+        }
+
+        async function loadUsers(page = 1) {
+            try {
+                const users = await apiCall(`/users?page=${page}&limit=20`);
+                
+                const tbody = document.getElementById('users-tbody');
+                tbody.innerHTML = users.items.map(user => `
+                    <tr>
+                        <td>${user.user_id}</td>
+                        <td>${user.email}</td>
+                        <td>${user.full_name}</td>
+                        <td>${user.role}</td>
+                        <td><span class="badge ${user.is_active ? 'active' : 'inactive'}">${user.is_active ? 'Active' : 'Inactive'}</span></td>
+                        <td><span class="badge ${user.email_verified ? 'verified' : 'unverified'}">${user.email_verified ? 'Verified' : 'Unverified'}</span></td>
+                        <td>${user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Never'}</td>
+                        <td>
+                            <button class="action-btn" onclick="userAction('${user.user_id}', 'activate')">Activate</button>
+                            <button class="action-btn danger" onclick="userAction('${user.user_id}', 'deactivate')">Deactivate</button>
+                        </td>
+                    </tr>
+                `).join('');
+                
+            } catch (error) {
+                console.error('Failed to load users:', error);
+                showError('Failed to load users');
+            }
+        }
+
+        async function loadClients() {
+            try {
+                const clients = await apiCall('/clients');
+                
+                const tbody = document.getElementById('clients-tbody');
+                tbody.innerHTML = clients.items.map(client => `
+                    <tr>
+                        <td>${client.client_id}</td>
+                        <td>${client.client_name}</td>
+                        <td>${client.client_type}</td>
+                        <td>${client.scopes.join(', ')}</td>
+                        <td><span class="badge ${client.is_active ? 'active' : 'inactive'}">${client.is_active ? 'Active' : 'Inactive'}</span></td>
+                        <td>${client.tokens_issued.toLocaleString()}</td>
+                        <td>${client.last_used ? new Date(client.last_used).toLocaleDateString() : 'Never'}</td>
+                        <td>
+                            <button class="action-btn">Edit</button>
+                            <button class="action-btn danger">Revoke</button>
+                        </td>
+                    </tr>
+                `).join('');
+                
+            } catch (error) {
+                console.error('Failed to load clients:', error);
+                showError('Failed to load OAuth2 clients');
+            }
+        }
+
+        async function loadSecurityEvents() {
+            try {
+                const events = await apiCall('/security/events');
+                
+                const tbody = document.getElementById('security-tbody');
+                tbody.innerHTML = events.items.map(event => `
+                    <tr>
+                        <td>${new Date(event.timestamp).toLocaleString()}</td>
+                        <td>${event.event_type}</td>
+                        <td>${event.ip_address}</td>
+                        <td>${event.user_id || 'N/A'}</td>
+                        <td><span class="badge ${event.risk_level}">${event.risk_level}</span></td>
+                        <td>${event.description}</td>
+                    </tr>
+                `).join('');
+                
+            } catch (error) {
+                console.error('Failed to load security events:', error);
+                showError('Failed to load security events');
+            }
+        }
+
+        async function loadSystemMetrics() {
+            try {
+                const metrics = await apiCall('/metrics');
+                
+                const metricsHtml = `
+                    <div class="metric-item">
+                        <div class="metric-value">${metrics.cpu_usage}%</div>
+                        <div class="metric-label">CPU Usage</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-value">${metrics.memory_usage_percent}%</div>
+                        <div class="metric-label">Memory Usage</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-value">${metrics.requests_per_minute}</div>
+                        <div class="metric-label">Requests/Min</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-value">${metrics.avg_response_time_ms}ms</div>
+                        <div class="metric-label">Avg Response Time</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-value">${metrics.error_rate_percent}%</div>
+                        <div class="metric-label">Error Rate</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-value">${metrics.cache_hit_rate_percent}%</div>
+                        <div class="metric-label">Cache Hit Rate</div>
+                    </div>
+                `;
+                document.getElementById('system-metrics').innerHTML = metricsHtml;
+                
+            } catch (error) {
+                console.error('Failed to load system metrics:', error);
+                showError('Failed to load system metrics');
+            }
+        }
+
+        async function userAction(userId, action) {
+            try {
+                const result = await apiCall(`/users/${userId}/action`, {
+                    method: 'POST',
+                    body: JSON.stringify({ action, user_id: userId })
+                });
+                
+                if (result.success) {
+                    alert(result.message);
+                    loadUsers(); // Reload the users table
+                } else {
+                    alert('Action failed: ' + result.message);
+                }
+                
+            } catch (error) {
+                console.error('User action failed:', error);
+                alert('Action failed: ' + error.message);
+            }
+        }
+
+        function showError(message) {
+            // Simple error display - in a real app you'd want something nicer
+            console.error(message);
+        }
+
+        // Initialize the dashboard
+        window.onload = function() {
+            // In a real app, you'd get the auth token from login
+            // For demo purposes, we'll simulate having a token
+            authToken = 'demo-admin-token';
+            
+            // Load initial data
+            loadDashboardStats();
+        };
+    </script>
+</body>
+</html>

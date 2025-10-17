@@ -1,5 +1,6 @@
 use anyhow::Result;
 use axum::{
+    extract::State,
     middleware::from_fn_with_state,
     routing::{delete, get, post, put},
     Router,
@@ -9,18 +10,22 @@ use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use observability::{LoggingConfig, TracingConfig, MetricsConfig, AppMetrics};
 use utoipa::{
     openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme},
     Modify, OpenApi, ToSchema,
 };
 use utoipa_swagger_ui::SwaggerUi;
 
+mod admin;
 mod config;
 mod errors;
 mod handlers;
 mod metrics;
+mod mfa;
 mod models;
 mod oauth2;
+mod observability;
 // mod services;
 mod cache;
 mod database;
@@ -29,15 +34,23 @@ mod middleware;
 mod migrations;
 mod utils;
 
+// For now, avoid library re-exports to fix compilation
 use cache::CacheService;
 use config::Config;
-use database::AuthDatabase;
 use oauth2::server::OAuth2Server;
 use oauth2::tokens::TokenManager;
 use oauth2::{OAuth2Config, OAuth2Service};
 
-// Re-export AppState for handlers to use
-pub use rust_auth_service::AppState;
+// Application state for this binary
+#[derive(Clone)]
+pub struct AppState {
+    pub config: Arc<Config>,
+    pub database: Arc<dyn database::AuthDatabase>,
+    pub cache: Arc<CacheService>,
+    pub oauth2_server: Arc<OAuth2Server>,
+    pub token_manager: Arc<TokenManager>,
+    pub metrics: Arc<AppMetrics>,
+}
 
 // OpenAPI documentation configuration
 #[derive(OpenApi)]
@@ -57,6 +70,16 @@ pub use rust_auth_service::AppState;
         handlers::logout,
         handlers::metrics_handler,
         handlers::stats_handler,
+        admin::admin_dashboard,
+        admin::get_dashboard_stats,
+        admin::get_system_metrics,
+        admin::list_users,
+        admin::get_user_details,
+        admin::admin_user_action,
+        admin::list_oauth2_clients,
+        admin::list_security_events,
+        admin::export_users,
+        admin::search_users,
     ),
     components(
         schemas(
@@ -72,13 +95,22 @@ pub use rust_auth_service::AppState;
             handlers::auth::LoginRequest,
             handlers::auth::RefreshTokenRequest,
             utils::jwt::Claims,
+            admin::DashboardStats,
+            admin::UserManagement,
+            admin::ClientManagement,
+            admin::SystemMetrics,
+            admin::SecurityEvent,
+            admin::AdminActionRequest,
+            admin::AdminActionResponse,
+            admin::PaginationParams,
         )
     ),
     tags(
         (name = "authentication", description = "User authentication and authorization"),
         (name = "users", description = "User profile management"),
         (name = "health", description = "Service health and monitoring"),
-        (name = "system", description = "System metrics and statistics")
+        (name = "system", description = "System metrics and statistics"),
+        (name = "admin", description = "Administrative dashboard and user management")
     ),
     info(
         title = "Rust Auth Service API",
@@ -121,18 +153,48 @@ impl Modify for SecurityAddon {
     }
 }
 
+/// Handler for Prometheus metrics endpoint
+async fn observability_metrics_handler(
+    State(state): State<AppState>,
+) -> Result<String, (axum::http::StatusCode, String)> {
+    match state.metrics.gather() {
+        Ok(metrics) => Ok(metrics),
+        Err(e) => {
+            error!("Failed to gather metrics: {}", e);
+            Err((
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to gather metrics".to_string(),
+            ))
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Initialize tracing
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "rust_auth_service=debug,tower_http=debug".into()),
-        )
-        .with(tracing_subscriber::fmt::layer())
-        .init();
+    // Initialize comprehensive observability
+    let logging_config = LoggingConfig::default();
+    let tracing_config = TracingConfig::default();
+    let metrics_config = MetricsConfig::default();
 
-    info!("Starting Rust Auth Service...");
+    // Initialize structured logging
+    observability::init_logging(&logging_config)?;
+    info!("Structured logging initialized");
+
+    // Initialize distributed tracing if enabled
+    if tracing_config.enabled {
+        observability::init_tracing(&tracing_config).await?;
+        info!("Distributed tracing initialized");
+    }
+
+    // Initialize metrics collection
+    let app_metrics = Arc::new(AppMetrics::new()?);
+    info!("Metrics collection initialized");
+
+    info!(
+        service = "rust-auth-service",
+        version = env!("CARGO_PKG_VERSION"),
+        "Starting Rust Auth Service with comprehensive observability"
+    );
 
     // Load configuration
     let config = Config::from_env_and_file()?;
@@ -144,7 +206,7 @@ async fn main() -> Result<()> {
         info!("Prometheus metrics initialized");
     }
 
-    // Initialize database
+    // Initialize database using local function
     let database = database::create_database(&config.database).await?;
     info!("Database connection established");
 
@@ -165,7 +227,7 @@ async fn main() -> Result<()> {
 
     let token_manager = TokenManager::new(oauth2_config.clone(), jwt_key, None)?;
 
-    // Create OAuth2Service from database
+    // Create OAuth2Service from database (using local trait)
     let oauth2_service: Arc<dyn oauth2::OAuth2Service> = match config.database.r#type.as_str() {
         "mongodb" => {
             // Create a new MongoDB connection specifically for OAuth2Service
@@ -204,13 +266,20 @@ async fn main() -> Result<()> {
         }
     }
 
-    // Build application state
+    // Start system metrics collection background task
+    let metrics_clone = app_metrics.clone();
+    tokio::spawn(async move {
+        observability::start_system_metrics_collector(metrics_clone, metrics_config.collection_interval_secs).await;
+    });
+
+    // Build application state using local types
     let app_state = AppState {
         config: Arc::new(config.clone()),
-        database: Arc::from(database),
+        database: Arc::from(database), // Convert Box<dyn AuthDatabase> to Arc<dyn AuthDatabase>
         cache: Arc::new(cache_service),
         oauth2_server: Arc::new(oauth2_server),
         token_manager: Arc::new(token_manager),
+        metrics: app_metrics,
     };
 
     // Build public routes (no authentication required)
@@ -218,7 +287,7 @@ async fn main() -> Result<()> {
         .route("/health", get(handlers::health_check))
         .route("/ready", get(handlers::ready_check))
         .route("/live", get(handlers::liveness_check))
-        .route("/metrics", get(handlers::metrics_handler))
+        .route("/metrics", get(observability_metrics_handler))
         .route("/stats", get(handlers::stats_handler))
         .route("/auth/register", post(handlers::register))
         .route("/auth/login", post(handlers::login))
@@ -290,6 +359,25 @@ async fn main() -> Result<()> {
             middleware::jwt_auth_middleware,
         ));
 
+    // Build admin routes (admin authentication required)
+    let admin_routes = Router::new()
+        // Admin dashboard HTML page
+        .route("/admin", get(admin::admin_dashboard))
+        // Admin API endpoints
+        .route("/admin/api/stats", get(admin::get_dashboard_stats))
+        .route("/admin/api/metrics", get(admin::get_system_metrics))
+        .route("/admin/api/users", get(admin::list_users))
+        .route("/admin/api/users/search", get(admin::search_users))
+        .route("/admin/api/users/export", get(admin::export_users))
+        .route("/admin/api/users/:user_id", get(admin::get_user_details))
+        .route("/admin/api/users/:user_id/action", post(admin::admin_user_action))
+        .route("/admin/api/clients", get(admin::list_oauth2_clients))
+        .route("/admin/api/security/events", get(admin::list_security_events))
+        .route_layer(from_fn_with_state(
+            app_state.clone(),
+            middleware::jwt_auth_middleware,
+        ));
+
     // Add Swagger UI documentation routes
     let docs_routes = Router::new()
         .merge(SwaggerUi::new("/docs").url("/api-docs/openapi.json", ApiDoc::openapi()))
@@ -300,6 +388,7 @@ async fn main() -> Result<()> {
         .merge(public_routes)
         .merge(oauth2_routes)
         .merge(protected_routes)
+        .merge(admin_routes)
         .merge(docs_routes)
         .with_state(app_state.clone())
         .layer(from_fn_with_state(

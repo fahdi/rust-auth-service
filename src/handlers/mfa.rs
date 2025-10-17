@@ -9,7 +9,7 @@ use serde_json::Value;
 use crate::errors::AppError;
 use crate::models::user::User;
 use crate::utils::response::ApiResponse;
-use crate::AppState;
+use super::super::AppState;
 use crate::mfa::MfaType;
 
 /// MFA setup request
