@@ -5,9 +5,14 @@ print('=== Initializing MongoDB for Rust Auth Service ===');
 db = db.getSiblingDB('auth_service');
 
 // Create application user with read/write access
+// NOTE: In production, use environment variables for credentials
+// This script is for development setup only
+const appPassword = process.env.MONGO_APP_PASSWORD || 'CHANGE_ME_IN_PRODUCTION';
+print('Creating user with password from environment variable or default (change in production)');
+
 db.createUser({
   user: 'auth_app_user',
-  pwd: 'auth_app_password',
+  pwd: appPassword,
   roles: [
     {
       role: 'readWrite',
