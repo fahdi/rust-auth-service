@@ -1,10 +1,10 @@
-name: Quick Checks
+name: Basic CI
 
 on:
   push:
-    branches: [ milestone-4-advanced-auth ]
+    branches: [ main, develop, milestone-4-advanced-auth ]
   pull_request:
-    branches: [ main, milestone-4-advanced-auth ]
+    branches: [ main, develop, milestone-4-advanced-auth ]
 
 env:
   CARGO_TERM_COLOR: always
@@ -12,7 +12,7 @@ env:
 
 jobs:
   basic-checks:
-    name: Basic Compilation Check
+    name: Essential Checks
     runs-on: ubuntu-latest
     
     steps:
@@ -21,6 +21,8 @@ jobs:
       
     - name: Install Rust toolchain
       uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
       
     - name: Cache cargo registry
       uses: actions/cache@v4
@@ -37,5 +39,12 @@ jobs:
     - name: Basic compilation check
       run: cargo check
       
-    - name: Check compilation only
+    - name: Check all targets compilation
       run: cargo check --all-targets
+      
+    - name: Run unit tests (lib only, no integration)
+      run: cargo test --lib
+      
+    - name: Run clippy (allow warnings for now)
+      run: cargo clippy --all-targets -- -D warnings
+      continue-on-error: true
