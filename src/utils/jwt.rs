@@ -3,13 +3,12 @@ use chrono::{Duration, Utc};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use utoipa::ToSchema;
 use uuid::Uuid;
 
 // Re-export Claims as JwtClaims for compatibility
 pub use Claims as JwtClaims;
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Claims {
     pub sub: String,        // Subject (user ID)
     pub email: String,      // User email

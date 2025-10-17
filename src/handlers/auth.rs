@@ -2,7 +2,6 @@ use axum::{extract::State, http::StatusCode, response::Json, Extension};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use tracing::{debug, error, info, warn};
-use utoipa::ToSchema;
 use uuid::Uuid;
 use validator::Validate;
 
@@ -20,7 +19,7 @@ use crate::{
     },
 };
 
-#[derive(Debug, Deserialize, Validate, ToSchema)]
+#[derive(Debug, Deserialize, Validate)]
 pub struct LoginRequest {
     #[validate(email(message = "Invalid email format"))]
     pub email: String,
@@ -29,13 +28,12 @@ pub struct LoginRequest {
     pub password: String,
 }
 
-#[derive(Debug, Deserialize, ToSchema)]
+#[derive(Debug, Deserialize)]
 pub struct RefreshTokenRequest {
     pub refresh_token: String,
 }
 
 // Registration endpoint
-#[utoipa::path(post, path = "/auth/register", tag = "authentication")]
 pub async fn register(
     State(state): State<AppState>,
     Json(payload): Json<CreateUserRequest>,
@@ -129,7 +127,6 @@ pub async fn register(
 }
 
 // Login endpoint
-#[utoipa::path(post, path = "/auth/login", tag = "authentication")]
 pub async fn login(
     State(state): State<AppState>,
     Json(payload): Json<LoginRequest>,
@@ -232,7 +229,6 @@ pub async fn login(
 }
 
 // Email verification endpoint
-#[utoipa::path(post, path = "/auth/verify", tag = "authentication")]
 pub async fn verify_email(
     State(state): State<AppState>,
     Json(payload): Json<EmailVerificationRequest>,
@@ -290,7 +286,6 @@ pub async fn verify_email(
 }
 
 // Password reset request endpoint
-#[utoipa::path(post, path = "/auth/forgot-password", tag = "authentication")]
 pub async fn forgot_password(
     State(state): State<AppState>,
     Json(payload): Json<PasswordResetRequest>,
@@ -341,7 +336,6 @@ pub async fn forgot_password(
 }
 
 // Password reset endpoint
-#[utoipa::path(post, path = "/auth/reset-password", tag = "authentication")]
 pub async fn reset_password(
     State(state): State<AppState>,
     Json(payload): Json<PasswordChangeRequest>,
@@ -412,7 +406,6 @@ pub async fn reset_password(
 }
 
 // Refresh token endpoint
-#[utoipa::path(post, path = "/auth/refresh", tag = "authentication")]
 pub async fn refresh_token(
     State(state): State<AppState>,
     Json(payload): Json<RefreshTokenRequest>,
@@ -485,7 +478,6 @@ pub async fn refresh_token(
 }
 
 // Get current user profile
-#[utoipa::path(get, path = "/auth/me", tag = "users")]
 pub async fn get_profile(
     State(state): State<AppState>,
     Extension(claims): Extension<JwtClaims>,
@@ -534,7 +526,6 @@ pub async fn get_profile(
 }
 
 // Update user profile
-#[utoipa::path(put, path = "/auth/profile", tag = "users")]
 pub async fn update_profile(
     State(state): State<AppState>,
     Extension(claims): Extension<JwtClaims>,
@@ -604,7 +595,6 @@ pub async fn update_profile(
 }
 
 // Logout endpoint
-#[utoipa::path(post, path = "/auth/logout", tag = "authentication")]
 pub async fn logout(
     State(state): State<AppState>,
     Extension(claims): Extension<JwtClaims>,

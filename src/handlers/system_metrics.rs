@@ -14,7 +14,6 @@ use crate::AppState;
 ///
 /// Provides system statistics in JSON format for debugging and development.
 /// This is separate from the Prometheus metrics endpoint.
-#[utoipa::path(get, path = "/stats", tag = "system")]
 pub async fn stats_handler(State(state): State<AppState>) -> impl IntoResponse {
     debug!("Serving system stats");
 

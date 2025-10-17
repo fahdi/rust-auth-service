@@ -1,6 +1,5 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
 use uuid::Uuid;
 use validator::Validate;
 
@@ -30,7 +29,7 @@ pub struct User {
 }
 
 /// User roles for role-based access control
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 #[derive(Default)]
 pub enum UserRole {
@@ -67,7 +66,7 @@ impl std::str::FromStr for UserRole {
 }
 
 /// Additional metadata for user tracking and analytics
-#[derive(Debug, Clone, Serialize, Deserialize, Default, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct UserMetadata {
     pub ip_address: Option<String>,
     pub user_agent: Option<String>,
@@ -78,7 +77,7 @@ pub struct UserMetadata {
 }
 
 /// Request DTO for creating a new user
-#[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct CreateUserRequest {
     #[validate(email(message = "Invalid email format"))]
     pub email: String,
@@ -105,7 +104,7 @@ pub struct CreateUserRequest {
 }
 
 /// Request DTO for updating user information
-#[derive(Debug, Clone, Serialize, Deserialize, Validate, Default, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, Default)]
 pub struct UpdateUserRequest {
     #[validate(email(message = "Invalid email format"))]
     pub email: Option<String>,
@@ -130,14 +129,14 @@ pub struct UpdateUserRequest {
 }
 
 /// Request DTO for password reset
-#[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct PasswordResetRequest {
     #[validate(email(message = "Invalid email format"))]
     pub email: String,
 }
 
 /// Request DTO for changing password with reset token
-#[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct PasswordChangeRequest {
     pub token: String,
 
@@ -146,14 +145,14 @@ pub struct PasswordChangeRequest {
 }
 
 /// Request DTO for email verification
-#[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct EmailVerificationRequest {
     #[validate(length(min = 1, message = "Verification token is required"))]
     pub token: String,
 }
 
 /// Response DTO for user information (excludes sensitive data)
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserResponse {
     pub user_id: String,
     pub email: String,
@@ -168,7 +167,7 @@ pub struct UserResponse {
 }
 
 /// Response DTO for authentication with tokens
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthResponse {
     pub user: UserResponse,
     pub access_token: String,

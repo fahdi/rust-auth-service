@@ -5,16 +5,12 @@ use axum::{
     routing::{get, post, put},
     Router,
 };
-use observability::{AppMetrics, LoggingConfig, MetricsConfig, TracingConfig};
+use observability::AppMetrics;
 use std::sync::Arc;
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 use tracing::{error, info};
-use utoipa::{
-    openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme},
-    Modify, OpenApi,
-};
-use utoipa_swagger_ui::SwaggerUi;
+// OpenAPI/Swagger removed due to unmaintained dependencies (RUSTSEC-2024-0370)
 
 mod admin;
 mod config;
@@ -46,106 +42,7 @@ pub struct AppState {
     pub metrics: Arc<AppMetrics>,
 }
 
-// OpenAPI documentation configuration
-#[derive(OpenApi)]
-#[openapi(
-    paths(
-        handlers::health_check,
-        handlers::ready_check,
-        handlers::liveness_check,
-        handlers::register,
-        handlers::login,
-        handlers::verify_email,
-        handlers::forgot_password,
-        handlers::reset_password,
-        handlers::refresh_token,
-        handlers::get_profile,
-        handlers::update_profile,
-        handlers::logout,
-        // handlers::metrics_handler,  // Removed unused handler
-        handlers::stats_handler,
-        admin::admin_dashboard,
-        admin::get_dashboard_stats,
-        admin::get_system_metrics,
-        admin::list_users,
-        admin::get_user_details,
-        admin::admin_user_action,
-        admin::list_oauth2_clients,
-        admin::list_security_events,
-        admin::export_users,
-        admin::search_users,
-    ),
-    components(
-        schemas(
-            models::user::CreateUserRequest,
-            models::user::UpdateUserRequest,
-            models::user::PasswordResetRequest,
-            models::user::PasswordChangeRequest,
-            models::user::EmailVerificationRequest,
-            models::user::UserResponse,
-            models::user::AuthResponse,
-            models::user::UserRole,
-            models::user::UserMetadata,
-            handlers::auth::LoginRequest,
-            handlers::auth::RefreshTokenRequest,
-            utils::jwt::Claims,
-            admin::DashboardStats,
-            admin::UserManagement,
-            admin::ClientManagement,
-            admin::SystemMetrics,
-            admin::SecurityEvent,
-            admin::AdminActionRequest,
-            admin::AdminActionResponse,
-            admin::PaginationParams,
-        )
-    ),
-    tags(
-        (name = "authentication", description = "User authentication and authorization"),
-        (name = "users", description = "User profile management"),
-        (name = "health", description = "Service health and monitoring"),
-        (name = "system", description = "System metrics and statistics"),
-        (name = "admin", description = "Administrative dashboard and user management")
-    ),
-    info(
-        title = "Rust Auth Service API",
-        version = "0.1.0",
-        description = "270x faster authentication service - production-ready out of the box",
-        contact(
-            name = "Rust Auth Service",
-            url = "https://github.com/your-org/rust-auth-service",
-            email = "your.email@example.com"
-        ),
-        license(
-            name = "MIT",
-            url = "https://opensource.org/licenses/MIT"
-        )
-    ),
-    modifiers(&SecurityAddon),
-    servers(
-        (url = "http://localhost:8080", description = "Local development server"),
-        (url = "https://api.example.com", description = "Production server")
-    )
-)]
-pub struct ApiDoc;
-
-struct SecurityAddon;
-
-impl Modify for SecurityAddon {
-    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
-        if let Some(components) = openapi.components.as_mut() {
-            components.add_security_scheme(
-                "Bearer",
-                SecurityScheme::Http(
-                    HttpBuilder::new()
-                        .scheme(HttpAuthScheme::Bearer)
-                        .bearer_format("JWT")
-                        .description(Some("Enter JWT token"))
-                        .build(),
-                ),
-            )
-        }
-    }
-}
+// OpenAPI documentation configuration removed due to security vulnerabilities
 
 /// Handler for Prometheus metrics endpoint
 async fn observability_metrics_handler(
@@ -318,13 +215,7 @@ async fn main() -> Result<()> {
             middleware::jwt_auth_middleware,
         ));
 
-    // Add Swagger UI documentation routes
-    let docs_routes = Router::new()
-        .merge(SwaggerUi::new("/docs").url("/api-docs/openapi.json", ApiDoc::openapi()))
-        .route(
-            "/api-docs/openapi.json",
-            get(|| async { axum::Json(ApiDoc::openapi()) }),
-        );
+    // Swagger UI documentation routes removed due to security vulnerabilities
 
     // Combine all routes
     let app = Router::new()
@@ -332,7 +223,7 @@ async fn main() -> Result<()> {
         // .merge(oauth2_routes)  // Disabled until OAuth2 module is integrated
         .merge(protected_routes)
         .merge(admin_routes)
-        .merge(docs_routes)
+        // .merge(docs_routes)  // Removed due to security vulnerabilities
         .with_state(app_state.clone())
         .layer(from_fn_with_state(
             app_state.clone(),

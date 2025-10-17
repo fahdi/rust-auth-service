@@ -1,8 +1,7 @@
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
 
 /// Admin dashboard statistics
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DashboardStats {
     /// Total number of registered users
     pub total_users: u64,
@@ -27,7 +26,7 @@ pub struct DashboardStats {
 }
 
 /// User management data for admin dashboard
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserManagement {
     /// User ID
     pub user_id: String,
@@ -52,7 +51,7 @@ pub struct UserManagement {
 }
 
 /// OAuth2 client management data
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClientManagement {
     /// Client ID
     pub client_id: String,
@@ -75,7 +74,7 @@ pub struct ClientManagement {
 }
 
 /// System metrics for monitoring
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SystemMetrics {
     /// CPU usage percentage
     pub cpu_usage: f64,
@@ -98,7 +97,7 @@ pub struct SystemMetrics {
 }
 
 /// Security events for admin monitoring
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecurityEvent {
     /// Event ID
     pub event_id: String,
@@ -121,7 +120,7 @@ pub struct SecurityEvent {
 }
 
 /// Admin action request for user management
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AdminActionRequest {
     /// Action type (activate, deactivate, verify_email, reset_password, change_role, etc.)
     pub action: String,
@@ -134,7 +133,7 @@ pub struct AdminActionRequest {
 }
 
 /// Response for admin actions
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AdminActionResponse {
     /// Success status
     pub success: bool,
@@ -145,7 +144,7 @@ pub struct AdminActionResponse {
 }
 
 /// Pagination parameters for admin lists
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PaginationParams {
     /// Page number (starting from 1)
     pub page: Option<u32>,
@@ -162,7 +161,7 @@ pub struct PaginationParams {
 }
 
 /// Paginated response for admin lists
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PaginatedResponse<T> {
     /// Items in current page
     pub items: Vec<T>,
