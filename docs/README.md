@@ -3,7 +3,7 @@
 **Ultra-secure, zero-vulnerability authentication microservice built with Rust and Axum.**
 
 [![Security](https://img.shields.io/badge/security-zero%20vulnerabilities-brightgreen)](https://github.com/RustSec/advisory-db)
-[![Tests](https://img.shields.io/badge/tests-74%20passing-brightgreen)](#testing)
+[![Tests](https://img.shields.io/badge/tests-79%20passing-brightgreen)](#testing)
 [![Database](https://img.shields.io/badge/database-MongoDB%20only-blue)](#security-first-approach)
 
 ## 🔒 Security-First Approach
@@ -42,6 +42,15 @@ This service prioritizes **uncompromising security**:
 - **CORS protection**
 - **Request tracing** and structured logging
 
+### Email Service (NEW)
+- **Multi-provider support** - Brevo, SendGrid, SMTP
+- **Professional HTML templates** with CSS styling
+- **Email verification** for user registration
+- **Password reset emails** with secure tokens
+- **Provider health checks** for monitoring
+- **Template engine** with placeholder substitution
+- **Comprehensive error handling** and logging
+
 ### Database & Caching
 - **MongoDB** - Primary database (ultra-secure)
 - **Redis caching** with intelligent fallback
@@ -79,6 +88,14 @@ REDIS_URL=redis://localhost:6379
 SERVER_HOST=0.0.0.0
 SERVER_PORT=8080
 RUST_LOG=info
+
+# Email service (NEW)
+EMAIL_PROVIDER=brevo  # or sendgrid, smtp
+BREVO_API_KEY=your-brevo-api-key
+SENDGRID_API_KEY=your-sendgrid-api-key
+SMTP_HOST=smtp.gmail.com
+SMTP_USERNAME=your-email@gmail.com
+SMTP_PASSWORD=your-app-password
 ```
 
 ### Configuration File (config.yml)
@@ -99,11 +116,31 @@ auth:
 cache:
   redis:
     url: "redis://localhost:6379"
+
+# Email service configuration (NEW)
+email:
+  provider: "brevo"  # or "sendgrid" or "smtp"
+  brevo:
+    api_key: "your-brevo-api-key"
+    from_email: "noreply@yourapp.com"
+  sendgrid:
+    api_key: "your-sendgrid-api-key"
+    from_email: "noreply@yourapp.com"
+  smtp:
+    host: "smtp.gmail.com"
+    port: 587
+    username: "your-email@gmail.com"
+    password: "your-app-password"
+    use_tls: true
+    from_email: "noreply@yourapp.com"
+  templates:
+    verification: "templates/verification.html"  # optional
+    password_reset: "templates/reset.html"      # optional
 ```
 
 ## 🧪 Testing
 
-**74 tests passing, 0 failures:**
+**79 tests passing, 0 failures:**
 ```bash
 # Run all working tests
 cargo test --lib
