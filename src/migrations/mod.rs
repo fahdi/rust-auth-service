@@ -10,7 +10,8 @@ use tracing::{info, warn};
 
 pub mod mongodb;
 // pub mod mysql;  // Removed due to RSA vulnerability (RUSTSEC-2023-0071)
-// pub mod postgresql;  // Removed due to RSA vulnerability in sqlx dependency tree
+#[cfg(feature = "postgresql")]
+pub mod postgresql;
 pub mod runner;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
