@@ -84,8 +84,10 @@ pub async fn register(
         Ok(created_user) => {
             info!("User registered successfully: {}", created_user.email);
 
-            // TODO: Send verification email
-            // state.email_service.send_verification_email(&created_user, &verification_token).await;
+            // Send verification email
+            if let Err(e) = state.email.send_verification_email(&created_user, &verification_token).await {
+                error!("Failed to send verification email: {}", e);
+            }
 
             // Generate JWT token
             let access_token = generate_token(
@@ -325,8 +327,10 @@ pub async fn forgot_password(
         return Err(StatusCode::INTERNAL_SERVER_ERROR);
     }
 
-    // TODO: Send password reset email
-    // state.email_service.send_password_reset_email(&user, &reset_token).await;
+    // Send password reset email
+    if let Err(e) = state.email.send_password_reset_email(&user, &reset_token).await {
+        error!("Failed to send password reset email: {}", e);
+    }
 
     info!("Password reset requested for: {}", user.email);
 

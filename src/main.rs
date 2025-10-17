@@ -24,7 +24,7 @@ mod observability;
 // mod services;
 mod cache;
 mod database;
-// mod email;
+mod email;
 mod middleware;
 mod migrations;
 mod utils;
@@ -32,6 +32,7 @@ mod utils;
 // For now, avoid library re-exports to fix compilation
 use cache::CacheService;
 use config::Config;
+use email::EmailService;
 
 // Application state for this binary
 #[derive(Clone)]
@@ -39,6 +40,7 @@ pub struct AppState {
     pub config: Arc<Config>,
     pub database: Arc<dyn database::AuthDatabase>,
     pub cache: Arc<CacheService>,
+    pub email: Arc<EmailService>,
     pub metrics: Arc<AppMetrics>,
 }
 
@@ -99,6 +101,10 @@ async fn main() -> Result<()> {
     let cache_service = CacheService::new(cache_provider, config.cache.ttl);
     info!("Cache system initialized");
 
+    // Initialize email service
+    let email_service = EmailService::new(&config.email).await?;
+    info!("Email service initialized with provider: {}", email_service.provider_name());
+
     // Test database connection
     match database.health_check().await {
         Ok(health) => {
@@ -133,6 +139,7 @@ async fn main() -> Result<()> {
         config: Arc::new(config.clone()),
         database: Arc::from(database), // Convert Box<dyn AuthDatabase> to Arc<dyn AuthDatabase>
         cache: Arc::new(cache_service),
+        email: Arc::new(email_service),
         metrics: app_metrics,
     };
 

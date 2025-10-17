@@ -2,6 +2,7 @@
 pub mod cache;
 pub mod config;
 pub mod database;
+pub mod email;
 pub mod errors;
 pub mod handlers;
 pub mod mfa;
@@ -22,6 +23,7 @@ pub struct AppState {
     pub config: Arc<config::Config>,
     pub database: Arc<dyn database::AuthDatabase>,
     pub cache: Arc<cache::CacheService>,
+    pub email: Arc<email::EmailService>,
     // pub oauth2_server: Arc<oauth2::server::OAuth2Server>,
     // pub token_manager: Arc<oauth2::tokens::TokenManager>,
 }
