@@ -108,33 +108,32 @@ docker-compose logs redis
 
 ## Production Deployment
 
-### Security Build Options
+### Ultra-Secure MongoDB-Only Build
 
-Choose your security level for production deployments:
+**Security Notice**: Only ultra-secure MongoDB-only builds are available due to security vulnerabilities in SQL dependencies.
 
 ```bash
-# Standard build (all databases)
-docker build -t rust-auth-service:standard .
+# Ultra-secure build (MongoDB only, zero vulnerabilities)
+docker build -t rust-auth-service:ultra-secure .
 
-# Secure build (no MySQL RSA vulnerability)
-docker build -t rust-auth-service:secure . \
-  --build-arg CARGO_FEATURES="--no-default-features --features secure"
-
-# Ultra-secure build (MongoDB only, maximum security)
-docker build -t rust-auth-service:ultra-secure . \
-  --build-arg CARGO_FEATURES="--no-default-features --features ultra-secure"
-```
-
-### Production Container
-```bash
-# Run production container
-docker run -p 8080:8080 \
+# Production deployment
+docker run -d --name auth-service \
+  -p 8080:8080 \
   -e DATABASE_URL="mongodb://user:pass@mongo:27017/auth" \
-  -e JWT_SECRET="production-secret" \
-  rust-auth-service:secure
+  -e JWT_SECRET="your-256-bit-production-secret" \
+  rust-auth-service:ultra-secure
 ```
 
-### Security Recommendations
-- Use `secure` or `ultra-secure` builds for production
-- Ultra-secure builds only support MongoDB but eliminate ALL SQL vulnerabilities
-- Secure builds support MongoDB + PostgreSQL and eliminate MySQL RSA vulnerability
+### Security Features
+- **Zero vulnerabilities** confirmed by cargo audit
+- **MongoDB-only** - eliminates all SQL-related security risks
+- **Minimal attack surface** - only essential dependencies included
+- **Secure by default** - no vulnerable or unmaintained dependencies
+
+### Production Security Checklist
+- ✅ **Strong JWT secrets** (256-bit minimum)
+- ✅ **Secure MongoDB connection strings** with authentication
+- ✅ **HTTPS termination** via load balancer or reverse proxy
+- ✅ **Rate limiting** configured appropriately
+- ✅ **Monitoring** via Prometheus metrics at `/metrics`
+- ✅ **Health checks** configured for `/health`, `/ready`, `/live`

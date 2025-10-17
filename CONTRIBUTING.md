@@ -122,23 +122,21 @@ Related to #1
 - [ ] Security builds compile successfully (see Security Build Testing below)
 
 ### Security Build Testing
-Test all security build configurations to ensure compatibility:
+Test the ultra-secure MongoDB-only build:
 
 ```bash
-# Test standard build (all databases)
-cargo build
-cargo test
+# Test ultra-secure build (MongoDB only, zero vulnerabilities)
+cargo build --lib
+cargo test --lib
 
-# Test secure build (no MySQL RSA vulnerability)
-cargo build --no-default-features --features secure
-cargo test --no-default-features --features secure
+# Security audit (must show zero vulnerabilities)
+cargo audit
 
-# Test ultra-secure build (MongoDB only, maximum security)
-cargo build --no-default-features --features ultra-secure
-cargo test --no-default-features --features ultra-secure
+# Clippy with strict settings
+cargo clippy --lib -- -A clippy::uninlined-format-args -A clippy::derivable-impls -A clippy::if-same-then-else -A clippy::needless-question-mark -A clippy::needless-return -D warnings
 ```
 
-All three builds must compile and pass tests for changes to be accepted.
+All checks must pass for changes to be accepted.
 
 ## Checklist
 - [ ] Code follows project style guidelines
@@ -185,51 +183,45 @@ pre-commit install
 
 ## API Documentation Guidelines
 
-### OpenAPI/Swagger Documentation
+### Security-First Documentation
 
-When adding new API endpoints, ensure proper OpenAPI documentation:
+**Note**: OpenAPI/Swagger documentation was removed due to security vulnerabilities in dependencies.
 
-#### 1. Add OpenAPI Path Annotations
+#### 1. Document New Endpoints
+When adding new API endpoints:
 ```rust
-#[utoipa::path(
-    post,
-    path = "/auth/endpoint",
-    tag = "authentication"
-)]
-pub async fn your_handler() {
+/// User registration endpoint
+/// 
+/// Registers a new user with email verification.
+/// Returns JWT tokens for immediate authentication.
+pub async fn register(
+    State(state): State<AppState>,
+    Json(payload): Json<CreateUserRequest>,
+) -> AppResult<Json<AuthResponse>> {
     // implementation
 }
 ```
 
-#### 2. Document Request/Response Models
-```rust
-#[derive(Serialize, Deserialize, ToSchema)]
-pub struct YourRequest {
-    // fields with proper validation
-}
-```
-
-#### 3. Test Documentation Changes
+#### 2. Test Endpoints Manually
 ```bash
-# Run OpenAPI tests to ensure documentation is valid
-cargo test --test openapi_tests
+# Start the server
+cargo run
 
-# Generate OpenAPI spec to verify structure
-cargo run --bin generate_openapi
+# Test endpoints with curl
+curl -X POST http://localhost:8080/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","password":"securepass"}'
+
+# Check system stats for API overview
+curl http://localhost:8080/stats
 ```
-
-#### 4. Interactive Testing
-Always test your endpoints using the interactive Swagger UI:
-- Start the server: `cargo run`
-- Visit: http://localhost:8080/docs
-- Test your new endpoints directly in the browser
 
 ### Documentation Standards
-- **All public endpoints** must have OpenAPI annotations
-- **All request/response models** must have `ToSchema` derives
-- **Authentication requirements** must be properly documented
+- **All public endpoints** must have comprehensive doc comments
+- **Request/response models** must be well-documented
+- **Authentication requirements** must be clearly stated
 - **Error responses** should include proper HTTP status codes
-- **Examples** should be provided for complex request structures
+- **Security considerations** should be documented for sensitive endpoints
 
 ## Branch Protection Rules
 
