@@ -1,6 +1,6 @@
+use reqwest::header::HeaderValue;
 use serde_json::json;
 use std::time::Duration;
-use reqwest::header::HeaderValue;
 
 /// Test the enhanced rate limiting middleware with Redis backend and per-user limiting
 /// Tests our newly implemented Redis rate limiting store and JWT-based per-user limiting
@@ -36,7 +36,7 @@ async fn test_redis_rate_limiting_backend() {
                 if resp.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
                     rate_limited_count += 1;
                     println!("✅ Request {} was rate limited", i + 1);
-                    
+
                     // Check for rate limit headers
                     let headers = resp.headers();
                     assert!(headers.contains_key("x-ratelimit-limit"));
@@ -137,7 +137,11 @@ async fn test_per_user_rate_limiting() {
                 } else if resp.status().is_success() {
                     println!("🔄 Authenticated request {} succeeded", i + 1);
                 } else {
-                    println!("🔄 Authenticated request {} got status: {}", i + 1, resp.status());
+                    println!(
+                        "🔄 Authenticated request {} got status: {}",
+                        i + 1,
+                        resp.status()
+                    );
                 }
             }
             Err(e) => {
@@ -168,29 +172,32 @@ async fn test_rate_limit_headers() {
     let client = reqwest::Client::new();
     let base_url = "http://localhost:8090";
 
-    let response = client
-        .get(&format!("{}/health", base_url))
-        .send()
-        .await;
+    let response = client.get(&format!("{}/health", base_url)).send().await;
 
     if let Ok(resp) = response {
         let headers = resp.headers();
-        
+
         // Check if rate limit headers are present
         // Note: Headers might not be present on all endpoints, but health check should have them
         if headers.contains_key("x-ratelimit-limit") {
-            println!("✅ X-RateLimit-Limit header found: {:?}", 
-                     headers.get("x-ratelimit-limit"));
+            println!(
+                "✅ X-RateLimit-Limit header found: {:?}",
+                headers.get("x-ratelimit-limit")
+            );
         }
-        
+
         if headers.contains_key("x-ratelimit-remaining") {
-            println!("✅ X-RateLimit-Remaining header found: {:?}", 
-                     headers.get("x-ratelimit-remaining"));
+            println!(
+                "✅ X-RateLimit-Remaining header found: {:?}",
+                headers.get("x-ratelimit-remaining")
+            );
         }
-        
+
         if headers.contains_key("x-ratelimit-reset") {
-            println!("✅ X-RateLimit-Reset header found: {:?}", 
-                     headers.get("x-ratelimit-reset"));
+            println!(
+                "✅ X-RateLimit-Reset header found: {:?}",
+                headers.get("x-ratelimit-reset")
+            );
         }
 
         println!("✅ Rate limit headers test completed");
@@ -206,15 +213,34 @@ async fn test_rate_limit_category_detection() {
     let base_url = "http://localhost:8090";
 
     let endpoints = vec![
-        ("/health", "health", "Health endpoint should have high rate limit"),
-        ("/auth/login", "auth", "Auth endpoint should have low rate limit"), 
-        ("/auth/register", "registration", "Registration should have very low rate limit"),
-        ("/auth/forgot-password", "password_reset", "Password reset should have low rate limit"),
+        (
+            "/health",
+            "health",
+            "Health endpoint should have high rate limit",
+        ),
+        (
+            "/auth/login",
+            "auth",
+            "Auth endpoint should have low rate limit",
+        ),
+        (
+            "/auth/register",
+            "registration",
+            "Registration should have very low rate limit",
+        ),
+        (
+            "/auth/forgot-password",
+            "password_reset",
+            "Password reset should have low rate limit",
+        ),
     ];
 
     for (endpoint, category, description) in endpoints {
-        println!("🔍 Testing rate limit for {} category: {}", category, endpoint);
-        
+        println!(
+            "🔍 Testing rate limit for {} category: {}",
+            category, endpoint
+        );
+
         // Make a single request to get baseline headers
         let response = client
             .post(&format!("{}{}", base_url, endpoint))
@@ -227,7 +253,7 @@ async fn test_rate_limit_category_detection() {
 
         if let Ok(resp) = response {
             let headers = resp.headers();
-            
+
             if let Some(limit) = headers.get("x-ratelimit-limit") {
                 println!("✅ {} - Rate limit: {:?}", description, limit);
             } else {
@@ -244,15 +270,15 @@ async fn test_rate_limit_category_detection() {
     println!("✅ Rate limit category detection test completed");
 }
 
-#[tokio::test] 
+#[tokio::test]
 async fn test_rate_limit_fallback_to_memory() {
     // Test that rate limiting falls back to memory store when Redis is unavailable
     // This is tested by configuring an invalid Redis URL and ensuring rate limiting still works
-    
+
     println!("🔍 Testing rate limiting fallback behavior");
     println!("ℹ️ This test verifies that the service gracefully falls back to memory");
     println!("   store when Redis is configured but unavailable");
-    
+
     let client = reqwest::Client::new();
     let base_url = "http://localhost:8090";
 
@@ -265,7 +291,7 @@ async fn test_rate_limit_fallback_to_memory() {
         let response = client
             .post(&format!("{}/auth/login", base_url))
             .json(&json!({
-                "email": "fallback.test@example.com", 
+                "email": "fallback.test@example.com",
                 "password": "invalid"
             }))
             .send()
@@ -278,7 +304,11 @@ async fn test_rate_limit_fallback_to_memory() {
                     println!("✅ Request {} rate limited (fallback working)", i + 1);
                 } else {
                     successful_requests += 1;
-                    println!("🔄 Request {} completed with status: {}", i + 1, resp.status());
+                    println!(
+                        "🔄 Request {} completed with status: {}",
+                        i + 1,
+                        resp.status()
+                    );
                 }
             }
             Err(e) => {
@@ -294,7 +324,7 @@ async fn test_rate_limit_fallback_to_memory() {
         "✅ Fallback test completed: {} successful, {} rate limited out of {}",
         successful_requests, rate_limited_requests, total_requests
     );
-    
+
     // At minimum, the service should be responding (not crashing due to Redis issues)
     assert!(
         successful_requests + rate_limited_requests > 0,

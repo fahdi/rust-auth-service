@@ -37,6 +37,8 @@ fn create_test_cache_configs() -> Vec<(String, CacheConfig)> {
             url: None,
             ttl: 3600,
             lru_size: 100,
+            memory: Default::default(),
+            redis: None,
         },
     ));
 
@@ -48,6 +50,8 @@ fn create_test_cache_configs() -> Vec<(String, CacheConfig)> {
             url: None,
             ttl: 3600,
             lru_size: 100,
+            memory: Default::default(),
+            redis: None,
         },
     ));
 
@@ -60,6 +64,8 @@ fn create_test_cache_configs() -> Vec<(String, CacheConfig)> {
                 url: Some(redis_url),
                 ttl: 3600,
                 lru_size: 100,
+                memory: Default::default(),
+                redis: None,
             },
         ));
     }
@@ -73,6 +79,8 @@ fn create_test_cache_configs() -> Vec<(String, CacheConfig)> {
                 url: Some(redis_url),
                 ttl: 3600,
                 lru_size: 100,
+                memory: Default::default(),
+                redis: None,
             },
         ));
     }
@@ -463,6 +471,8 @@ async fn test_cache_key_utilities() {
         url: None,
         ttl: 3600,
         lru_size: 100,
+        memory: Default::default(),
+        redis: None,
     };
 
     let cache = create_cache_provider(&config)
@@ -714,6 +724,8 @@ async fn test_cache_memory_management() {
         url: None,
         ttl: 3600,
         lru_size: 3, // Very small for testing
+        memory: Default::default(),
+        redis: None,
     };
 
     let cache = create_cache_provider(&config)

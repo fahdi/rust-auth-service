@@ -20,8 +20,8 @@ use crate::{
     errors::AppError,
     AppState,
 };
-use redis::{aio::ConnectionManager, Client};
 use base64::Engine;
+use redis::{aio::ConnectionManager, Client};
 
 /// In-memory rate limiting store
 #[derive(Debug, Clone)]
@@ -209,16 +209,22 @@ pub async fn rate_limit_middleware(
         "redis" => {
             if let Some(redis_url) = &state.config.rate_limit.redis_url {
                 match RedisRateLimitStore::new(redis_url).await {
-                    Ok(redis_store) => redis_store.check_and_increment(&key, rule, current_time).await?,
+                    Ok(redis_store) => {
+                        redis_store
+                            .check_and_increment(&key, rule, current_time)
+                            .await?
+                    }
                     Err(_) => {
                         warn!("Failed to connect to Redis, falling back to memory store");
-                        let memory_store = MemoryRateLimitStore::new(state.config.rate_limit.memory_cache_size);
+                        let memory_store =
+                            MemoryRateLimitStore::new(state.config.rate_limit.memory_cache_size);
                         memory_store.check_and_increment(&key, rule, current_time)
                     }
                 }
             } else {
                 warn!("Redis backend configured but no Redis URL provided, using memory store");
-                let memory_store = MemoryRateLimitStore::new(state.config.rate_limit.memory_cache_size);
+                let memory_store =
+                    MemoryRateLimitStore::new(state.config.rate_limit.memory_cache_size);
                 memory_store.check_and_increment(&key, rule, current_time)
             }
         }
@@ -304,30 +310,30 @@ fn extract_user_id_from_request(request: &Request) -> Option<String> {
     // Get Authorization header
     let auth_header = request.headers().get("Authorization")?;
     let auth_str = auth_header.to_str().ok()?;
-    
+
     // Check if it's a Bearer token
     if !auth_str.starts_with("Bearer ") {
         return None;
     }
-    
+
     let token = auth_str.strip_prefix("Bearer ")?;
-    
+
     // Parse JWT token without verification (just for rate limiting identification)
     // JWT format: header.payload.signature
     let parts: Vec<&str> = token.split('.').collect();
     if parts.len() != 3 {
         return None;
     }
-    
+
     // Decode the payload (second part)
     let payload = parts[1];
-    
+
     // Add padding if needed for base64 decoding
     let padded_payload = match payload.len() % 4 {
         0 => payload.to_string(),
         n => format!("{}{}", payload, "=".repeat(4 - n)),
     };
-    
+
     // Decode base64 payload
     if let Ok(decoded) = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(&padded_payload) {
         if let Ok(json_str) = String::from_utf8(decoded) {
@@ -343,7 +349,7 @@ fn extract_user_id_from_request(request: &Request) -> Option<String> {
             }
         }
     }
-    
+
     None
 }
 
@@ -444,7 +450,7 @@ mod tests {
         let payload = r#"{"sub":"user123","exp":1234567890}"#;
         let encoded_payload = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(payload);
         let fake_token = format!("header.{}.signature", encoded_payload);
-        
+
         let mut request = create_test_request("/test");
         request.headers_mut().insert(
             "Authorization",

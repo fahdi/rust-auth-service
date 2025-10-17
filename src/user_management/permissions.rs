@@ -1,7 +1,8 @@
 use super::{
-    Permission, PermissionCheckResult, PermissionConditions,
-    UserContext, UserManagementService,
+    NotificationPreferences, Permission, PermissionCheckResult, PermissionConditions,
+    PrivacySettings, UserContext, UserGroup, UserManagementService, UserProfile,
 };
+use crate::models::user::UserRole;
 use anyhow::Result;
 use chrono::{Datelike, Timelike, Utc};
 use regex::Regex;
@@ -297,7 +298,7 @@ impl<T: UserManagementService> PermissionEvaluator<T> {
     }
 
     /// Convert wildcard pattern to regex
-    fn wildcard_to_regex(&self, wildcard: &str) -> Result<String> {
+    fn wildcard_to_regex(&self, wildcard: &str) -> anyhow::Result<String> {
         let mut regex = String::new();
         regex.push('^');
 
@@ -682,19 +683,23 @@ mod tests {
 
     #[async_trait::async_trait]
     impl UserManagementService for MockUserManagementService {
-        async fn create_role(&self, _role: UserRole) -> Result<UserRole> {
+        async fn create_role(&self, _role: super::UserRole) -> Result<super::UserRole> {
             unimplemented!()
         }
-        async fn get_role(&self, _role_id: &str) -> Result<Option<UserRole>> {
+        async fn get_role(&self, _role_id: &str) -> Result<Option<super::UserRole>> {
             unimplemented!()
         }
-        async fn update_role(&self, _role_id: &str, _role: UserRole) -> Result<UserRole> {
+        async fn update_role(
+            &self,
+            _role_id: &str,
+            _role: super::UserRole,
+        ) -> Result<super::UserRole> {
             unimplemented!()
         }
         async fn delete_role(&self, _role_id: &str) -> Result<bool> {
             unimplemented!()
         }
-        async fn list_roles(&self) -> Result<Vec<UserRole>> {
+        async fn list_roles(&self) -> Result<Vec<super::UserRole>> {
             unimplemented!()
         }
         async fn assign_role_to_user(&self, _user_id: &str, _role_id: &str) -> Result<()> {
@@ -703,7 +708,7 @@ mod tests {
         async fn remove_role_from_user(&self, _user_id: &str, _role_id: &str) -> Result<()> {
             unimplemented!()
         }
-        async fn get_user_roles(&self, _user_id: &str) -> Result<Vec<UserRole>> {
+        async fn get_user_roles(&self, _user_id: &str) -> Result<Vec<super::UserRole>> {
             unimplemented!()
         }
         async fn create_permission(&self, _permission: Permission) -> Result<Permission> {
@@ -733,26 +738,22 @@ mod tests {
         ) -> Result<PermissionCheckResult> {
             unimplemented!()
         }
-        async fn get_user_permissions(&self, _user_id: &str) -> Result<HashSet<String>> {
+        async fn get_user_permissions(&self, _user_id: &str) -> anyhow::Result<HashSet<String>> {
             unimplemented!()
         }
-        async fn create_group(&self, _group: super::UserGroup) -> Result<super::UserGroup> {
+        async fn create_group(&self, _group: UserGroup) -> Result<UserGroup> {
             unimplemented!()
         }
-        async fn get_group(&self, _group_id: &str) -> Result<Option<super::UserGroup>> {
+        async fn get_group(&self, _group_id: &str) -> Result<Option<UserGroup>> {
             unimplemented!()
         }
-        async fn update_group(
-            &self,
-            _group_id: &str,
-            _group: super::UserGroup,
-        ) -> Result<super::UserGroup> {
+        async fn update_group(&self, _group_id: &str, _group: UserGroup) -> Result<UserGroup> {
             unimplemented!()
         }
         async fn delete_group(&self, _group_id: &str) -> Result<bool> {
             unimplemented!()
         }
-        async fn list_groups(&self) -> Result<Vec<super::UserGroup>> {
+        async fn list_groups(&self) -> Result<Vec<UserGroup>> {
             unimplemented!()
         }
         async fn add_user_to_group(&self, _user_id: &str, _group_id: &str) -> Result<()> {
@@ -761,20 +762,20 @@ mod tests {
         async fn remove_user_from_group(&self, _user_id: &str, _group_id: &str) -> Result<()> {
             unimplemented!()
         }
-        async fn get_user_groups(&self, _user_id: &str) -> Result<Vec<super::UserGroup>> {
+        async fn get_user_groups(&self, _user_id: &str) -> Result<Vec<UserGroup>> {
             unimplemented!()
         }
-        async fn create_profile(&self, _profile: super::UserProfile) -> Result<super::UserProfile> {
+        async fn create_profile(&self, _profile: UserProfile) -> Result<UserProfile> {
             unimplemented!()
         }
-        async fn get_profile(&self, _user_id: &str) -> Result<Option<super::UserProfile>> {
+        async fn get_profile(&self, _user_id: &str) -> Result<Option<UserProfile>> {
             unimplemented!()
         }
         async fn update_profile(
             &self,
             _user_id: &str,
-            _profile: super::UserProfile,
-        ) -> Result<super::UserProfile> {
+            _profile: UserProfile,
+        ) -> Result<UserProfile> {
             unimplemented!()
         }
         async fn delete_profile(&self, _user_id: &str) -> Result<bool> {
@@ -784,20 +785,20 @@ mod tests {
             &self,
             _query: &str,
             _filters: Option<HashMap<String, String>>,
-        ) -> Result<Vec<super::UserProfile>> {
+        ) -> Result<Vec<UserProfile>> {
             unimplemented!()
         }
         async fn update_privacy_settings(
             &self,
             _user_id: &str,
-            _settings: super::PrivacySettings,
+            _settings: PrivacySettings,
         ) -> Result<()> {
             unimplemented!()
         }
         async fn update_notification_preferences(
             &self,
             _user_id: &str,
-            _preferences: super::NotificationPreferences,
+            _preferences: NotificationPreferences,
         ) -> Result<()> {
             unimplemented!()
         }

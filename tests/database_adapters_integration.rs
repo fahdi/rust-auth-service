@@ -66,6 +66,9 @@ async fn create_test_databases() -> Vec<TestDatabase> {
                 r#type: "mongodb".to_string(),
                 url: mongo_url,
                 pool: Default::default(),
+                mongodb: None,
+                postgresql: None,
+                mysql: None,
             };
 
             match create_database(&config).await {
@@ -91,6 +94,9 @@ async fn create_test_databases() -> Vec<TestDatabase> {
                 r#type: "postgresql".to_string(),
                 url: pg_url,
                 pool: Default::default(),
+                mongodb: None,
+                postgresql: None,
+                mysql: None,
             };
 
             match create_database(&config).await {
@@ -116,6 +122,9 @@ async fn create_test_databases() -> Vec<TestDatabase> {
                 r#type: "mysql".to_string(),
                 url: mysql_url,
                 pool: Default::default(),
+                mongodb: None,
+                postgresql: None,
+                mysql: None,
             };
 
             match create_database(&config).await {
@@ -732,6 +741,9 @@ async fn test_concurrent_operations() {
                                 r#type: db_type.clone(),
                                 url,
                                 pool: Default::default(),
+                                mongodb: None,
+                                postgresql: None,
+                                mysql: None,
                             },
                             Err(_) => return Err(UserError::Database("No test URL".to_string())),
                         };

@@ -16,7 +16,7 @@ use rust_auth_service::utils::password::hash_password;
 ///
 /// This test suite provides comprehensive coverage of the rust-auth-service
 /// across all supported database adapters (MongoDB, PostgreSQL, MySQL).
-/// 
+///
 /// Tests include:
 /// - Database operations (CRUD, authentication flows)
 /// - Performance benchmarks (throughput, latency)
@@ -538,6 +538,9 @@ async fn get_test_databases() -> Vec<(String, Box<dyn AuthDatabase>)> {
             r#type: db_type.to_string(),
             url,
             pool: pool_config,
+            mongodb: None,
+            postgresql: None,
+            mysql: None,
         };
 
         match create_database(&db_config).await {
@@ -619,7 +622,7 @@ fn create_test_user_object(email: &str) -> User {
         }),
     };
 
-    let password_hash = hash_password("TestPassword123!", 4).unwrap();
+    let password_hash = hash_password("TestPassword123!").unwrap();
     User::new(request, password_hash)
 }
 

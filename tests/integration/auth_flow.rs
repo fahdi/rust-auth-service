@@ -1,6 +1,7 @@
 use anyhow::Result;
 use reqwest::{Client, StatusCode};
 use serde_json::{json, Value};
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::sleep;
 use uuid::Uuid;
@@ -13,10 +14,11 @@ use rust_auth_service::database::{create_database, AuthDatabase};
 
 const TEST_SERVICE_URL: &str = "http://localhost:8090";
 
+#[derive(Clone)]
 struct AuthTestContext {
     client: Client,
     base_url: String,
-    db: Option<Box<dyn AuthDatabase>>,
+    db: Option<Arc<dyn AuthDatabase>>,
 }
 
 impl AuthTestContext {
@@ -54,11 +56,14 @@ impl AuthTestContext {
             r#type: db_type.to_string(),
             url,
             pool: pool_config,
+            mongodb: None,
+            postgresql: None,
+            mysql: None,
         };
 
         match create_database(&db_config).await {
             Ok(db) => {
-                self.db = Some(db);
+                self.db = Some(db.into());
             }
             Err(e) => {
                 panic!("Failed to create {} database: {}", db_type, e);
@@ -215,7 +220,7 @@ impl AuthFlow {
         let token = self
             .access_token
             .as_ref()
-            .ok_or("No access token available")?;
+            .ok_or_else(|| anyhow::anyhow!("No access token available"))?;
 
         let response = ctx
             .client
@@ -246,7 +251,7 @@ impl AuthFlow {
         let token = self
             .access_token
             .as_ref()
-            .ok_or("No access token available")?;
+            .ok_or_else(|| anyhow::anyhow!("No access token available"))?;
 
         let response = ctx
             .client
@@ -274,7 +279,7 @@ impl AuthFlow {
         let refresh_token = self
             .refresh_token
             .as_ref()
-            .ok_or("No refresh token available")?;
+            .ok_or_else(|| anyhow::anyhow!("No refresh token available"))?;
 
         let payload = json!({
             "refresh_token": refresh_token
@@ -311,7 +316,7 @@ impl AuthFlow {
         let token = self
             .access_token
             .as_ref()
-            .ok_or("No access token available")?;
+            .ok_or_else(|| anyhow::anyhow!("No access token available"))?;
 
         let response = ctx
             .client
@@ -683,7 +688,7 @@ async fn test_protected_endpoints_access_control() {
     // Test 1: Access without token should fail
     let unauthorized_response = ctx
         .client
-        .get(&anyhow::anyhow!("{}/auth/me", ctx.base_url))
+        .get(&format!("{}/auth/me", ctx.base_url))
         .send()
         .await
         .expect("Request should complete");
@@ -697,7 +702,7 @@ async fn test_protected_endpoints_access_control() {
     // Test 2: Access with invalid token should fail
     let invalid_token_response = ctx
         .client
-        .get(&anyhow::anyhow!("{}/auth/me", ctx.base_url))
+        .get(&format!("{}/auth/me", ctx.base_url))
         .bearer_auth("invalid_token")
         .send()
         .await
@@ -717,7 +722,7 @@ async fn test_protected_endpoints_access_control() {
 
     let profile_response = ctx
         .client
-        .get(&anyhow::anyhow!("{}/auth/me", ctx.base_url))
+        .get(&format!("{}/auth/me", ctx.base_url))
         .bearer_auth(flow.access_token.as_ref().unwrap())
         .send()
         .await

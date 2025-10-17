@@ -217,7 +217,7 @@ impl AuthTestClient {
 
         if status == StatusCode::OK {
             AuthTokens::from_response(&body)
-                .ok_or("Failed to extract tokens from refresh response".into())
+                .ok_or_else(|| anyhow::anyhow!("Failed to extract tokens from refresh response"))
         } else {
             Err(anyhow::anyhow!(
                 "Token refresh failed with status {}: {}",
@@ -665,7 +665,7 @@ impl AuthAssertions {
         // Check that each part is base64-encoded (basic check)
         for (i, part) in parts.iter().enumerate() {
             if part.is_empty() {
-                return Err(anyhow::anyhow!("JWT part {} is empty", i + 1));
+                return Err(format!("JWT part {} is empty", i + 1));
             }
         }
 
@@ -677,7 +677,7 @@ impl AuthAssertions {
         max_acceptable: Duration,
     ) -> Result<(), String> {
         if duration > max_acceptable {
-            Err(anyhow::anyhow!(
+            Err(format!(
                 "Response time {}ms exceeds acceptable limit {}ms",
                 duration.as_millis(),
                 max_acceptable.as_millis()
