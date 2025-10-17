@@ -155,9 +155,9 @@ impl ThreatDetector {
                 if !allowed_countries.contains(country) {
                     return Ok(Some(ThreatIndicator {
                         indicator_type: ThreatType::UnauthorizedLocation,
-                        description: format!("Login from unauthorized country: {}", country),
+                        description: format!("Login from unauthorized country: {value}"), country),
                         risk_score: 0.8,
-                        evidence: vec![format!("Country: {}", country)],
+                        evidence: vec![format!("Country: {value}"), country)],
                     }));
                 }
             }
@@ -214,7 +214,7 @@ impl ThreatDetector {
                 risk_score: 0.6,
                 evidence: vec![
                     format!("Device type: {:?}", device_info.device_type),
-                    format!("Device fingerprint: {}", device_info.fingerprint),
+                    format!("Device fingerprint: {value}"), device_info.fingerprint),
                 ],
             }));
         }

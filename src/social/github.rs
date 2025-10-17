@@ -120,7 +120,7 @@ impl GitHubProvider {
         let response = self
             .http_client
             .get("https://api.github.com/user")
-            .header("Authorization", format!("token {}", access_token))
+            .header("Authorization", format!("token {value}"), access_token))
             .header("User-Agent", "rust-auth-service")
             .send()
             .await?;
@@ -142,7 +142,7 @@ impl GitHubProvider {
         let response = self
             .http_client
             .get("https://api.github.com/user/emails")
-            .header("Authorization", format!("token {}", access_token))
+            .header("Authorization", format!("token {value}"), access_token))
             .header("User-Agent", "rust-auth-service")
             .send()
             .await?;

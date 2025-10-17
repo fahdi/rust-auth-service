@@ -1,21 +1,26 @@
 use anyhow::Result;
 use axum::{
+    extract::State,
     middleware::from_fn_with_state,
-    routing::{delete, get, post, put},
+    routing::{get, post, put},
     Router,
 };
+use observability::AppMetrics;
 use std::sync::Arc;
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 use tracing::{error, info};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+// OpenAPI/Swagger removed due to unmaintained dependencies (RUSTSEC-2024-0370)
 
+mod admin;
 mod config;
 mod errors;
 mod handlers;
 mod metrics;
+// mod mfa;  // Unused - removing for clean foundation
 mod models;
-mod oauth2;
+// mod oauth2;
+mod observability;
 // mod services;
 mod cache;
 mod database;
@@ -24,35 +29,63 @@ mod middleware;
 mod migrations;
 mod utils;
 
+// For now, avoid library re-exports to fix compilation
 use cache::CacheService;
 use config::Config;
-use database::AuthDatabase;
-use oauth2::server::OAuth2Server;
-use oauth2::tokens::TokenManager;
-use oauth2::{OAuth2Config, OAuth2Service};
 
-// Application state shared across handlers
+// Application state for this binary
 #[derive(Clone)]
 pub struct AppState {
     pub config: Arc<Config>,
-    pub database: Arc<dyn AuthDatabase>,
+    pub database: Arc<dyn database::AuthDatabase>,
     pub cache: Arc<CacheService>,
-    pub oauth2_server: Arc<OAuth2Server>,
-    pub token_manager: Arc<TokenManager>,
+    pub metrics: Arc<AppMetrics>,
+}
+
+// OpenAPI documentation configuration removed due to security vulnerabilities
+
+/// Handler for Prometheus metrics endpoint
+async fn observability_metrics_handler(
+    State(state): State<AppState>,
+) -> Result<String, (axum::http::StatusCode, String)> {
+    match state.metrics.gather() {
+        Ok(metrics) => Ok(metrics),
+        Err(e) => {
+            error!("Failed to gather metrics: {}", e);
+            Err((
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to gather metrics".to_string(),
+            ))
+        }
+    }
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Initialize tracing
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "rust_auth_service=debug,tower_http=debug".into()),
-        )
-        .with(tracing_subscriber::fmt::layer())
-        .init();
+    // Initialize comprehensive observability
+    let logging_config = LoggingConfig::default();
+    let tracing_config = TracingConfig::default();
+    let metrics_config = MetricsConfig::default();
 
-    info!("Starting Rust Auth Service...");
+    // Initialize structured logging
+    observability::init_logging(&logging_config)?;
+    info!("Structured logging initialized");
+
+    // Initialize distributed tracing if enabled
+    if tracing_config.enabled {
+        observability::init_tracing(&tracing_config).await?;
+        info!("Distributed tracing initialized");
+    }
+
+    // Initialize metrics collection
+    let app_metrics = Arc::new(AppMetrics::new()?);
+    info!("Metrics collection initialized");
+
+    info!(
+        service = "rust-auth-service",
+        version = env!("CARGO_PKG_VERSION"),
+        "Starting Rust Auth Service with comprehensive observability"
+    );
 
     // Load configuration
     let config = Config::from_env_and_file()?;
@@ -64,7 +97,7 @@ async fn main() -> Result<()> {
         info!("Prometheus metrics initialized");
     }
 
-    // Initialize database
+    // Initialize database using local function
     let database = database::create_database(&config.database).await?;
     info!("Database connection established");
 
@@ -72,38 +105,6 @@ async fn main() -> Result<()> {
     let cache_provider = cache::create_cache_provider(&config.cache).await?;
     let cache_service = CacheService::new(cache_provider, config.cache.ttl);
     info!("Cache system initialized");
-
-    // Initialize OAuth2 components
-    let oauth2_config = OAuth2Config::default(); // TODO: Load from config
-
-    // Create a default JWT signing key for HMAC
-    let jwt_key = oauth2_config
-        .jwt_signing_key
-        .as_ref()
-        .map(|k| k.as_bytes())
-        .unwrap_or(b"default-secret-key-change-in-production");
-
-    let token_manager = TokenManager::new(oauth2_config.clone(), jwt_key, None)?;
-
-    // Create OAuth2Service from database
-    let oauth2_service: Arc<dyn oauth2::OAuth2Service> = match config.database.r#type.as_str() {
-        "mongodb" => {
-            // Create a new MongoDB connection specifically for OAuth2Service
-            let mongodb =
-                database::mongodb::MongoDatabase::new(&config.database.url, &config.database.pool)
-                    .await?;
-            Arc::new(mongodb)
-        }
-        _ => {
-            return Err(anyhow::anyhow!(
-                "OAuth2Service not implemented for database type: {}",
-                config.database.r#type
-            ))
-        }
-    };
-
-    let oauth2_server = OAuth2Server::new(oauth2_config, oauth2_service, token_manager.clone());
-    info!("OAuth2 server initialized");
 
     // Test database connection
     match database.health_check().await {
@@ -124,13 +125,22 @@ async fn main() -> Result<()> {
         }
     }
 
-    // Build application state
+    // Start system metrics collection background task
+    let metrics_clone = app_metrics.clone();
+    tokio::spawn(async move {
+        observability::start_system_metrics_collector(
+            metrics_clone,
+            metrics_config.collection_interval_secs,
+        )
+        .await;
+    });
+
+    // Build application state using local types
     let app_state = AppState {
         config: Arc::new(config.clone()),
-        database: Arc::from(database),
+        database: Arc::from(database), // Convert Box<dyn AuthDatabase> to Arc<dyn AuthDatabase>
         cache: Arc::new(cache_service),
-        oauth2_server: Arc::new(oauth2_server),
-        token_manager: Arc::new(token_manager),
+        metrics: app_metrics,
     };
 
     // Build public routes (no authentication required)
@@ -138,7 +148,7 @@ async fn main() -> Result<()> {
         .route("/health", get(handlers::health_check))
         .route("/ready", get(handlers::ready_check))
         .route("/live", get(handlers::liveness_check))
-        .route("/metrics", get(handlers::metrics_handler))
+        .route("/metrics", get(observability_metrics_handler))
         .route("/stats", get(handlers::stats_handler))
         .route("/auth/register", post(handlers::register))
         .route("/auth/login", post(handlers::login))
@@ -147,74 +157,73 @@ async fn main() -> Result<()> {
         .route("/auth/reset-password", post(handlers::reset_password))
         .route("/auth/refresh", post(handlers::refresh_token));
 
-    // Build OAuth2 routes
-    let oauth2_routes = Router::new()
-        // Authorization endpoints
-        .route("/oauth2/authorize", get(handlers::authorize))
-        .route("/oauth2/authorize", post(handlers::authorize_consent_post))
-        .route("/oauth2/token", post(handlers::token))
-        .route("/oauth2/revoke", post(handlers::revoke))
-        .route("/oauth2/introspect", post(handlers::introspect))
-        // Device flow endpoints
-        .route("/oauth2/device/authorize", post(handlers::device_authorization))
-        .route("/oauth2/device/verify", get(handlers::device_verify))
-        .route("/oauth2/device/verify", post(handlers::device_verify_post))
-        // Metadata and discovery
-        .route("/.well-known/oauth-authorization-server", get(handlers::metadata))
-        .route("/.well-known/jwks.json", get(handlers::jwks))
-        // Client management (TODO: implement when OAuth2Service is integrated)
-        // .route("/oauth2/clients", post(handlers::register_client))
-        // .route("/oauth2/clients", get(handlers::list_clients))
-        // .route("/oauth2/clients/:client_id", get(handlers::get_client))
-        // .route("/oauth2/clients/:client_id", put(handlers::update_client))
-        // .route("/oauth2/clients/:client_id", delete(handlers::delete_client))
-        ;
-
-    // Build MFA routes (authentication required)
-    let mfa_routes = Router::new()
-        // MFA status and management
-        .route("/mfa/status", get(handlers::get_mfa_status))
-        .route("/mfa/methods", get(handlers::list_mfa_methods))
-        .route("/mfa/methods", post(handlers::setup_mfa_method))
-        .route(
-            "/mfa/methods/:method_id/verify",
-            post(handlers::verify_mfa_setup),
-        )
-        .route(
-            "/mfa/methods/:method_id/primary",
-            put(handlers::set_primary_mfa_method),
-        )
-        .route(
-            "/mfa/methods/:method_id",
-            delete(handlers::remove_mfa_method),
-        )
-        // MFA challenges and verification
-        .route("/mfa/challenge", post(handlers::create_mfa_challenge))
-        .route(
-            "/mfa/challenge/:challenge_id/verify",
-            post(handlers::verify_mfa_challenge),
-        )
-        // Backup codes
-        .route("/mfa/backup-codes", post(handlers::generate_backup_codes))
-        // MFA disable (with verification)
-        .route("/mfa/disable", post(handlers::disable_mfa));
+    // TODO: Build OAuth2 routes when OAuth2 module is re-enabled
+    // let oauth2_routes = Router::new()
+    //     // Authorization endpoints
+    //     .route("/oauth2/authorize", get(handlers::authorize))
+    //     .route("/oauth2/authorize", post(handlers::authorize_consent_post))
+    //     .route("/oauth2/token", post(handlers::token))
+    //     .route("/oauth2/revoke", post(handlers::revoke))
+    //     .route("/oauth2/introspect", post(handlers::introspect))
+    //     // Device flow endpoints
+    //     .route("/oauth2/device/authorize", post(handlers::device_authorization))
+    //     .route("/oauth2/device/verify", get(handlers::device_verify))
+    //     .route("/oauth2/device/verify", post(handlers::device_verify_post))
+    //     // Metadata and discovery
+    //     .route("/.well-known/oauth-authorization-server", get(handlers::metadata))
+    //     .route("/.well-known/jwks.json", get(handlers::jwks))
+    //     // Client management (TODO: implement when OAuth2Service is integrated)
+    //     // .route("/oauth2/clients", post(handlers::register_client))
+    //     // .route("/oauth2/clients", get(handlers::list_clients))
+    //     // .route("/oauth2/clients/:client_id", get(handlers::get_client))
+    //     // .route("/oauth2/clients/:client_id", put(handlers::update_client))
+    //     // .route("/oauth2/clients/:client_id", delete(handlers::delete_client))
+    //     ;
 
     // Build protected routes (authentication required)
     let protected_routes = Router::new()
         .route("/auth/me", get(handlers::get_profile))
         .route("/auth/profile", put(handlers::update_profile))
         .route("/auth/logout", post(handlers::logout))
-        .merge(mfa_routes)
         .route_layer(from_fn_with_state(
             app_state.clone(),
             middleware::jwt_auth_middleware,
         ));
 
+    // Build admin routes (admin authentication required)
+    let admin_routes = Router::new()
+        // Admin dashboard HTML page
+        .route("/admin", get(admin::admin_dashboard))
+        // Admin API endpoints
+        .route("/admin/api/stats", get(admin::get_dashboard_stats))
+        .route("/admin/api/metrics", get(admin::get_system_metrics))
+        .route("/admin/api/users", get(admin::list_users))
+        .route("/admin/api/users/search", get(admin::search_users))
+        .route("/admin/api/users/export", get(admin::export_users))
+        .route("/admin/api/users/:user_id", get(admin::get_user_details))
+        .route(
+            "/admin/api/users/:user_id/action",
+            post(admin::admin_user_action),
+        )
+        .route("/admin/api/clients", get(admin::list_oauth2_clients))
+        .route(
+            "/admin/api/security/events",
+            get(admin::list_security_events),
+        )
+        .route_layer(from_fn_with_state(
+            app_state.clone(),
+            middleware::jwt_auth_middleware,
+        ));
+
+    // Swagger UI documentation routes removed due to security vulnerabilities
+
     // Combine all routes
     let app = Router::new()
         .merge(public_routes)
-        .merge(oauth2_routes)
+        // .merge(oauth2_routes)  // Disabled until OAuth2 module is integrated
         .merge(protected_routes)
+        .merge(admin_routes)
+        // .merge(docs_routes)  // Removed due to security vulnerabilities
         .with_state(app_state.clone())
         .layer(from_fn_with_state(
             app_state.clone(),

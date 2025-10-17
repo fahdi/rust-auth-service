@@ -206,6 +206,41 @@ impl JwtManager {
     }
 }
 
+// Utility functions for simple JWT operations without manager
+pub fn generate_token(
+    user_id: &str,
+    email: &str,
+    role: &str,
+    expiry_hours: i64,
+    secret: &str,
+) -> Result<String> {
+    let now = Utc::now();
+    let exp = now + Duration::hours(expiry_hours);
+
+    let claims = Claims {
+        sub: user_id.to_string(),
+        email: email.to_string(),
+        role: role.to_string(),
+        exp: exp.timestamp(),
+        iat: now.timestamp(),
+        jti: Uuid::new_v4().to_string(),
+        token_type: "access".to_string(),
+    };
+
+    let encoding_key = EncodingKey::from_secret(secret.as_ref());
+    encode(&Header::default(), &claims, &encoding_key).context("Failed to generate token")
+}
+
+pub fn verify_token(token: &str, secret: &str) -> Result<Claims> {
+    let decoding_key = DecodingKey::from_secret(secret.as_ref());
+    let validation = Validation::default();
+
+    let token_data =
+        decode::<Claims>(token, &decoding_key, &validation).context("Failed to verify token")?;
+
+    Ok(token_data.claims)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -324,39 +359,4 @@ mod tests {
             _ => panic!("Token should be blacklisted"),
         }
     }
-}
-
-// Utility functions for simple JWT operations without manager
-pub fn generate_token(
-    user_id: &str,
-    email: &str,
-    role: &str,
-    expiry_hours: i64,
-    secret: &str,
-) -> Result<String> {
-    let now = Utc::now();
-    let exp = now + Duration::hours(expiry_hours);
-
-    let claims = Claims {
-        sub: user_id.to_string(),
-        email: email.to_string(),
-        role: role.to_string(),
-        exp: exp.timestamp(),
-        iat: now.timestamp(),
-        jti: Uuid::new_v4().to_string(),
-        token_type: "access".to_string(),
-    };
-
-    let encoding_key = EncodingKey::from_secret(secret.as_ref());
-    encode(&Header::default(), &claims, &encoding_key).context("Failed to generate token")
-}
-
-pub fn verify_token(token: &str, secret: &str) -> Result<Claims> {
-    let decoding_key = DecodingKey::from_secret(secret.as_ref());
-    let validation = Validation::default();
-
-    let token_data =
-        decode::<Claims>(token, &decoding_key, &validation).context("Failed to verify token")?;
-
-    Ok(token_data.claims)
 }

@@ -10,14 +10,10 @@ keywords = ["auth", "authentication", "jwt", "microservice", "rust"]
 categories = ["authentication", "web-programming::http-server"]
 
 [features]
-default = ["mongodb", "postgresql", "mysql"]
-# Database support - users can disable MySQL to avoid RSA vulnerability
+default = ["mongodb"]  # Ultra-secure build: MongoDB only, zero RSA vulnerability
+# Database support - PostgreSQL and MySQL removed due to RSA vulnerability (RUSTSEC-2023-0071)
 mongodb = []
-postgresql = ["sqlx", "sqlx/postgres"]
-mysql = ["sqlx", "sqlx/mysql"]
-# Security-focused builds (progressively eliminate RSA vulnerability)
-secure = ["mongodb", "postgresql"]  # PostgreSQL + MongoDB (eliminates MySQL RSA)
-ultra-secure = ["mongodb"]          # MongoDB only (eliminates ALL SQLx dependencies and RSA)
+# postgresql = ["sqlx", "sqlx/postgres"]  # Disabled due to RSA vulnerability in sqlx dependency tree
 # Testing features
 integration-tests = []              # Enable integration tests requiring running services
 
@@ -28,6 +24,8 @@ tokio = { version = "1.0", features = ["full"] }
 tower = "0.4"
 tower-http = { version = "0.5", features = ["cors", "trace", "compression-gzip"] }
 
+# API Documentation - Removed due to unmaintained proc-macro-error dependency (RUSTSEC-2024-0370)
+
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -36,7 +34,7 @@ serde_yaml = "0.9"
 
 # Database  
 mongodb = "3.0"
-sqlx = { version = "0.8.6", features = ["runtime-tokio-rustls", "chrono", "uuid"], optional = true }
+# sqlx = { version = "0.8.6", features = ["runtime-tokio-rustls", "chrono", "uuid", "postgres"], optional = true }  # Removed due to RSA vulnerability
 
 # Authentication & Security
 jsonwebtoken = "9.2"
@@ -74,7 +72,7 @@ num_cpus = "1.0"
 
 # Logging & Monitoring
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "time", "chrono"] }
 prometheus = "0.14.0"
 
 # CLI

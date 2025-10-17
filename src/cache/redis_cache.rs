@@ -11,7 +11,7 @@ use tracing::{error, info, warn};
 pub struct RedisCache {
     connection_manager: ConnectionManager,
     stats: Arc<RwLock<CacheStats>>,
-    redis_url: String,
+    _redis_url: String,
 }
 
 impl RedisCache {
@@ -36,7 +36,7 @@ impl RedisCache {
         Ok(Self {
             connection_manager,
             stats: Arc::new(RwLock::new(CacheStats::new())),
-            redis_url: redis_url.to_string(),
+            _redis_url: redis_url.to_string(),
         })
     }
 
@@ -70,7 +70,7 @@ impl CacheProvider for RedisCache {
             Err(e) => {
                 self.record_miss().await;
                 error!("Redis GET error for key '{}': {}", key, e);
-                Err(anyhow::anyhow!("Redis GET failed: {}", e))
+                Err(anyhow::anyhow!("Redis GET failed: {e}"))
             }
         }
     }
@@ -88,7 +88,7 @@ impl CacheProvider for RedisCache {
         } else {
             conn.set_ex(key, value, ttl_seconds).await
         }
-        .with_context(|| format!("Failed to set Redis key '{}'", key))?;
+        .with_context(|| format!("Failed to set Redis key '{key}'"))?;
 
         Ok(())
     }
@@ -99,7 +99,7 @@ impl CacheProvider for RedisCache {
         let deleted: i32 = conn
             .del(key)
             .await
-            .with_context(|| format!("Failed to delete Redis key '{}'", key))?;
+            .with_context(|| format!("Failed to delete Redis key '{key}'"))?;
 
         if deleted == 0 {
             warn!("Redis key '{}' was not found during deletion", key);
@@ -181,7 +181,7 @@ impl RedisPool {
 #[allow(dead_code)]
 pub struct RedisPubSub {
     connection_manager: ConnectionManager,
-    redis_url: String,
+    _redis_url: String,
 }
 
 impl RedisPubSub {
@@ -196,7 +196,7 @@ impl RedisPubSub {
 
         Ok(Self {
             connection_manager,
-            redis_url: redis_url.to_string(),
+            _redis_url: redis_url.to_string(),
         })
     }
 
@@ -207,7 +207,7 @@ impl RedisPubSub {
         let _: i32 = conn
             .publish(channel, message)
             .await
-            .with_context(|| format!("Failed to publish to Redis channel '{}'", channel))?;
+            .with_context(|| format!("Failed to publish to Redis channel '{channel}'"))?;
 
         Ok(())
     }
@@ -215,7 +215,7 @@ impl RedisPubSub {
     #[allow(dead_code)]
     pub async fn subscribe(&self, channels: &[&str]) -> Result<redis::aio::PubSub> {
         // Get a fresh connection for PubSub using the configured Redis URL
-        let client = Client::open(self.redis_url.as_str())?;
+        let client = Client::open(self._redis_url.as_str())?;
         let conn = client.get_async_connection().await?;
         let mut pubsub = conn.into_pubsub();
 
@@ -223,7 +223,7 @@ impl RedisPubSub {
             pubsub
                 .subscribe(channel)
                 .await
-                .with_context(|| format!("Failed to subscribe to Redis channel '{}'", channel))?;
+                .with_context(|| format!("Failed to subscribe to Redis channel '{channel}'"))?;
         }
 
         Ok(pubsub)

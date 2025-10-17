@@ -116,7 +116,7 @@ impl DiscordProvider {
         let response = self
             .http_client
             .get("https://discord.com/api/users/@me")
-            .header("Authorization", format!("Bearer {}", access_token))
+            .header("Authorization", format!("Bearer {value}"), access_token))
             .send()
             .await?;
 
@@ -146,7 +146,7 @@ impl DiscordProvider {
             user_info.username.clone()
         } else {
             // Legacy format with discriminator
-            format!("{}#{}", user_info.username, user_info.discriminator)
+            format!("{}#{value}"), user_info.username, user_info.discriminator)
         };
 
         // Generate avatar URL if avatar hash is provided

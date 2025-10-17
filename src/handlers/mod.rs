@@ -1,11 +1,11 @@
 pub mod auth;
 pub mod health;
-pub mod metrics;
-pub mod mfa;
-pub mod oauth2;
+pub mod system_metrics;
+// pub mod mfa;  // Unused - removing for clean foundation
+// pub mod oauth2;
 
 pub use auth::*;
 pub use health::*;
-pub use metrics::*;
-pub use mfa::*;
-pub use oauth2::*;
+pub use system_metrics::*;
+// pub use mfa::*;  // Unused - removing for clean foundation
+// pub use oauth2::*;

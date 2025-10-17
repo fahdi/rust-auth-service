@@ -1,6 +1,6 @@
 use prometheus::{
-    register_histogram_vec, register_int_counter_vec, register_int_gauge, Encoder, HistogramVec,
-    IntCounterVec, IntGauge, TextEncoder,
+    register_histogram_vec, register_int_counter_vec, register_int_gauge, HistogramVec,
+    IntCounterVec, IntGauge,
 };
 use std::sync::OnceLock;
 
@@ -276,14 +276,7 @@ pub fn update_db_connection_pool_size(size: i64) {
     metrics.db_connection_pool_size.set(size);
 }
 
-/// Get metrics in Prometheus text format
-pub fn get_metrics_text() -> Result<String, Box<dyn std::error::Error>> {
-    let encoder = TextEncoder::new();
-    let metric_families = prometheus::gather();
-    let mut buffer = Vec::new();
-    encoder.encode(&metric_families, &mut buffer)?;
-    Ok(String::from_utf8(buffer)?)
-}
+// Removed unused get_metrics_text function
 
 #[cfg(test)]
 mod tests {
@@ -337,14 +330,15 @@ mod tests {
         update_active_sessions(150);
     }
 
-    #[test]
-    fn test_get_metrics_text() {
-        Metrics::init();
-
-        // Record some sample metrics
-        record_http_request("GET", "/test", 200, 0.001);
-
-        let metrics_text = get_metrics_text().expect("Failed to get metrics text");
-        assert!(metrics_text.contains("http_requests_total"));
-    }
+    // Disabled test - get_metrics_text function was removed
+    // #[test]
+    // fn test_get_metrics_text() {
+    //     Metrics::init();
+    //
+    //     // Record some sample metrics
+    //     record_http_request("GET", "/test", 200, 0.001);
+    //
+    //     let metrics_text = get_metrics_text().expect("Failed to get metrics text");
+    //     assert!(metrics_text.contains("http_requests_total"));
+    // }
 }

@@ -1,7 +1,7 @@
 use super::{
     calculate_distance_km, default_session_flags, generate_session_id, parse_user_agent,
     CreateSessionRequest, SecurityAction, SecurityLevel, SecurityWarning, SecurityWarningType,
-    Session, SessionConfig, SessionLocation, SessionService, SessionStatistics,
+    Session, SessionConfig, SessionLocation, SessionService,
     SessionValidationResult, TerminationReason, WarningSevertiy,
 };
 use anyhow::Result;
@@ -384,14 +384,14 @@ impl<T: SessionService> SessionManager<T> {
     /// Generate refresh token
     fn generate_refresh_token(&self) -> String {
         use uuid::Uuid;
-        format!("refresh_{}", Uuid::new_v4())
+        format!("refresh_{value}"), Uuid::new_v4())
     }
 
     /// Generate access token (placeholder - integrate with JWT system)
     fn generate_access_token(&self, user_id: &str) -> Result<String> {
         use uuid::Uuid;
         // TODO: Integrate with existing JWT token generation
-        Ok(format!("access_{}_{}", user_id, Uuid::new_v4()))
+        Ok(format!("access_{}_{value}"), user_id, Uuid::new_v4()))
     }
 
     /// Resolve IP address to location (placeholder)

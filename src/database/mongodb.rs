@@ -11,27 +11,29 @@ use std::time::Instant;
 use super::{AuthDatabase, DatabaseHealth};
 use crate::config::database::PoolConfig;
 use crate::models::user::{LoginAttempt, User, UserError};
-use crate::oauth2::{
-    AccessToken, AuthorizationCode, DeviceAuthorization, OAuth2Client, OAuth2Service, RefreshToken,
-    TokenIntrospection,
-};
+// use crate::oauth2::{
+//     AccessToken, AuthorizationCode, DeviceAuthorization, OAuth2Client, OAuth2Service, RefreshToken,
+//     TokenIntrospection,
+// };
 
 const USERS_COLLECTION: &str = "users";
-const OAUTH2_CLIENTS_COLLECTION: &str = "oauth2_clients";
-const OAUTH2_AUTH_CODES_COLLECTION: &str = "oauth2_auth_codes";
-const OAUTH2_ACCESS_TOKENS_COLLECTION: &str = "oauth2_access_tokens";
-const OAUTH2_REFRESH_TOKENS_COLLECTION: &str = "oauth2_refresh_tokens";
-const OAUTH2_DEVICE_AUTHORIZATIONS_COLLECTION: &str = "oauth2_device_authorizations";
+// OAuth2 collections constants disabled until module is re-enabled
+// const OAUTH2_CLIENTS_COLLECTION: &str = "oauth2_clients";
+// const OAUTH2_AUTH_CODES_COLLECTION: &str = "oauth2_auth_codes";
+// const OAUTH2_ACCESS_TOKENS_COLLECTION: &str = "oauth2_access_tokens";
+// const OAUTH2_REFRESH_TOKENS_COLLECTION: &str = "oauth2_refresh_tokens";
+// const OAUTH2_DEVICE_AUTHORIZATIONS_COLLECTION: &str = "oauth2_device_authorizations";
 const DATABASE_NAME: &str = "auth_service";
 
 pub struct MongoDatabase {
     database: Database,
     users: Collection<User>,
-    oauth2_clients: Collection<OAuth2Client>,
-    oauth2_auth_codes: Collection<AuthorizationCode>,
-    oauth2_access_tokens: Collection<AccessToken>,
-    oauth2_refresh_tokens: Collection<RefreshToken>,
-    oauth2_device_authorizations: Collection<DeviceAuthorization>,
+    // OAuth2 collections disabled until module is re-enabled
+    // oauth2_clients: Collection<OAuth2Client>,
+    // oauth2_auth_codes: Collection<AuthorizationCode>,
+    // oauth2_access_tokens: Collection<AccessToken>,
+    // oauth2_refresh_tokens: Collection<RefreshToken>,
+    // oauth2_device_authorizations: Collection<DeviceAuthorization>,
 }
 
 impl MongoDatabase {
@@ -45,24 +47,25 @@ impl MongoDatabase {
 
         let database = client.database(DATABASE_NAME);
         let users = database.collection::<User>(USERS_COLLECTION);
-        let oauth2_clients = database.collection::<OAuth2Client>(OAUTH2_CLIENTS_COLLECTION);
-        let oauth2_auth_codes =
-            database.collection::<AuthorizationCode>(OAUTH2_AUTH_CODES_COLLECTION);
-        let oauth2_access_tokens =
-            database.collection::<AccessToken>(OAUTH2_ACCESS_TOKENS_COLLECTION);
-        let oauth2_refresh_tokens =
-            database.collection::<RefreshToken>(OAUTH2_REFRESH_TOKENS_COLLECTION);
-        let oauth2_device_authorizations =
-            database.collection::<DeviceAuthorization>(OAUTH2_DEVICE_AUTHORIZATIONS_COLLECTION);
+        // OAuth2 collections disabled until module is re-enabled
+        // let oauth2_clients = database.collection::<OAuth2Client>(OAUTH2_CLIENTS_COLLECTION);
+        // let oauth2_auth_codes =
+        //     database.collection::<AuthorizationCode>(OAUTH2_AUTH_CODES_COLLECTION);
+        // let oauth2_access_tokens =
+        //     database.collection::<AccessToken>(OAUTH2_ACCESS_TOKENS_COLLECTION);
+        // let oauth2_refresh_tokens =
+        //     database.collection::<RefreshToken>(OAUTH2_REFRESH_TOKENS_COLLECTION);
+        // let oauth2_device_authorizations =
+        //     database.collection::<DeviceAuthorization>(OAUTH2_DEVICE_AUTHORIZATIONS_COLLECTION);
 
         Ok(Self {
             database,
             users,
-            oauth2_clients,
-            oauth2_auth_codes,
-            oauth2_access_tokens,
-            oauth2_refresh_tokens,
-            oauth2_device_authorizations,
+            // oauth2_clients,
+            // oauth2_auth_codes,
+            // oauth2_access_tokens,
+            // oauth2_refresh_tokens,
+            // oauth2_device_authorizations,
         })
     }
 
@@ -198,7 +201,7 @@ impl AuthDatabase for MongoDatabase {
                 if e.to_string().contains("duplicate key") {
                     Err(UserError::EmailAlreadyExists)
                 } else {
-                    Err(UserError::Database(format!("Failed to create user: {}", e)))
+                    Err(UserError::Database(format!("Failed to create user: {e}")))
                 }
             }
         }
@@ -230,7 +233,7 @@ impl AuthDatabase for MongoDatabase {
 
     async fn update_user(&self, user: &User) -> Result<User, UserError> {
         let user_doc = mongodb::bson::to_document(user)
-            .map_err(|e| UserError::Database(format!("Failed to serialize user: {}", e)))?;
+            .map_err(|e| UserError::Database(format!("Failed to serialize user: {e}")))?;
 
         let filter = doc! { "user_id": &user.user_id };
         let update = doc! { "$set": user_doc };
@@ -246,7 +249,7 @@ impl AuthDatabase for MongoDatabase {
                         .ok_or(UserError::NotFound)
                 }
             }
-            Err(e) => Err(UserError::Database(format!("Failed to update user: {}", e))),
+            Err(e) => Err(UserError::Database(format!("Failed to update user: {e}"))),
         }
     }
 
@@ -283,9 +286,10 @@ impl AuthDatabase for MongoDatabase {
             "email_verification_expires": { "$gt": mongodb::bson::DateTime::from_system_time(Utc::now().into()) }
         };
 
-        let user = self.users.find_one(filter).await.map_err(|e| {
-            UserError::Database(format!("Failed to find verification token: {}", e))
-        })?;
+        let user =
+            self.users.find_one(filter).await.map_err(|e| {
+                UserError::Database(format!("Failed to find verification token: {e}"))
+            })?;
 
         let user = user.ok_or(UserError::InvalidVerificationToken)?;
 
@@ -301,7 +305,7 @@ impl AuthDatabase for MongoDatabase {
         self.users
             .update_one(update_filter, update)
             .await
-            .map_err(|e| UserError::Database(format!("Failed to verify email: {}", e)))?;
+            .map_err(|e| UserError::Database(format!("Failed to verify email: {e}")))?;
 
         Ok(user.user_id)
     }
@@ -333,7 +337,7 @@ impl AuthDatabase for MongoDatabase {
             .users
             .find_one(filter)
             .await
-            .map_err(|e| UserError::Database(format!("Failed to find reset token: {}", e)))?;
+            .map_err(|e| UserError::Database(format!("Failed to find reset token: {e}")))?;
 
         let user = user.ok_or(UserError::InvalidPasswordResetToken)?;
         Ok(user.user_id)
@@ -381,9 +385,7 @@ impl AuthDatabase for MongoDatabase {
         self.users
             .update_one(filter.clone(), update)
             .await
-            .map_err(|e| {
-                UserError::Database(format!("Failed to increment login attempts: {}", e))
-            })?;
+            .map_err(|e| UserError::Database(format!("Failed to increment login attempts: {e}")))?;
 
         // Check if we need to lock the account
         let user = self.find_user_by_email(email).await?;
@@ -400,7 +402,7 @@ impl AuthDatabase for MongoDatabase {
                 self.users
                     .update_one(filter, lock_update)
                     .await
-                    .map_err(|e| UserError::Database(format!("Failed to lock account: {}", e)))?;
+                    .map_err(|e| UserError::Database(format!("Failed to lock account: {e}")))?;
             }
         }
 
@@ -442,14 +444,14 @@ impl AuthDatabase for MongoDatabase {
                 database_type: "mongodb".to_string(),
                 connected: true,
                 response_time_ms,
-                details: Some(format!("Connected to database: {}", DATABASE_NAME)),
+                details: Some(format!("Connected to database: {DATABASE_NAME}")),
             }),
             Err(e) => Ok(DatabaseHealth {
                 status: "unhealthy".to_string(),
                 database_type: "mongodb".to_string(),
                 connected: false,
                 response_time_ms,
-                details: Some(format!("Connection error: {}", e)),
+                details: Some(format!("Connection error: {e}")),
             }),
         }
     }
@@ -599,6 +601,8 @@ pub async fn create_database(
     Ok(client.database(DATABASE_NAME))
 }
 
+// Temporarily disabled OAuth2Service implementation until OAuth2 module is re-enabled
+/*
 #[async_trait]
 impl OAuth2Service for MongoDatabase {
     // Client management
@@ -947,6 +951,7 @@ impl OAuth2Service for MongoDatabase {
         Ok(tokens)
     }
 }
+*/
 
 #[cfg(test)]
 mod tests {

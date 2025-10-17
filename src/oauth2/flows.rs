@@ -3,7 +3,7 @@ use super::scopes::ScopeManager;
 use super::tokens::TokenManager;
 use super::{
     AuthorizationCode, DeviceAuthorization, GrantType, OAuth2Client, OAuth2Config, OAuth2Error,
-    OAuth2ErrorResponse, OAuth2Service, ResponseType, TokenIntrospection, TokenResponse,
+    OAuth2ErrorResponse, OAuth2Service, ResponseType, TokenResponse,
 };
 use anyhow::{anyhow, Result};
 use chrono::{Duration, Utc};
@@ -129,9 +129,9 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
             // For hybrid flows, also generate tokens
             match response_type {
                 ResponseType::Code => {
-                    let mut url = format!("{}?code={}", redirect_uri, code);
+                    let mut url = format!("{}?code={value}"), redirect_uri, code);
                     if let Some(state) = state {
-                        url.push_str(&format!("&state={}", urlencoding::encode(state)));
+                        url.push_str(&format!("&state={value}"), urlencoding::encode(state)));
                     }
                     Ok(url)
                 }
@@ -150,7 +150,7 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
                         redirect_uri, code, access_token
                     );
                     if let Some(state) = state {
-                        url.push_str(&format!("&state={}", urlencoding::encode(state)));
+                        url.push_str(&format!("&state={value}"), urlencoding::encode(state)));
                     }
                     Ok(url)
                 }
@@ -165,9 +165,9 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
                         None,
                     )?;
 
-                    let mut url = format!("{}?code={}&id_token={}", redirect_uri, code, id_token);
+                    let mut url = format!("{}?code={}&id_token={value}"), redirect_uri, code, id_token);
                     if let Some(state) = state {
-                        url.push_str(&format!("&state={}", urlencoding::encode(state)));
+                        url.push_str(&format!("&state={value}"), urlencoding::encode(state)));
                     }
                     Ok(url)
                 }
@@ -191,7 +191,7 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
                         redirect_uri, access_token, self.config.access_token_lifetime
                     );
                     if let Some(state) = state {
-                        url.push_str(&format!("&state={}", urlencoding::encode(state)));
+                        url.push_str(&format!("&state={value}"), urlencoding::encode(state)));
                     }
                     Ok(url)
                 }
@@ -206,9 +206,9 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
                         None,
                     )?;
 
-                    let mut url = format!("{}#id_token={}", redirect_uri, id_token);
+                    let mut url = format!("{}#id_token={value}"), redirect_uri, id_token);
                     if let Some(state) = state {
-                        url.push_str(&format!("&state={}", urlencoding::encode(state)));
+                        url.push_str(&format!("&state={value}"), urlencoding::encode(state)));
                     }
                     Ok(url)
                 }
@@ -604,7 +604,7 @@ impl<T: OAuth2Service> OAuth2FlowHandler<T> {
         let device_code = Uuid::new_v4().to_string();
         let user_code = self.generate_user_code();
         let verification_uri = format!("{}/device", self.config.base_url);
-        let verification_uri_complete = format!("{}?user_code={}", verification_uri, user_code);
+        let verification_uri_complete = format!("{}?user_code={value}"), verification_uri, user_code);
 
         let device_auth = DeviceAuthorization {
             device_code: device_code.clone(),

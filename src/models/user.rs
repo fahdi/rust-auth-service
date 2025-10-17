@@ -60,7 +60,7 @@ impl std::str::FromStr for UserRole {
             "admin" => Ok(UserRole::Admin),
             "moderator" => Ok(UserRole::Moderator),
             "guest" => Ok(UserRole::Guest),
-            _ => Err(format!("Invalid role: {}", s)),
+            _ => Err(format!("Invalid role: {s}")),
         }
     }
 }

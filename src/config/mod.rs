@@ -17,7 +17,7 @@ use email::EmailConfig;
 use rate_limit::RateLimitConfig;
 use server::ServerConfig;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
     pub server: ServerConfig,
     pub database: DatabaseConfig,
@@ -74,7 +74,7 @@ pub struct TracingConfig {
     pub sample_rate: f64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SecurityConfig {
     pub cors: CorsConfig,
 }
@@ -82,23 +82,6 @@ pub struct SecurityConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CorsConfig {
     pub allowed_origins: Vec<String>,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            server: ServerConfig::default(),
-            database: DatabaseConfig::default(),
-            auth: AuthConfig::default(),
-            cache: CacheConfig::default(),
-            email: EmailConfig::default(),
-            rate_limit: RateLimitConfig::default(),
-            monitoring: MonitoringConfig::default(),
-            environment: EnvironmentConfig::default(),
-            logging: LoggingConfig::default(),
-            security: SecurityConfig::default(),
-        }
-    }
 }
 
 impl Default for EnvironmentConfig {
@@ -159,14 +142,6 @@ impl Default for AuditLoggingConfig {
     }
 }
 
-impl Default for SecurityConfig {
-    fn default() -> Self {
-        Self {
-            cors: CorsConfig::default(),
-        }
-    }
-}
-
 impl Default for CorsConfig {
     fn default() -> Self {
         Self {
@@ -185,9 +160,9 @@ impl Config {
         let config_file = format!("config/{}.yml", environment);
         let mut config = if std::path::Path::new(&config_file).exists() {
             let config_str = std::fs::read_to_string(&config_file)
-                .with_context(|| format!("Failed to read {}", config_file))?;
+                .with_context(|| format!("Failed to read {config_file}"))?;
             serde_yaml::from_str::<Config>(&config_str)
-                .with_context(|| format!("Failed to parse {}", config_file))?
+                .with_context(|| format!("Failed to parse {config_file}"))?
         } else {
             // Fallback to config.yml or default
             Self::from_env_and_file()?

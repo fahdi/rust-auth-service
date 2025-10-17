@@ -183,6 +183,54 @@ pip install pre-commit
 pre-commit install
 ```
 
+## API Documentation Guidelines
+
+### OpenAPI/Swagger Documentation
+
+When adding new API endpoints, ensure proper OpenAPI documentation:
+
+#### 1. Add OpenAPI Path Annotations
+```rust
+#[utoipa::path(
+    post,
+    path = "/auth/endpoint",
+    tag = "authentication"
+)]
+pub async fn your_handler() {
+    // implementation
+}
+```
+
+#### 2. Document Request/Response Models
+```rust
+#[derive(Serialize, Deserialize, ToSchema)]
+pub struct YourRequest {
+    // fields with proper validation
+}
+```
+
+#### 3. Test Documentation Changes
+```bash
+# Run OpenAPI tests to ensure documentation is valid
+cargo test --test openapi_tests
+
+# Generate OpenAPI spec to verify structure
+cargo run --bin generate_openapi
+```
+
+#### 4. Interactive Testing
+Always test your endpoints using the interactive Swagger UI:
+- Start the server: `cargo run`
+- Visit: http://localhost:8080/docs
+- Test your new endpoints directly in the browser
+
+### Documentation Standards
+- **All public endpoints** must have OpenAPI annotations
+- **All request/response models** must have `ToSchema` derives
+- **Authentication requirements** must be properly documented
+- **Error responses** should include proper HTTP status codes
+- **Examples** should be provided for complex request structures
+
 ## Branch Protection Rules
 
 The following rules should be enforced on the `main` branch:

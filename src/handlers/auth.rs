@@ -5,6 +5,7 @@ use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 use validator::Validate;
 
+use crate::AppState;
 use crate::{
     errors::{AppError, AppResult},
     models::user::{
@@ -16,7 +17,6 @@ use crate::{
         password::{hash_password, verify_password},
         validation::validate_password_strength,
     },
-    AppState,
 };
 
 #[derive(Debug, Deserialize, Validate)]

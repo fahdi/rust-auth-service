@@ -4,7 +4,7 @@ use axum::{
     response::{Html, Json, Redirect},
     Extension,
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::collections::HashMap;
 
 use crate::{
@@ -13,7 +13,6 @@ use crate::{
         client::{
             ClientQuery, ClientRegistrationRequest, ClientRegistrationResponse, ClientUpdateRequest,
         },
-        server::OAuth2Server,
         AuthorizeRequest, DeviceAuthorizationRequest, DeviceAuthorizationResponse, OAuth2Error,
         OAuth2ErrorResponse, OAuth2Metadata, TokenRequest, TokenResponse,
     },
@@ -63,7 +62,7 @@ pub async fn authorize_consent(
 ) -> Result<Html<String>, ApiError> {
     let oauth2_server = &app_state.oauth2_server;
     // Check if user is authenticated
-    let user_id = user_id.ok_or_else(|| {
+    let _user_id = user_id.ok_or_else(|| {
         ApiError::new(
             StatusCode::UNAUTHORIZED,
             "User must be authenticated".to_string(),
