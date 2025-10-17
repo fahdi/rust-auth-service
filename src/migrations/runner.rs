@@ -3,6 +3,8 @@
 use super::{
     calculate_migration_plan, Migration, MigrationLoader, MigrationPlan, MigrationProvider,
 };
+#[cfg(test)]
+use super::MigrationRecord;
 use anyhow::{Context, Result};
 use std::sync::Arc;
 use std::time::Instant;
