@@ -1,1 +1,2 @@
 GPG signing test
+Second GPG test with correct key
