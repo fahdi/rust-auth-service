@@ -8,7 +8,7 @@ server:
 
 database:
   type: "mongodb"
-  url: "mongodb://admin:password123@localhost:27017/auth_service?authSource=admin"
+  url: "${DATABASE_URL}"  # REQUIRED: Set via environment variable
   pool:
     max_size: 10
     min_size: 5
@@ -17,18 +17,18 @@ database:
 
 auth:
   jwt:
-    secret: "your-super-secret-jwt-key-change-in-production-256-bits-minimum"
+    secret: "${JWT_SECRET}"  # REQUIRED: Set via environment variable
     expiration_days: 7
   password:
     bcrypt_rounds: 12
     min_length: 8
   verification:
     token_expiry_hours: 24
-    required: false  # Set to true in production
+    required: true  # Email verification required for security
 
 cache:
   type: "redis"
-  url: "redis://:redis_password@localhost:6379"
+  url: "${REDIS_URL}"  # REQUIRED: Set via environment variable  
   ttl_seconds: 3600
   max_size: 10000
 
@@ -46,10 +46,10 @@ email:
     
   # Third-party providers (Production)
   brevo:
-    api_key: ""
+    api_key: "${BREVO_API_KEY}"  # Set via environment variable if using Brevo
     
   sendgrid:
-    api_key: ""
+    api_key: "${SENDGRID_API_KEY}"  # Set via environment variable if using SendGrid
     
   template_dir: "templates"
 

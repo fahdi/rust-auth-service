@@ -29,15 +29,15 @@ database:
     timeout: 30
     ssl_mode: "PREFERRED"
 
-# Authentication configuration (relaxed for development)
+# Authentication configuration (secure development settings)
 auth:
-  jwt_secret: "development-secret-key-change-in-production"
+  jwt_secret: "${JWT_SECRET:-dev-secret-generate-secure-secret-for-production}"
   jwt_expiration: 3600
   jwt_refresh_expiration: 604800
-  password_hash_rounds: 4  # Lower for faster development
-  max_failed_attempts: 10  # More lenient for testing
-  lockout_duration: 60     # Shorter lockout for development
-  require_email_verification: false  # Disabled for easier testing
+  password_hash_rounds: 12  # Use production-level security
+  max_failed_attempts: 5   # More secure limit
+  lockout_duration: 300    # 5 minute lockout for security
+  require_email_verification: false  # Can be disabled for development only
   allow_password_reset: true
   session_timeout: 3600
 
@@ -67,23 +67,23 @@ email:
     from_email: "dev@auth-service.local"
     from_name: "Auth Service Dev"
 
-# Rate limiting configuration (very permissive for development)
+# Rate limiting configuration (secure for development)
 rate_limiting:
-  enabled: false  # Disabled for easier development
-  requests_per_minute: 1000
-  burst_size: 100
+  enabled: true   # Always enabled for security testing
+  requests_per_minute: 100  # Reasonable limit for development
+  burst_size: 20
   cleanup_interval: 60
   whitelist_ips:
     - "127.0.0.1"
     - "::1"
-    - "0.0.0.0/0"  # Allow all IPs in development
+    # Removed 0.0.0.0/0 for security
   endpoint_limits:
     "/auth/login": 
-      requests_per_minute: 100
-      burst_size: 50
+      requests_per_minute: 30   # Secure limit to prevent brute force
+      burst_size: 10
     "/auth/register":
-      requests_per_minute: 100
-      burst_size: 50
+      requests_per_minute: 10   # Lower limit for registration
+      burst_size: 5
 
 # Security configuration (relaxed for development)
 security:
@@ -94,7 +94,7 @@ security:
       - "http://localhost:8080"
       - "http://127.0.0.1:3000"
     allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"]
-    allowed_headers: ["*"]
+    allowed_headers: ["Content-Type", "Authorization", "X-Requested-With"]  # Specific headers only
     max_age: 3600
   headers:
     content_security_policy: "default-src 'self' 'unsafe-inline' 'unsafe-eval'"
@@ -122,7 +122,7 @@ monitoring:
     check_interval: 60
     timeout: 5
   audit_logging:
-    enabled: false  # Disabled for development
+    enabled: true   # Enable for security testing
     log_path: "./logs/audit.log"
     log_format: "json"
     retention_days: 7
