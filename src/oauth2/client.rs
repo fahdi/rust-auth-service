@@ -7,8 +7,7 @@ use validator::{Validate, ValidationError};
 
 use super::flows::validate_redirect_uri;
 use super::{
-    AccessToken, AuthorizationCode, DeviceAuthorization, GrantType, OAuth2Client, OAuth2Service,
-    RefreshToken, TokenIntrospection,
+    GrantType, OAuth2Client, OAuth2Service,
 };
 
 /// Client registration request (RFC 7591)
@@ -116,8 +115,8 @@ pub struct OAuth2ClientManager<T: OAuth2Service> {
     default_scopes: Vec<String>,
     supported_scopes: Vec<String>,
     supported_grant_types: Vec<GrantType>,
-    require_https_redirect: bool,
-    max_redirect_uris: usize,
+    _require_https_redirect: bool,
+    _max_redirect_uris: usize,
     client_secret_length: usize,
 }
 
@@ -134,8 +133,8 @@ impl<T: OAuth2Service> OAuth2ClientManager<T> {
             default_scopes,
             supported_scopes,
             supported_grant_types,
-            require_https_redirect,
-            max_redirect_uris: 10,
+            _require_https_redirect: require_https_redirect,
+            _max_redirect_uris: 10,
             client_secret_length: 32,
         }
     }
@@ -552,6 +551,7 @@ fn validate_grant_types(grant_types: &[String]) -> Result<(), ValidationError> {
     Ok(())
 }
 
+#[allow(dead_code)]
 fn validate_scopes(scopes: &Option<String>) -> Result<(), ValidationError> {
     if let Some(scope_str) = scopes {
         // Basic scope validation - no control characters

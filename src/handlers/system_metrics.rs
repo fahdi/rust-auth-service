@@ -5,7 +5,6 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use tracing::{debug, error};
-use utoipa::ToSchema;
 
 use crate::AppState;
 

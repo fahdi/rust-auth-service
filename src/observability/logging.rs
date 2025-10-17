@@ -1,13 +1,13 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use tracing::{Level, Subscriber};
 use tracing_subscriber::{
-    fmt::{self, time::ChronoUtc, writer::MakeWriterExt},
+    fmt::{self, time::ChronoUtc},
     layer::SubscriberExt,
     util::SubscriberInitExt,
-    EnvFilter, Layer, Registry,
+    EnvFilter, Layer,
 };
+use tracing::Subscriber;
 
 /// Logging configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]

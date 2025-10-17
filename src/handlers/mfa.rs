@@ -72,8 +72,8 @@ pub struct MfaMethodInfo {
 
 /// Get user's MFA status
 pub async fn get_mfa_status(
-    State(app_state): State<AppState>,
-    Extension(user): Extension<User>,
+    State(_app_state): State<AppState>,
+    Extension(_user): Extension<User>,
 ) -> Result<Json<ApiResponse<MfaStatusResponse>>, AppError> {
     // TODO: Get MFA manager from app state once integrated
     // For now, return a mock response
@@ -88,7 +88,7 @@ pub async fn get_mfa_status(
 
 /// Setup a new MFA method
 pub async fn setup_mfa_method(
-    State(app_state): State<AppState>,
+    State(_app_state): State<AppState>,
     Extension(user): Extension<User>,
     Json(request): Json<MfaSetupRequest>,
 ) -> Result<Json<ApiResponse<MfaSetupResponse>>, AppError> {
@@ -204,9 +204,9 @@ pub async fn setup_mfa_method(
 
 /// Verify MFA setup (complete setup process)
 pub async fn verify_mfa_setup(
-    State(app_state): State<AppState>,
-    Extension(user): Extension<User>,
-    Path(method_id): Path<String>,
+    State(_app_state): State<AppState>,
+    Extension(_user): Extension<User>,
+    Path(_method_id): Path<String>,
     Json(request): Json<MfaVerificationRequest>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     // TODO: Implement actual MFA verification
@@ -223,9 +223,9 @@ pub async fn verify_mfa_setup(
 
 /// Remove MFA method
 pub async fn remove_mfa_method(
-    State(app_state): State<AppState>,
-    Extension(user): Extension<User>,
-    Path(method_id): Path<String>,
+    State(_app_state): State<AppState>,
+    Extension(_user): Extension<User>,
+    Path(_method_id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     // TODO: Implement actual MFA method removal
     Ok(Json(ApiResponse::success(serde_json::json!({
@@ -236,9 +236,9 @@ pub async fn remove_mfa_method(
 
 /// Create MFA challenge for authentication
 pub async fn create_mfa_challenge(
-    State(app_state): State<AppState>,
-    Extension(user): Extension<User>,
-    Json(request): Json<MfaChallengeRequest>,
+    State(_app_state): State<AppState>,
+    Extension(_user): Extension<User>,
+    Json(_request): Json<MfaChallengeRequest>,
 ) -> Result<Json<ApiResponse<MfaChallengeResponse>>, AppError> {
     // TODO: Get actual MFA method and create real challenge
     let challenge_id = uuid::Uuid::new_v4().to_string();
@@ -281,9 +281,9 @@ pub async fn create_mfa_challenge(
 
 /// Verify MFA challenge
 pub async fn verify_mfa_challenge(
-    State(app_state): State<AppState>,
-    Extension(user): Extension<User>,
-    Path(challenge_id): Path<String>,
+    State(_app_state): State<AppState>,
+    Extension(_user): Extension<User>,
+    Path(_challenge_id): Path<String>,
     Json(request): Json<MfaVerificationRequest>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     // TODO: Implement actual MFA challenge verification
@@ -301,8 +301,8 @@ pub async fn verify_mfa_challenge(
 
 /// List user's MFA methods
 pub async fn list_mfa_methods(
-    State(app_state): State<AppState>,
-    Extension(user): Extension<User>,
+    State(_app_state): State<AppState>,
+    Extension(_user): Extension<User>,
 ) -> Result<Json<ApiResponse<Vec<MfaMethodInfo>>>, AppError> {
     // TODO: Get actual MFA methods from database
     let methods = vec![
@@ -322,9 +322,9 @@ pub async fn list_mfa_methods(
 
 /// Set primary MFA method
 pub async fn set_primary_mfa_method(
-    State(app_state): State<AppState>,
-    Extension(user): Extension<User>,
-    Path(method_id): Path<String>,
+    State(_app_state): State<AppState>,
+    Extension(_user): Extension<User>,
+    Path(_method_id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     // TODO: Implement setting primary MFA method
     Ok(Json(ApiResponse::success(serde_json::json!({
@@ -335,8 +335,8 @@ pub async fn set_primary_mfa_method(
 
 /// Generate new backup codes
 pub async fn generate_backup_codes(
-    State(app_state): State<AppState>,
-    Extension(user): Extension<User>,
+    State(_app_state): State<AppState>,
+    Extension(_user): Extension<User>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     // TODO: Generate actual backup codes
     let backup_codes = vec![
@@ -358,8 +358,8 @@ pub async fn generate_backup_codes(
 
 /// Disable MFA for user (requires current MFA verification)
 pub async fn disable_mfa(
-    State(app_state): State<AppState>,
-    Extension(user): Extension<User>,
+    State(_app_state): State<AppState>,
+    Extension(_user): Extension<User>,
     Json(request): Json<MfaVerificationRequest>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     // TODO: Verify MFA code before disabling

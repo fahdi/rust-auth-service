@@ -11,27 +11,29 @@ use std::time::Instant;
 use super::{AuthDatabase, DatabaseHealth};
 use crate::config::database::PoolConfig;
 use crate::models::user::{LoginAttempt, User, UserError};
-use crate::oauth2::{
-    AccessToken, AuthorizationCode, DeviceAuthorization, OAuth2Client, OAuth2Service, RefreshToken,
-    TokenIntrospection,
-};
+// use crate::oauth2::{
+//     AccessToken, AuthorizationCode, DeviceAuthorization, OAuth2Client, OAuth2Service, RefreshToken,
+//     TokenIntrospection,
+// };
 
 const USERS_COLLECTION: &str = "users";
-const OAUTH2_CLIENTS_COLLECTION: &str = "oauth2_clients";
-const OAUTH2_AUTH_CODES_COLLECTION: &str = "oauth2_auth_codes";
-const OAUTH2_ACCESS_TOKENS_COLLECTION: &str = "oauth2_access_tokens";
-const OAUTH2_REFRESH_TOKENS_COLLECTION: &str = "oauth2_refresh_tokens";
-const OAUTH2_DEVICE_AUTHORIZATIONS_COLLECTION: &str = "oauth2_device_authorizations";
+// OAuth2 collections constants disabled until module is re-enabled
+// const OAUTH2_CLIENTS_COLLECTION: &str = "oauth2_clients";
+// const OAUTH2_AUTH_CODES_COLLECTION: &str = "oauth2_auth_codes";
+// const OAUTH2_ACCESS_TOKENS_COLLECTION: &str = "oauth2_access_tokens";
+// const OAUTH2_REFRESH_TOKENS_COLLECTION: &str = "oauth2_refresh_tokens";
+// const OAUTH2_DEVICE_AUTHORIZATIONS_COLLECTION: &str = "oauth2_device_authorizations";
 const DATABASE_NAME: &str = "auth_service";
 
 pub struct MongoDatabase {
     database: Database,
     users: Collection<User>,
-    oauth2_clients: Collection<OAuth2Client>,
-    oauth2_auth_codes: Collection<AuthorizationCode>,
-    oauth2_access_tokens: Collection<AccessToken>,
-    oauth2_refresh_tokens: Collection<RefreshToken>,
-    oauth2_device_authorizations: Collection<DeviceAuthorization>,
+    // OAuth2 collections disabled until module is re-enabled
+    // oauth2_clients: Collection<OAuth2Client>,
+    // oauth2_auth_codes: Collection<AuthorizationCode>,
+    // oauth2_access_tokens: Collection<AccessToken>,
+    // oauth2_refresh_tokens: Collection<RefreshToken>,
+    // oauth2_device_authorizations: Collection<DeviceAuthorization>,
 }
 
 impl MongoDatabase {
@@ -45,24 +47,25 @@ impl MongoDatabase {
 
         let database = client.database(DATABASE_NAME);
         let users = database.collection::<User>(USERS_COLLECTION);
-        let oauth2_clients = database.collection::<OAuth2Client>(OAUTH2_CLIENTS_COLLECTION);
-        let oauth2_auth_codes =
-            database.collection::<AuthorizationCode>(OAUTH2_AUTH_CODES_COLLECTION);
-        let oauth2_access_tokens =
-            database.collection::<AccessToken>(OAUTH2_ACCESS_TOKENS_COLLECTION);
-        let oauth2_refresh_tokens =
-            database.collection::<RefreshToken>(OAUTH2_REFRESH_TOKENS_COLLECTION);
-        let oauth2_device_authorizations =
-            database.collection::<DeviceAuthorization>(OAUTH2_DEVICE_AUTHORIZATIONS_COLLECTION);
+        // OAuth2 collections disabled until module is re-enabled
+        // let oauth2_clients = database.collection::<OAuth2Client>(OAUTH2_CLIENTS_COLLECTION);
+        // let oauth2_auth_codes =
+        //     database.collection::<AuthorizationCode>(OAUTH2_AUTH_CODES_COLLECTION);
+        // let oauth2_access_tokens =
+        //     database.collection::<AccessToken>(OAUTH2_ACCESS_TOKENS_COLLECTION);
+        // let oauth2_refresh_tokens =
+        //     database.collection::<RefreshToken>(OAUTH2_REFRESH_TOKENS_COLLECTION);
+        // let oauth2_device_authorizations =
+        //     database.collection::<DeviceAuthorization>(OAUTH2_DEVICE_AUTHORIZATIONS_COLLECTION);
 
         Ok(Self {
             database,
             users,
-            oauth2_clients,
-            oauth2_auth_codes,
-            oauth2_access_tokens,
-            oauth2_refresh_tokens,
-            oauth2_device_authorizations,
+            // oauth2_clients,
+            // oauth2_auth_codes,
+            // oauth2_access_tokens,
+            // oauth2_refresh_tokens,
+            // oauth2_device_authorizations,
         })
     }
 
@@ -599,6 +602,8 @@ pub async fn create_database(
     Ok(client.database(DATABASE_NAME))
 }
 
+// Temporarily disabled OAuth2Service implementation until OAuth2 module is re-enabled
+/*
 #[async_trait]
 impl OAuth2Service for MongoDatabase {
     // Client management
@@ -947,6 +952,7 @@ impl OAuth2Service for MongoDatabase {
         Ok(tokens)
     }
 }
+*/
 
 #[cfg(test)]
 mod tests {

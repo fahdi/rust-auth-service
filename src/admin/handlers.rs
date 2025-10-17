@@ -1,12 +1,10 @@
 use axum::{
     extract::{Path, Query, State},
-    http::StatusCode,
     response::{Html, Json},
     Extension,
 };
 use serde_json::json;
-use tracing::{debug, error, info, warn};
-use utoipa::ToSchema;
+use tracing::{debug, info};
 
 use crate::{
     admin::{
@@ -35,7 +33,7 @@ pub async fn admin_dashboard() -> Html<&'static str> {
     tag = "admin"
 )]
 pub async fn get_dashboard_stats(
-    State(state): State<AppState>,
+    State(_state): State<AppState>,
     Extension(claims): Extension<JwtClaims>,
 ) -> AppResult<Json<DashboardStats>> {
     // Verify admin access

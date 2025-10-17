@@ -8,6 +8,7 @@ use tracing::{error, info, warn};
 use uuid::Uuid;
 
 /// Log structured error information with request context
+#[allow(dead_code)]
 fn log_error_with_context(
     error_type: &str,
     message: &str,
@@ -33,6 +34,7 @@ fn log_error_with_context(
 }
 
 /// Log structured warning with request context
+#[allow(dead_code)]
 fn log_warning_with_context(warning_type: &str, message: &str, request_id: &str) {
     warn!(
         warning_type = warning_type,

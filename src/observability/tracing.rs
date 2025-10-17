@@ -2,16 +2,7 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::{Level, Span};
-use tracing_opentelemetry::OpenTelemetryLayer;
-use opentelemetry::{
-    global,
-    sdk::{
-        trace::{self, IdGenerator, Sampler},
-        Resource,
-    },
-    KeyValue,
-};
-use opentelemetry_jaeger::new_agent_pipeline;
+use opentelemetry::global;
 use uuid::Uuid;
 
 /// Distributed tracing configuration

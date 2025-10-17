@@ -1,14 +1,14 @@
 use anyhow::Result;
 use prometheus::{
-    Counter, CounterVec, Gauge, GaugeVec, Histogram, HistogramVec, 
-    IntCounter, IntCounterVec, IntGauge, IntGaugeVec,
+    Counter, CounterVec, Gauge, GaugeVec, HistogramVec, 
+    IntGauge, IntGaugeVec,
     Opts, Registry, TextEncoder, Encoder,
 };
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex},
-    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+    sync::Arc,
+    time::{Duration, Instant},
 };
 use tokio::time::interval;
 

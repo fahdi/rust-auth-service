@@ -1,7 +1,6 @@
 use axum::{extract::State, http::StatusCode, response::Json};
 use serde_json::{json, Value};
 use tracing::error;
-use utoipa::ToSchema;
 
 use crate::AppState;
 
