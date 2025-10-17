@@ -21,7 +21,7 @@ impl TestUser {
         let unique_id = Uuid::new_v4().to_string()[..8].to_string();
         Self {
             email: format!("{}+{}@example.com", prefix, unique_id),
-            password: "TestPassword123!".to_string(),
+            password: "Hv4ZkR9_Wp2Yn3_".to_string(),
             first_name: "Test".to_string(),
             last_name: "User".to_string(),
             user_id: None,
@@ -84,7 +84,7 @@ impl AuthTokens {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AuthTestClient {
     client: Client,
     base_url: String,
@@ -447,6 +447,7 @@ impl PerformanceTimer {
 }
 
 /// Load testing utilities
+#[derive(Clone)]
 pub struct LoadTestConfig {
     pub concurrent_users: usize,
     pub operations_per_user: usize,
