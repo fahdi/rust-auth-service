@@ -137,9 +137,9 @@ impl SmsProvider {
 
         // Add country code if missing (assumes US +1)
         if cleaned.len() == 10 {
-            Ok(format!("+1{}", cleaned))
+            Ok(format!("+1{cleaned}"))
         } else {
-            Ok(format!("+{}", cleaned))
+            Ok(format!("+{cleaned}"))
         }
     }
 

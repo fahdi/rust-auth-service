@@ -291,7 +291,7 @@ impl tracing::field::Visit for JsonVisitor {
     fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
         self.map.insert(
             field.name().to_string(),
-            serde_json::Value::String(format!("{:?}", value)),
+            serde_json::Value::String(format!("{value:?}")),
         );
     }
 

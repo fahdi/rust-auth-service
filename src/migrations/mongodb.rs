@@ -121,7 +121,7 @@ impl MongoDBMigrationProvider {
                             .build(),
                     )
                     .await
-                    .with_context(|| format!("Failed to create {} index", field))?;
+                    .with_context(|| format!("Failed to create {field} index"))?;
             }
 
             // Create compound indexes
@@ -248,7 +248,7 @@ impl MigrationProvider for MongoDBMigrationProvider {
             .context("Failed to remove migration record")?;
 
         if result.deleted_count == 0 {
-            return Err(anyhow::anyhow!("Migration record {} not found", version));
+            return Err(anyhow::anyhow!("Migration record {version} not found"));
         }
 
         Ok(())

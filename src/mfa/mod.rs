@@ -537,7 +537,7 @@ impl<T: MfaService> MfaManager<T> {
             .await?;
 
         Ok(MfaSetupResponse {
-            method_id: format!("{}_backup_codes", user_id),
+            method_id: format!("{user_id}_backup_codes"),
             mfa_type: MfaType::BackupCodes,
             setup_data: serde_json::json!({
                 "message": "Backup codes generated",
@@ -725,7 +725,7 @@ impl<T: MfaService> MfaManager<T> {
             .and_then(|s| s.as_str())
             .ok_or_else(|| anyhow::anyhow!("TOTP secret not found"))?;
 
-        Ok(self.totp_provider.verify_code(secret, code)?)
+        self.totp_provider.verify_code(secret, code)
     }
 
     async fn verify_sms(&self, challenge: &MfaChallenge, code: &str) -> Result<bool> {
@@ -751,15 +751,11 @@ impl<T: MfaService> MfaManager<T> {
     async fn verify_webauthn(&self, challenge: &MfaChallenge, response: &str) -> Result<bool> {
         // Parse WebAuthn response and verify
         let response_data: serde_json::Value = serde_json::from_str(response)?;
-        Ok(self
-            .webauthn_provider
-            .finish_authentication(&challenge.user_id, &response_data)?)
+        self.webauthn_provider
+            .finish_authentication(&challenge.user_id, &response_data)
     }
 
     async fn verify_backup_code(&self, challenge: &MfaChallenge, code: &str) -> Result<bool> {
-        Ok(self
-            .service
-            .use_backup_code(&challenge.user_id, code)
-            .await?)
+        self.service.use_backup_code(&challenge.user_id, code).await
     }
 }

@@ -1,6 +1,6 @@
 use anyhow::Result;
 use axum::{
-    extract::{ConnectInfo, State},
+    extract::State,
     middleware::from_fn_with_state,
     routing::{get, post, put},
     Router,

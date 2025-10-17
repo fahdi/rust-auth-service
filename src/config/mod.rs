@@ -157,7 +157,7 @@ impl Config {
         let environment = env::var("ENVIRONMENT").unwrap_or_else(|_| "development".to_string());
 
         // Load from environment-specific config file
-        let config_file = format!("config/{}.yml", environment);
+        let config_file = format!("config/{environment}.yml");
         let mut config = if std::path::Path::new(&config_file).exists() {
             let config_str = std::fs::read_to_string(&config_file)
                 .with_context(|| format!("Failed to read {config_file}"))?;
@@ -194,7 +194,7 @@ impl Config {
         if !warnings.is_empty() {
             eprintln!("Security warnings:");
             for warning in warnings {
-                eprintln!("  - {}", warning);
+                eprintln!("  - {warning}");
             }
         }
 
