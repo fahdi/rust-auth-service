@@ -184,31 +184,31 @@ pub struct CacheKey;
 #[allow(dead_code)]
 impl CacheKey {
     pub fn user_by_id(user_id: &str) -> String {
-        format!("user:id:{}", user_id)
+        format!("user:id:{user_id}")
     }
 
     pub fn user_by_email(email: &str) -> String {
-        format!("user:email:{}", email)
+        format!("user:email:{email}")
     }
 
     pub fn session(session_id: &str) -> String {
-        format!("session:{}", session_id)
+        format!("session:{session_id}")
     }
 
     pub fn password_reset_token(token: &str) -> String {
-        format!("reset_token:{}", token)
+        format!("reset_token:{token}")
     }
 
     pub fn email_verification_token(token: &str) -> String {
-        format!("verify_token:{}", token)
+        format!("verify_token:{token}")
     }
 
     pub fn rate_limit(ip: &str) -> String {
-        format!("rate_limit:{}", ip)
+        format!("rate_limit:{ip}")
     }
 
     pub fn login_attempts(email: &str) -> String {
-        format!("login_attempts:{}", email)
+        format!("login_attempts:{email}")
     }
 }
 

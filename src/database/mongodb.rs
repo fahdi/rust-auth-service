@@ -201,7 +201,7 @@ impl AuthDatabase for MongoDatabase {
                 if e.to_string().contains("duplicate key") {
                     Err(UserError::EmailAlreadyExists)
                 } else {
-                    Err(UserError::Database(format!("Failed to create user: {}", e)))
+                    Err(UserError::Database(format!("Failed to create user: {value}"), e)))
                 }
             }
         }
@@ -233,7 +233,7 @@ impl AuthDatabase for MongoDatabase {
 
     async fn update_user(&self, user: &User) -> Result<User, UserError> {
         let user_doc = mongodb::bson::to_document(user)
-            .map_err(|e| UserError::Database(format!("Failed to serialize user: {}", e)))?;
+            .map_err(|e| UserError::Database(format!("Failed to serialize user: {value}"), e)))?;
 
         let filter = doc! { "user_id": &user.user_id };
         let update = doc! { "$set": user_doc };
@@ -249,7 +249,7 @@ impl AuthDatabase for MongoDatabase {
                         .ok_or(UserError::NotFound)
                 }
             }
-            Err(e) => Err(UserError::Database(format!("Failed to update user: {}", e))),
+            Err(e) => Err(UserError::Database(format!("Failed to update user: {value}"), e))),
         }
     }
 
@@ -287,7 +287,7 @@ impl AuthDatabase for MongoDatabase {
         };
 
         let user = self.users.find_one(filter).await.map_err(|e| {
-            UserError::Database(format!("Failed to find verification token: {}", e))
+            UserError::Database(format!("Failed to find verification token: {value}"), e))
         })?;
 
         let user = user.ok_or(UserError::InvalidVerificationToken)?;
@@ -304,7 +304,7 @@ impl AuthDatabase for MongoDatabase {
         self.users
             .update_one(update_filter, update)
             .await
-            .map_err(|e| UserError::Database(format!("Failed to verify email: {}", e)))?;
+            .map_err(|e| UserError::Database(format!("Failed to verify email: {value}"), e)))?;
 
         Ok(user.user_id)
     }
@@ -336,7 +336,7 @@ impl AuthDatabase for MongoDatabase {
             .users
             .find_one(filter)
             .await
-            .map_err(|e| UserError::Database(format!("Failed to find reset token: {}", e)))?;
+            .map_err(|e| UserError::Database(format!("Failed to find reset token: {value}"), e)))?;
 
         let user = user.ok_or(UserError::InvalidPasswordResetToken)?;
         Ok(user.user_id)
@@ -385,7 +385,7 @@ impl AuthDatabase for MongoDatabase {
             .update_one(filter.clone(), update)
             .await
             .map_err(|e| {
-                UserError::Database(format!("Failed to increment login attempts: {}", e))
+                UserError::Database(format!("Failed to increment login attempts: {value}"), e))
             })?;
 
         // Check if we need to lock the account
@@ -403,7 +403,7 @@ impl AuthDatabase for MongoDatabase {
                 self.users
                     .update_one(filter, lock_update)
                     .await
-                    .map_err(|e| UserError::Database(format!("Failed to lock account: {}", e)))?;
+                    .map_err(|e| UserError::Database(format!("Failed to lock account: {value}"), e)))?;
             }
         }
 
@@ -445,14 +445,14 @@ impl AuthDatabase for MongoDatabase {
                 database_type: "mongodb".to_string(),
                 connected: true,
                 response_time_ms,
-                details: Some(format!("Connected to database: {}", DATABASE_NAME)),
+                details: Some(format!("Connected to database: {value}"), DATABASE_NAME)),
             }),
             Err(e) => Ok(DatabaseHealth {
                 status: "unhealthy".to_string(),
                 database_type: "mongodb".to_string(),
                 connected: false,
                 response_time_ms,
-                details: Some(format!("Connection error: {}", e)),
+                details: Some(format!("Connection error: {value}"), e)),
             }),
         }
     }

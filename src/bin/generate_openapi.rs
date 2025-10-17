@@ -46,9 +46,9 @@ struct TestApiDoc;
 
 fn main() {
     println!("Generating OpenAPI specification...");
-    
+
     let openapi = TestApiDoc::openapi();
-    
+
     // Print the OpenAPI JSON
     match serde_json::to_string_pretty(&openapi) {
         Ok(json) => {
@@ -57,7 +57,7 @@ fn main() {
             println!("Endpoints found: {}", openapi.paths.paths.len());
             println!("\nAPI Title: {}", openapi.info.title);
             println!("API Version: {}", openapi.info.version);
-            
+
             // Save to file
             std::fs::write("openapi.json", &json).expect("Failed to write OpenAPI JSON to file");
             println!("\nOpenAPI specification saved to openapi.json");

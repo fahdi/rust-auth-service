@@ -61,7 +61,7 @@ impl std::str::FromStr for UserRole {
             "admin" => Ok(UserRole::Admin),
             "moderator" => Ok(UserRole::Moderator),
             "guest" => Ok(UserRole::Guest),
-            _ => Err(format!("Invalid role: {}", s)),
+            _ => Err(format!("Invalid role: {s}")),
         }
     }
 }
@@ -254,7 +254,7 @@ impl User {
 
     /// Get user's full name
     pub fn full_name(&self) -> String {
-        format!("{} {}", self.first_name, self.last_name)
+        format!("{} {value}"), self.first_name, self.last_name)
     }
 
     /// Check if user account is locked

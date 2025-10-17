@@ -407,7 +407,7 @@ impl<T: OAuth2Service> OAuth2ClientManager<T> {
 
     /// Generate client ID
     fn generate_client_id(&self) -> String {
-        format!("client_{}", Uuid::new_v4().simple())
+        format!("client_{value}"), Uuid::new_v4().simple())
     }
 
     /// Generate client secret

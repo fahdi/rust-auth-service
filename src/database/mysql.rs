@@ -32,72 +32,72 @@ impl MySqlDatabase {
     fn row_to_user(row: &MySqlRow) -> Result<User, UserError> {
         let metadata_json: String = row
             .try_get("metadata")
-            .map_err(|e| UserError::Database(format!("Failed to get metadata: {}", e)))?;
+            .map_err(|e| UserError::Database(format!("Failed to get metadata: {value}"), e)))?;
 
         let metadata: UserMetadata = serde_json::from_str(&metadata_json)
-            .map_err(|e| UserError::Database(format!("Failed to deserialize metadata: {}", e)))?;
+            .map_err(|e| UserError::Database(format!("Failed to deserialize metadata: {value}"), e)))?;
 
         let role_str: String = row
             .try_get("role")
-            .map_err(|e| UserError::Database(format!("Failed to get role: {}", e)))?;
+            .map_err(|e| UserError::Database(format!("Failed to get role: {value}"), e)))?;
 
         let role: UserRole = role_str
             .parse()
-            .map_err(|e| UserError::Database(format!("Invalid role: {}", e)))?;
+            .map_err(|e| UserError::Database(format!("Invalid role: {value}"), e)))?;
 
         Ok(User {
             id: None, // MySQL uses auto-increment, not ObjectId
             user_id: row
                 .try_get("user_id")
-                .map_err(|e| UserError::Database(format!("Failed to get user_id: {}", e)))?,
+                .map_err(|e| UserError::Database(format!("Failed to get user_id: {value}"), e)))?,
             email: row
                 .try_get("email")
-                .map_err(|e| UserError::Database(format!("Failed to get email: {}", e)))?,
+                .map_err(|e| UserError::Database(format!("Failed to get email: {value}"), e)))?,
             password_hash: row
                 .try_get("password_hash")
-                .map_err(|e| UserError::Database(format!("Failed to get password_hash: {}", e)))?,
+                .map_err(|e| UserError::Database(format!("Failed to get password_hash: {value}"), e)))?,
             first_name: row
                 .try_get("first_name")
-                .map_err(|e| UserError::Database(format!("Failed to get first_name: {}", e)))?,
+                .map_err(|e| UserError::Database(format!("Failed to get first_name: {value}"), e)))?,
             last_name: row
                 .try_get("last_name")
-                .map_err(|e| UserError::Database(format!("Failed to get last_name: {}", e)))?,
+                .map_err(|e| UserError::Database(format!("Failed to get last_name: {value}"), e)))?,
             role,
             is_active: row
                 .try_get::<i8, _>("is_active")
-                .map_err(|e| UserError::Database(format!("Failed to get is_active: {}", e)))?
+                .map_err(|e| UserError::Database(format!("Failed to get is_active: {value}"), e)))?
                 != 0,
             email_verified: row
                 .try_get::<i8, _>("email_verified")
-                .map_err(|e| UserError::Database(format!("Failed to get email_verified: {}", e)))?
+                .map_err(|e| UserError::Database(format!("Failed to get email_verified: {value}"), e)))?
                 != 0,
             email_verification_token: row.try_get("email_verification_token").map_err(|e| {
-                UserError::Database(format!("Failed to get email_verification_token: {}", e))
+                UserError::Database(format!("Failed to get email_verification_token: {value}"), e))
             })?,
             email_verification_expires: row.try_get("email_verification_expires").map_err(|e| {
-                UserError::Database(format!("Failed to get email_verification_expires: {}", e))
+                UserError::Database(format!("Failed to get email_verification_expires: {value}"), e))
             })?,
             password_reset_token: row.try_get("password_reset_token").map_err(|e| {
-                UserError::Database(format!("Failed to get password_reset_token: {}", e))
+                UserError::Database(format!("Failed to get password_reset_token: {value}"), e))
             })?,
             password_reset_expires: row.try_get("password_reset_expires").map_err(|e| {
-                UserError::Database(format!("Failed to get password_reset_expires: {}", e))
+                UserError::Database(format!("Failed to get password_reset_expires: {value}"), e))
             })?,
             last_login: row
                 .try_get("last_login")
-                .map_err(|e| UserError::Database(format!("Failed to get last_login: {}", e)))?,
+                .map_err(|e| UserError::Database(format!("Failed to get last_login: {value}"), e)))?,
             login_attempts: row
                 .try_get::<u32, _>("login_attempts")
-                .map_err(|e| UserError::Database(format!("Failed to get login_attempts: {}", e)))?,
+                .map_err(|e| UserError::Database(format!("Failed to get login_attempts: {value}"), e)))?,
             locked_until: row
                 .try_get("locked_until")
-                .map_err(|e| UserError::Database(format!("Failed to get locked_until: {}", e)))?,
+                .map_err(|e| UserError::Database(format!("Failed to get locked_until: {value}"), e)))?,
             created_at: row
                 .try_get("created_at")
-                .map_err(|e| UserError::Database(format!("Failed to get created_at: {}", e)))?,
+                .map_err(|e| UserError::Database(format!("Failed to get created_at: {value}"), e)))?,
             updated_at: row
                 .try_get("updated_at")
-                .map_err(|e| UserError::Database(format!("Failed to get updated_at: {}", e)))?,
+                .map_err(|e| UserError::Database(format!("Failed to get updated_at: {value}"), e)))?,
             metadata,
         })
     }
@@ -111,7 +111,7 @@ impl AuthDatabase for MySqlDatabase {
         }
 
         let metadata_json = serde_json::to_string(&user.metadata)
-            .map_err(|e| UserError::Database(format!("Failed to serialize metadata: {}", e)))?;
+            .map_err(|e| UserError::Database(format!("Failed to serialize metadata: {value}"), e)))?;
 
         let query = r#"
             INSERT INTO users (
@@ -151,7 +151,7 @@ impl AuthDatabase for MySqlDatabase {
                 {
                     UserError::EmailAlreadyExists
                 } else {
-                    UserError::Database(format!("Failed to create user: {}", e))
+                    UserError::Database(format!("Failed to create user: {value}"), e))
                 }
             })?;
 
@@ -162,7 +162,7 @@ impl AuthDatabase for MySqlDatabase {
             .bind(user_id)
             .fetch_one(&self.pool)
             .await
-            .map_err(|e| UserError::Database(format!("Failed to fetch created user: {}", e)))?;
+            .map_err(|e| UserError::Database(format!("Failed to fetch created user: {value}"), e)))?;
 
         Self::row_to_user(&row)
     }
@@ -174,7 +174,7 @@ impl AuthDatabase for MySqlDatabase {
             .bind(email.to_lowercase())
             .fetch_optional(&self.pool)
             .await
-            .map_err(|e| UserError::Database(format!("Failed to find user by email: {}", e)))?;
+            .map_err(|e| UserError::Database(format!("Failed to find user by email: {value}"), e)))?;
 
         match row {
             Some(row) => Ok(Some(Self::row_to_user(&row)?)),
@@ -189,7 +189,7 @@ impl AuthDatabase for MySqlDatabase {
             .bind(user_id)
             .fetch_optional(&self.pool)
             .await
-            .map_err(|e| UserError::Database(format!("Failed to find user by ID: {}", e)))?;
+            .map_err(|e| UserError::Database(format!("Failed to find user by ID: {value}"), e)))?;
 
         match row {
             Some(row) => Ok(Some(Self::row_to_user(&row)?)),
@@ -237,7 +237,7 @@ impl AuthDatabase for MySqlDatabase {
             .bind(&user.user_id)
             .execute(&self.pool)
             .await
-            .map_err(|e| UserError::Database(format!("Failed to update user: {}", e)))?;
+            .map_err(|e| UserError::Database(format!("Failed to update user: {value}"), e)))?;
 
         if result.rows_affected() == 0 {
             return Err(UserError::NotFound);
@@ -258,7 +258,7 @@ impl AuthDatabase for MySqlDatabase {
             .bind(user_id)
             .execute(&self.pool)
             .await
-            .map_err(|e| UserError::Database(format!("Failed to update password: {}", e)))?;
+            .map_err(|e| UserError::Database(format!("Failed to update password: {value}"), e)))?;
 
         if result.rows_affected() == 0 {
             Err(UserError::NotFound)
@@ -289,7 +289,7 @@ impl AuthDatabase for MySqlDatabase {
             .bind(user_id)
             .execute(&self.pool)
             .await
-            .map_err(|e| UserError::Database(format!("Failed to set verification token: {}", e)))?;
+            .map_err(|e| UserError::Database(format!("Failed to set verification token: {value}"), e)))?;
 
         if result.rows_affected() == 0 {
             Err(UserError::NotFound)
@@ -311,13 +311,13 @@ impl AuthDatabase for MySqlDatabase {
             .fetch_optional(&self.pool)
             .await
             .map_err(|e| {
-                UserError::Database(format!("Failed to find verification token: {}", e))
+                UserError::Database(format!("Failed to find verification token: {value}"), e))
             })?;
 
         let user_id: String = match row {
             Some(row) => row
                 .try_get("user_id")
-                .map_err(|e| UserError::Database(format!("Failed to get user_id: {}", e)))?,
+                .map_err(|e| UserError::Database(format!("Failed to get user_id: {value}"), e)))?,
             None => return Err(UserError::InvalidVerificationToken),
         };
 
@@ -335,7 +335,7 @@ impl AuthDatabase for MySqlDatabase {
             .bind(&user_id)
             .execute(&self.pool)
             .await
-            .map_err(|e| UserError::Database(format!("Failed to verify email: {}", e)))?;
+            .map_err(|e| UserError::Database(format!("Failed to verify email: {value}"), e)))?;
 
         Ok(user_id)
     }
@@ -363,7 +363,7 @@ impl AuthDatabase for MySqlDatabase {
             .execute(&self.pool)
             .await
             .map_err(|e| {
-                UserError::Database(format!("Failed to set password reset token: {}", e))
+                UserError::Database(format!("Failed to set password reset token: {value}"), e))
             })?;
 
         if result.rows_affected() == 0 {
@@ -385,13 +385,13 @@ impl AuthDatabase for MySqlDatabase {
             .bind(Utc::now())
             .fetch_optional(&self.pool)
             .await
-            .map_err(|e| UserError::Database(format!("Failed to find reset token: {}", e)))?;
+            .map_err(|e| UserError::Database(format!("Failed to find reset token: {value}"), e)))?;
 
         match row {
             Some(row) => {
                 let user_id: String = row
                     .try_get("user_id")
-                    .map_err(|e| UserError::Database(format!("Failed to get user_id: {}", e)))?;
+                    .map_err(|e| UserError::Database(format!("Failed to get user_id: {value}"), e)))?;
                 Ok(user_id)
             }
             None => Err(UserError::InvalidPasswordResetToken),
@@ -412,7 +412,7 @@ impl AuthDatabase for MySqlDatabase {
             .bind(user_id)
             .execute(&self.pool)
             .await
-            .map_err(|e| UserError::Database(format!("Failed to clear reset token: {}", e)))?;
+            .map_err(|e| UserError::Database(format!("Failed to clear reset token: {value}"), e)))?;
 
         if result.rows_affected() == 0 {
             Err(UserError::NotFound)
@@ -438,7 +438,7 @@ impl AuthDatabase for MySqlDatabase {
             .bind(user_id)
             .execute(&self.pool)
             .await
-            .map_err(|e| UserError::Database(format!("Failed to record login: {}", e)))?;
+            .map_err(|e| UserError::Database(format!("Failed to record login: {value}"), e)))?;
 
         if result.rows_affected() == 0 {
             Err(UserError::NotFound)
@@ -466,7 +466,7 @@ impl AuthDatabase for MySqlDatabase {
             .execute(&self.pool)
             .await
             .map_err(|e| {
-                UserError::Database(format!("Failed to increment login attempts: {}", e))
+                UserError::Database(format!("Failed to increment login attempts: {value}"), e))
             })?;
 
         // Get current login attempts
@@ -475,12 +475,12 @@ impl AuthDatabase for MySqlDatabase {
             .bind(email.to_lowercase())
             .fetch_optional(&self.pool)
             .await
-            .map_err(|e| UserError::Database(format!("Failed to check login attempts: {}", e)))?;
+            .map_err(|e| UserError::Database(format!("Failed to check login attempts: {value}"), e)))?;
 
         let login_attempts: u32 = match row {
             Some(row) => row
                 .try_get("login_attempts")
-                .map_err(|e| UserError::Database(format!("Failed to get login_attempts: {}", e)))?,
+                .map_err(|e| UserError::Database(format!("Failed to get login_attempts: {value}"), e)))?,
             None => return Err(UserError::NotFound),
         };
 
@@ -499,7 +499,7 @@ impl AuthDatabase for MySqlDatabase {
                 .bind(email.to_lowercase())
                 .execute(&self.pool)
                 .await
-                .map_err(|e| UserError::Database(format!("Failed to lock account: {}", e)))?;
+                .map_err(|e| UserError::Database(format!("Failed to lock account: {value}"), e)))?;
         }
 
         Ok(())
@@ -512,11 +512,11 @@ impl AuthDatabase for MySqlDatabase {
             .bind(email.to_lowercase())
             .fetch_one(&self.pool)
             .await
-            .map_err(|e| UserError::Database(format!("Failed to check user existence: {}", e)))?;
+            .map_err(|e| UserError::Database(format!("Failed to check user existence: {value}"), e)))?;
 
         let count: i64 = row
             .try_get("count")
-            .map_err(|e| UserError::Database(format!("Failed to get count: {}", e)))?;
+            .map_err(|e| UserError::Database(format!("Failed to get count: {value}"), e)))?;
 
         Ok(count > 0)
     }
@@ -529,7 +529,7 @@ impl AuthDatabase for MySqlDatabase {
             .bind(user_id)
             .execute(&self.pool)
             .await
-            .map_err(|e| UserError::Database(format!("Failed to deactivate user: {}", e)))?;
+            .map_err(|e| UserError::Database(format!("Failed to deactivate user: {value}"), e)))?;
 
         if result.rows_affected() == 0 {
             Err(UserError::NotFound)
@@ -558,7 +558,7 @@ impl AuthDatabase for MySqlDatabase {
                 database_type: "mysql".to_string(),
                 connected: false,
                 response_time_ms,
-                details: Some(format!("Connection error: {}", e)),
+                details: Some(format!("Connection error: {value}"), e)),
             }),
         }
     }
@@ -571,7 +571,7 @@ impl AuthDatabase for MySqlDatabase {
             .fetch_optional(&self.pool)
             .await
             .map_err(|e| {
-                UserError::Database(format!("Failed to find user by verification token: {}", e))
+                UserError::Database(format!("Failed to find user by verification token: {value}"), e))
             })?;
 
         match row {
@@ -588,7 +588,7 @@ impl AuthDatabase for MySqlDatabase {
             .fetch_optional(&self.pool)
             .await
             .map_err(|e| {
-                UserError::Database(format!("Failed to find user by reset token: {}", e))
+                UserError::Database(format!("Failed to find user by reset token: {value}"), e))
             })?;
 
         match row {
@@ -612,7 +612,7 @@ impl AuthDatabase for MySqlDatabase {
             .bind(user_id)
             .execute(&self.pool)
             .await
-            .map_err(|e| UserError::Database(format!("Failed to verify email: {}", e)))?;
+            .map_err(|e| UserError::Database(format!("Failed to verify email: {value}"), e)))?;
 
         if result.rows_affected() == 0 {
             Err(UserError::NotFound)
@@ -642,7 +642,7 @@ impl AuthDatabase for MySqlDatabase {
             .bind(user_id)
             .execute(&self.pool)
             .await
-            .map_err(|e| UserError::Database(format!("Failed to update login attempts: {}", e)))?;
+            .map_err(|e| UserError::Database(format!("Failed to update login attempts: {value}"), e)))?;
 
         if result.rows_affected() == 0 {
             Err(UserError::NotFound)
@@ -665,7 +665,7 @@ impl AuthDatabase for MySqlDatabase {
             .bind(user_id)
             .execute(&self.pool)
             .await
-            .map_err(|e| UserError::Database(format!("Failed to update last login: {}", e)))?;
+            .map_err(|e| UserError::Database(format!("Failed to update last login: {value}"), e)))?;
 
         if result.rows_affected() == 0 {
             Err(UserError::NotFound)
@@ -688,7 +688,7 @@ impl AuthDatabase for MySqlDatabase {
             .bind(attempt.attempted_at)
             .execute(&self.pool)
             .await
-            .map_err(|e| UserError::Database(format!("Failed to record login attempt: {}", e)))?;
+            .map_err(|e| UserError::Database(format!("Failed to record login attempt: {value}"), e)))?;
 
         Ok(())
     }

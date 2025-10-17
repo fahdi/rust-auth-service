@@ -1,7 +1,7 @@
 pub mod logging;
-pub mod tracing;
 pub mod metrics;
+pub mod tracing;
 
 pub use logging::*;
-pub use tracing::*;
 pub use metrics::*;
+pub use tracing::*;

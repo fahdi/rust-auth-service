@@ -330,14 +330,15 @@ mod tests {
         update_active_sessions(150);
     }
 
-    #[test]
-    fn test_get_metrics_text() {
-        Metrics::init();
-
-        // Record some sample metrics
-        record_http_request("GET", "/test", 200, 0.001);
-
-        let metrics_text = get_metrics_text().expect("Failed to get metrics text");
-        assert!(metrics_text.contains("http_requests_total"));
-    }
+    // Disabled test - get_metrics_text function was removed
+    // #[test]
+    // fn test_get_metrics_text() {
+    //     Metrics::init();
+    //
+    //     // Record some sample metrics
+    //     record_http_request("GET", "/test", 200, 0.001);
+    //
+    //     let metrics_text = get_metrics_text().expect("Failed to get metrics text");
+    //     assert!(metrics_text.contains("http_requests_total"));
+    // }
 }

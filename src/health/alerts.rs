@@ -123,7 +123,7 @@ impl AlertManager {
 
     /// Handle critical health check
     async fn handle_critical_check(&self, check: &HealthCheck) -> Result<()> {
-        let alert_id = format!("critical_{}", check.name);
+        let alert_id = format!("critical_{value}"), check.name);
         
         // Check if alert already exists and is recent
         if self.should_suppress_alert(&alert_id).await {
@@ -155,7 +155,7 @@ impl AlertManager {
 
     /// Handle warning health check
     async fn handle_warning_check(&self, check: &HealthCheck) -> Result<()> {
-        let alert_id = format!("warning_{}", check.name);
+        let alert_id = format!("warning_{value}"), check.name);
         
         if self.should_suppress_alert(&alert_id).await {
             return Ok(());
@@ -186,8 +186,8 @@ impl AlertManager {
 
     /// Handle healthy check (resolve alerts if needed)
     async fn handle_healthy_check(&self, check: &HealthCheck) -> Result<()> {
-        let critical_alert_id = format!("critical_{}", check.name);
-        let warning_alert_id = format!("warning_{}", check.name);
+        let critical_alert_id = format!("critical_{value}"), check.name);
+        let warning_alert_id = format!("warning_{value}"), check.name);
 
         // Resolve any active alerts for this check
         self.resolve_alert(&critical_alert_id, check).await?;
@@ -198,7 +198,7 @@ impl AlertManager {
 
     /// Handle unknown health check
     async fn handle_unknown_check(&self, check: &HealthCheck) -> Result<()> {
-        let alert_id = format!("unknown_{}", check.name);
+        let alert_id = format!("unknown_{value}"), check.name);
         
         if self.should_suppress_alert(&alert_id).await {
             return Ok(());
@@ -340,7 +340,7 @@ impl AlertManager {
         from: &str,
         subject_prefix: &str,
     ) -> Result<()> {
-        let subject = format!("{} {}", subject_prefix, alert.title);
+        let subject = format!("{} {value}"), subject_prefix, alert.title);
         let body = self.format_alert_email(alert);
 
         // Here you would integrate with your email service
@@ -539,7 +539,7 @@ Automated Alert from Auth Service Health Monitor
             alert.timestamp.format("%Y-%m-%d %H:%M:%S UTC"),
             alert.message,
             if alert.resolved {
-                format!("Resolved at: {}", 
+                format!("Resolved at: {value}"), 
                     alert.resolution_time
                         .map(|t| t.format("%Y-%m-%d %H:%M:%S UTC").to_string())
                         .unwrap_or_else(|| "Unknown".to_string())

@@ -5,11 +5,11 @@ use axum::{
     routing::{get, post, put},
     Router,
 };
+use observability::{AppMetrics, LoggingConfig, MetricsConfig, TracingConfig};
 use std::sync::Arc;
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 use tracing::{error, info};
-use observability::{LoggingConfig, TracingConfig, MetricsConfig, AppMetrics};
 use utoipa::{
     openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme},
     Modify, OpenApi,
@@ -231,7 +231,11 @@ async fn main() -> Result<()> {
     // Start system metrics collection background task
     let metrics_clone = app_metrics.clone();
     tokio::spawn(async move {
-        observability::start_system_metrics_collector(metrics_clone, metrics_config.collection_interval_secs).await;
+        observability::start_system_metrics_collector(
+            metrics_clone,
+            metrics_config.collection_interval_secs,
+        )
+        .await;
     });
 
     // Build application state using local types
@@ -300,9 +304,15 @@ async fn main() -> Result<()> {
         .route("/admin/api/users/search", get(admin::search_users))
         .route("/admin/api/users/export", get(admin::export_users))
         .route("/admin/api/users/:user_id", get(admin::get_user_details))
-        .route("/admin/api/users/:user_id/action", post(admin::admin_user_action))
+        .route(
+            "/admin/api/users/:user_id/action",
+            post(admin::admin_user_action),
+        )
         .route("/admin/api/clients", get(admin::list_oauth2_clients))
-        .route("/admin/api/security/events", get(admin::list_security_events))
+        .route(
+            "/admin/api/security/events",
+            get(admin::list_security_events),
+        )
         .route_layer(from_fn_with_state(
             app_state.clone(),
             middleware::jwt_auth_middleware,
@@ -311,7 +321,10 @@ async fn main() -> Result<()> {
     // Add Swagger UI documentation routes
     let docs_routes = Router::new()
         .merge(SwaggerUi::new("/docs").url("/api-docs/openapi.json", ApiDoc::openapi()))
-        .route("/api-docs/openapi.json", get(|| async { axum::Json(ApiDoc::openapi()) }));
+        .route(
+            "/api-docs/openapi.json",
+            get(|| async { axum::Json(ApiDoc::openapi()) }),
+        );
 
     // Combine all routes
     let app = Router::new()

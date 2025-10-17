@@ -249,7 +249,7 @@ impl<T: SessionService> DeviceManager<T> {
     /// Generate verification token
     fn generate_verification_token(&self) -> String {
         use uuid::Uuid;
-        format!("verify_{}", Uuid::new_v4())
+        format!("verify_{value}"), Uuid::new_v4())
     }
 
     /// Calculate device security level

@@ -285,15 +285,15 @@ impl HealthMetrics {
     fn create_component_metrics(&self, component_name: &str) -> Result<ComponentMetrics> {
         let health_status = IntGauge::with_opts(
             Opts::new(
-                format!("component_health_status_{}", component_name),
-                format!("Health status for component {}", component_name)
+                format!("component_health_status_{value}"), component_name),
+                format!("Health status for component {value}"), component_name)
             )
         )?;
         self.registry.register(Box::new(health_status.clone()))?;
 
         let check_duration_seconds = Histogram::with_opts(
             HistogramOpts::new(
-                format!("component_check_duration_seconds_{}", component_name),
+                format!("component_check_duration_seconds_{value}"), component_name),
                 format!("Health check duration for component {} in seconds", component_name)
             ).buckets(vec![0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0])
         )?;
@@ -301,24 +301,24 @@ impl HealthMetrics {
 
         let check_total = IntCounter::with_opts(
             Opts::new(
-                format!("component_check_total_{}", component_name),
-                format!("Total health checks for component {}", component_name)
+                format!("component_check_total_{value}"), component_name),
+                format!("Total health checks for component {value}"), component_name)
             )
         )?;
         self.registry.register(Box::new(check_total.clone()))?;
 
         let last_check_timestamp = Gauge::with_opts(
             Opts::new(
-                format!("component_last_check_timestamp_{}", component_name),
-                format!("Timestamp of last health check for component {}", component_name)
+                format!("component_last_check_timestamp_{value}"), component_name),
+                format!("Timestamp of last health check for component {value}"), component_name)
             )
         )?;
         self.registry.register(Box::new(last_check_timestamp.clone()))?;
 
         let consecutive_failures = IntGauge::with_opts(
             Opts::new(
-                format!("component_consecutive_failures_{}", component_name),
-                format!("Number of consecutive failures for component {}", component_name)
+                format!("component_consecutive_failures_{value}"), component_name),
+                format!("Number of consecutive failures for component {value}"), component_name)
             )
         )?;
         self.registry.register(Box::new(consecutive_failures.clone()))?;

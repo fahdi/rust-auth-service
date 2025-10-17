@@ -150,9 +150,9 @@ impl OAuth2Server {
         self.service.create_auth_code(auth_code).await?;
 
         // Return redirect URL with authorization code
-        let mut url = format!("{}?code={}", redirect_uri, code);
+        let mut url = format!("{}?code={value}"), redirect_uri, code);
         if let Some(state) = state {
-            url.push_str(&format!("&state={}", urlencoding::encode(state)));
+            url.push_str(&format!("&state={value}"), urlencoding::encode(state)));
         }
         Ok(url)
     }
@@ -603,7 +603,7 @@ impl OAuth2Server {
         let device_code = uuid::Uuid::new_v4().to_string();
         let user_code = self.generate_user_code();
         let verification_uri = format!("{}/device", self.config.base_url);
-        let verification_uri_complete = format!("{}?user_code={}", verification_uri, user_code);
+        let verification_uri_complete = format!("{}?user_code={value}"), verification_uri, user_code);
 
         let device_auth = DeviceAuthorization {
             device_code: device_code.clone(),
@@ -1056,9 +1056,9 @@ impl OAuth2Server {
 
         self.service.create_auth_code(auth_code).await?;
 
-        let mut redirect_url = format!("{}?code={}", redirect_uri, code);
+        let mut redirect_url = format!("{}?code={value}"), redirect_uri, code);
         if let Some(state) = request.state {
-            redirect_url.push_str(&format!("&state={}", urlencoding::encode(&state)));
+            redirect_url.push_str(&format!("&state={value}"), urlencoding::encode(&state)));
         }
 
         Ok(AuthorizeResponse::Redirect { url: redirect_url })

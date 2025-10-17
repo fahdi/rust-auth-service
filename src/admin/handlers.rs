@@ -17,21 +17,13 @@ use crate::{
 };
 
 /// Admin dashboard HTML page
-#[utoipa::path(
-    get,
-    path = "/admin",
-    tag = "admin"
-)]
+#[utoipa::path(get, path = "/admin", tag = "admin")]
 pub async fn admin_dashboard() -> Html<&'static str> {
     Html(include_str!("../../templates/admin_dashboard.html"))
 }
 
 /// Get dashboard statistics
-#[utoipa::path(
-    get,
-    path = "/admin/api/stats",
-    tag = "admin"
-)]
+#[utoipa::path(get, path = "/admin/api/stats", tag = "admin")]
 pub async fn get_dashboard_stats(
     State(_state): State<AppState>,
     Extension(claims): Extension<JwtClaims>,
@@ -62,11 +54,7 @@ pub async fn get_dashboard_stats(
 }
 
 /// Get system metrics
-#[utoipa::path(
-    get,
-    path = "/admin/api/metrics",
-    tag = "admin"
-)]
+#[utoipa::path(get, path = "/admin/api/metrics", tag = "admin")]
 pub async fn get_system_metrics(
     State(_state): State<AppState>,
     Extension(claims): Extension<JwtClaims>,
@@ -95,11 +83,7 @@ pub async fn get_system_metrics(
 }
 
 /// List users with pagination
-#[utoipa::path(
-    get,
-    path = "/admin/api/users",
-    tag = "admin"
-)]
+#[utoipa::path(get, path = "/admin/api/users", tag = "admin")]
 pub async fn list_users(
     State(_state): State<AppState>,
     Extension(claims): Extension<JwtClaims>,
@@ -148,11 +132,7 @@ pub async fn list_users(
 }
 
 /// Get user details by ID
-#[utoipa::path(
-    get,
-    path = "/admin/api/users/{user_id}",
-    tag = "admin"
-)]
+#[utoipa::path(get, path = "/admin/api/users/{user_id}", tag = "admin")]
 pub async fn get_user_details(
     State(_state): State<AppState>,
     Extension(claims): Extension<JwtClaims>,
@@ -183,11 +163,7 @@ pub async fn get_user_details(
 }
 
 /// Perform admin action on user
-#[utoipa::path(
-    post,
-    path = "/admin/api/users/{user_id}/action",
-    tag = "admin"
-)]
+#[utoipa::path(post, path = "/admin/api/users/{user_id}/action", tag = "admin")]
 pub async fn admin_user_action(
     State(_state): State<AppState>,
     Extension(claims): Extension<JwtClaims>,
@@ -242,11 +218,7 @@ pub async fn admin_user_action(
 }
 
 /// List OAuth2 clients
-#[utoipa::path(
-    get,
-    path = "/admin/api/clients",
-    tag = "admin"
-)]
+#[utoipa::path(get, path = "/admin/api/clients", tag = "admin")]
 pub async fn list_oauth2_clients(
     State(_state): State<AppState>,
     Extension(claims): Extension<JwtClaims>,
@@ -293,11 +265,7 @@ pub async fn list_oauth2_clients(
 }
 
 /// List security events
-#[utoipa::path(
-    get,
-    path = "/admin/api/security/events",
-    tag = "admin"
-)]
+#[utoipa::path(get, path = "/admin/api/security/events", tag = "admin")]
 pub async fn list_security_events(
     State(_state): State<AppState>,
     Extension(claims): Extension<JwtClaims>,
@@ -344,11 +312,7 @@ pub async fn list_security_events(
 }
 
 /// Export user data (CSV format)
-#[utoipa::path(
-    get,
-    path = "/admin/api/users/export",
-    tag = "admin"
-)]
+#[utoipa::path(get, path = "/admin/api/users/export", tag = "admin")]
 pub async fn export_users(
     State(_state): State<AppState>,
     Extension(claims): Extension<JwtClaims>,
@@ -369,11 +333,7 @@ pub async fn export_users(
 }
 
 /// Search users by email or name
-#[utoipa::path(
-    get,
-    path = "/admin/api/users/search",
-    tag = "admin"
-)]
+#[utoipa::path(get, path = "/admin/api/users/search", tag = "admin")]
 pub async fn search_users(
     State(_state): State<AppState>,
     Extension(claims): Extension<JwtClaims>,
@@ -390,6 +350,6 @@ pub async fn search_users(
     // TODO: Implement actual search functionality
     let users = vec![];
     let response = PaginatedResponse::new(users, 1, 20, 0);
-    
+
     Ok(Json(response))
 }

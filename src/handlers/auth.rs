@@ -6,6 +6,7 @@ use utoipa::ToSchema;
 use uuid::Uuid;
 use validator::Validate;
 
+use crate::AppState;
 use crate::{
     errors::{AppError, AppResult},
     models::user::{
@@ -18,7 +19,6 @@ use crate::{
         validation::validate_password_strength,
     },
 };
-use crate::AppState;
 
 #[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct LoginRequest {
@@ -35,11 +35,7 @@ pub struct RefreshTokenRequest {
 }
 
 // Registration endpoint
-#[utoipa::path(
-    post,
-    path = "/auth/register",
-    tag = "authentication"
-)]
+#[utoipa::path(post, path = "/auth/register", tag = "authentication")]
 pub async fn register(
     State(state): State<AppState>,
     Json(payload): Json<CreateUserRequest>,
@@ -133,11 +129,7 @@ pub async fn register(
 }
 
 // Login endpoint
-#[utoipa::path(
-    post,
-    path = "/auth/login",
-    tag = "authentication"
-)]
+#[utoipa::path(post, path = "/auth/login", tag = "authentication")]
 pub async fn login(
     State(state): State<AppState>,
     Json(payload): Json<LoginRequest>,
@@ -240,11 +232,7 @@ pub async fn login(
 }
 
 // Email verification endpoint
-#[utoipa::path(
-    post,
-    path = "/auth/verify",
-    tag = "authentication"
-)]
+#[utoipa::path(post, path = "/auth/verify", tag = "authentication")]
 pub async fn verify_email(
     State(state): State<AppState>,
     Json(payload): Json<EmailVerificationRequest>,
@@ -302,11 +290,7 @@ pub async fn verify_email(
 }
 
 // Password reset request endpoint
-#[utoipa::path(
-    post,
-    path = "/auth/forgot-password",
-    tag = "authentication"
-)]
+#[utoipa::path(post, path = "/auth/forgot-password", tag = "authentication")]
 pub async fn forgot_password(
     State(state): State<AppState>,
     Json(payload): Json<PasswordResetRequest>,
@@ -357,11 +341,7 @@ pub async fn forgot_password(
 }
 
 // Password reset endpoint
-#[utoipa::path(
-    post,
-    path = "/auth/reset-password",
-    tag = "authentication"
-)]
+#[utoipa::path(post, path = "/auth/reset-password", tag = "authentication")]
 pub async fn reset_password(
     State(state): State<AppState>,
     Json(payload): Json<PasswordChangeRequest>,
@@ -432,11 +412,7 @@ pub async fn reset_password(
 }
 
 // Refresh token endpoint
-#[utoipa::path(
-    post,
-    path = "/auth/refresh",
-    tag = "authentication"
-)]
+#[utoipa::path(post, path = "/auth/refresh", tag = "authentication")]
 pub async fn refresh_token(
     State(state): State<AppState>,
     Json(payload): Json<RefreshTokenRequest>,
@@ -509,16 +485,12 @@ pub async fn refresh_token(
 }
 
 // Get current user profile
-#[utoipa::path(
-    get,
-    path = "/auth/me",
-    tag = "users"
-)]
+#[utoipa::path(get, path = "/auth/me", tag = "users")]
 pub async fn get_profile(
     State(state): State<AppState>,
     Extension(claims): Extension<JwtClaims>,
 ) -> Result<Json<UserResponse>, StatusCode> {
-    let cache_key = format!("user_profile:{}", claims.sub);
+    let cache_key = format!("user_profile:{value}"), claims.sub);
 
     // Try to get user profile from cache first
     if let Ok(Some(cached_profile)) = state.cache.get(&cache_key).await {
@@ -562,11 +534,7 @@ pub async fn get_profile(
 }
 
 // Update user profile
-#[utoipa::path(
-    put,
-    path = "/auth/profile",
-    tag = "users"
-)]
+#[utoipa::path(put, path = "/auth/profile", tag = "users")]
 pub async fn update_profile(
     State(state): State<AppState>,
     Extension(claims): Extension<JwtClaims>,
@@ -619,7 +587,7 @@ pub async fn update_profile(
             info!("Profile updated for user: {}", updated_user.email);
 
             // Invalidate cache after successful update
-            let cache_key = format!("user_profile:{}", claims.sub);
+            let cache_key = format!("user_profile:{value}"), claims.sub);
             if let Err(e) = state.cache.delete(&cache_key).await {
                 warn!("Failed to invalidate user profile cache: {}", e);
             } else {
@@ -636,17 +604,13 @@ pub async fn update_profile(
 }
 
 // Logout endpoint
-#[utoipa::path(
-    post,
-    path = "/auth/logout",
-    tag = "authentication"
-)]
+#[utoipa::path(post, path = "/auth/logout", tag = "authentication")]
 pub async fn logout(
     State(state): State<AppState>,
     Extension(claims): Extension<JwtClaims>,
 ) -> Result<Json<Value>, StatusCode> {
     // Add token to blacklist cache until it expires
-    let blacklist_key = format!("blacklist:token:{}", claims.jti);
+    let blacklist_key = format!("blacklist:token:{value}"), claims.jti);
     let ttl = std::time::Duration::from_secs(
         (claims.exp as u64).saturating_sub(
             std::time::SystemTime::now()
@@ -667,7 +631,7 @@ pub async fn logout(
     }
 
     // Invalidate user profile cache on logout
-    let cache_key = format!("user_profile:{}", claims.sub);
+    let cache_key = format!("user_profile:{value}"), claims.sub);
     if let Err(e) = state.cache.delete(&cache_key).await {
         warn!("Failed to invalidate user profile cache on logout: {}", e);
     }

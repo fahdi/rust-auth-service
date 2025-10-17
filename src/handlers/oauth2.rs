@@ -195,7 +195,7 @@ pub async fn authorize_consent_post(
             redirect_uri
         );
         if let Some(state) = &form.state {
-            error_url.push_str(&format!("&state={}", urlencoding::encode(state)));
+            error_url.push_str(&format!("&state={value}"), urlencoding::encode(state)));
         }
         return Ok(Redirect::to(&error_url));
     }
@@ -543,7 +543,7 @@ fn describe_scope(scope: &str) -> String {
         "write" => "Write access to your data".to_string(),
         "admin" => "Administrative access".to_string(),
         "offline_access" => "Access your data while offline".to_string(),
-        _ => format!("Access to {}", scope),
+        _ => format!("Access to {value}"), scope),
     }
 }
 

@@ -54,12 +54,12 @@ mod tests {
     fn test_openapi_generation() {
         let openapi = TestApiDoc::openapi();
         let openapi_json = serde_json::to_value(&openapi).unwrap();
-        
+
         // Test basic structure
         assert_eq!(openapi_json["openapi"], "3.0.3");
         assert_eq!(openapi_json["info"]["title"], "Rust Auth Service API");
         assert_eq!(openapi_json["info"]["version"], "0.1.0");
-        
+
         // Test servers
         let servers = openapi_json["servers"].as_array().unwrap();
         assert_eq!(servers.len(), 2);
@@ -70,20 +70,20 @@ mod tests {
     #[test]
     fn test_openapi_components() {
         let openapi = TestApiDoc::openapi();
-        
+
         // Ensure components exist
         assert!(openapi.components.is_some());
         let components = openapi.components.unwrap();
-        
+
         // Test schemas by serializing to JSON and checking
         let json_value = serde_json::to_value(&components).unwrap();
         let schemas = json_value["schemas"].as_object().unwrap();
         assert!(!schemas.is_empty());
-        
+
         // Expected schemas
         let expected_schemas = [
             "CreateUserRequest",
-            "UpdateUserRequest", 
+            "UpdateUserRequest",
             "PasswordResetRequest",
             "PasswordChangeRequest",
             "EmailVerificationRequest",
@@ -91,13 +91,14 @@ mod tests {
             "AuthResponse",
             "UserRole",
             "UserMetadata",
-            "Claims"
+            "Claims",
         ];
-        
+
         for expected_schema in expected_schemas.iter() {
             assert!(
                 schemas.contains_key(*expected_schema),
-                "Missing schema: {}", expected_schema
+                "Missing schema: {}",
+                expected_schema
             );
         }
     }
@@ -105,21 +106,23 @@ mod tests {
     #[test]
     fn test_openapi_tags() {
         let openapi = TestApiDoc::openapi();
-        
+
         // Serialize to JSON to check tags
         let json_value = serde_json::to_value(&openapi).unwrap();
         let tags = json_value["tags"].as_array().unwrap();
         assert_eq!(tags.len(), 4);
-        
-        let tag_names: HashSet<String> = tags.iter()
+
+        let tag_names: HashSet<String> = tags
+            .iter()
             .map(|tag| tag["name"].as_str().unwrap().to_string())
             .collect();
-            
+
         let expected_tags = ["authentication", "users", "health", "system"];
         for expected_tag in expected_tags.iter() {
             assert!(
                 tag_names.contains(*expected_tag),
-                "Missing tag: {}", expected_tag
+                "Missing tag: {}",
+                expected_tag
             );
         }
     }
@@ -127,19 +130,19 @@ mod tests {
     #[test]
     fn test_openapi_serialization() {
         let openapi = TestApiDoc::openapi();
-        
+
         // Test that it can be serialized to JSON
         let json_result = serde_json::to_string_pretty(&openapi);
         assert!(json_result.is_ok());
-        
+
         let json_string = json_result.unwrap();
         assert!(!json_string.is_empty());
         assert!(json_string.len() > 1000); // Should be substantial
-        
+
         // Test that it can be parsed back
         let parsed_result: Result<Value, _> = serde_json::from_str(&json_string);
         assert!(parsed_result.is_ok());
-        
+
         let parsed_json = parsed_result.unwrap();
         assert_eq!(parsed_json["openapi"], "3.0.3");
         assert_eq!(parsed_json["info"]["title"], "Rust Auth Service API");
@@ -150,21 +153,22 @@ mod tests {
         let openapi = TestApiDoc::openapi();
         let openapi_json = serde_json::to_value(&openapi).unwrap();
         let schemas = openapi_json["components"]["schemas"].as_object().unwrap();
-        
+
         // Test CreateUserRequest schema
         let schema_json = &schemas["CreateUserRequest"];
-        
+
         // Should have required fields
         let required = schema_json["required"].as_array().unwrap();
-        let required_fields: HashSet<String> = required.iter()
+        let required_fields: HashSet<String> = required
+            .iter()
             .map(|v| v.as_str().unwrap().to_string())
             .collect();
-            
+
         assert!(required_fields.contains("email"));
         assert!(required_fields.contains("password"));
         assert!(required_fields.contains("first_name"));
         assert!(required_fields.contains("last_name"));
-        
+
         // Should have properties
         let properties = schema_json["properties"].as_object().unwrap();
         assert!(properties.contains_key("email"));
@@ -180,28 +184,29 @@ mod tests {
         let openapi = TestApiDoc::openapi();
         let openapi_json = serde_json::to_value(&openapi).unwrap();
         let schemas = openapi_json["components"]["schemas"].as_object().unwrap();
-        
+
         // Test AuthResponse schema
         let schema_json = &schemas["AuthResponse"];
-        
+
         // Should have required fields
         let required = schema_json["required"].as_array().unwrap();
-        let required_fields: HashSet<String> = required.iter()
+        let required_fields: HashSet<String> = required
+            .iter()
             .map(|v| v.as_str().unwrap().to_string())
             .collect();
-            
+
         assert!(required_fields.contains("user"));
         assert!(required_fields.contains("access_token"));
         assert!(required_fields.contains("refresh_token"));
         assert!(required_fields.contains("expires_in"));
-        
+
         // Should have properties
         let properties = schema_json["properties"].as_object().unwrap();
         assert!(properties.contains_key("user"));
         assert!(properties.contains_key("access_token"));
         assert!(properties.contains_key("refresh_token"));
         assert!(properties.contains_key("expires_in"));
-        
+
         // Check types
         assert_eq!(properties["access_token"]["type"], "string");
         assert_eq!(properties["refresh_token"]["type"], "string");
@@ -213,16 +218,17 @@ mod tests {
         let openapi = TestApiDoc::openapi();
         let openapi_json = serde_json::to_value(&openapi).unwrap();
         let schemas = openapi_json["components"]["schemas"].as_object().unwrap();
-        
-        // Test Claims schema  
+
+        // Test Claims schema
         let schema_json = &schemas["Claims"];
-        
+
         // Should have required JWT fields
         let required = schema_json["required"].as_array().unwrap();
-        let required_fields: HashSet<String> = required.iter()
+        let required_fields: HashSet<String> = required
+            .iter()
             .map(|v| v.as_str().unwrap().to_string())
             .collect();
-            
+
         assert!(required_fields.contains("sub"));
         assert!(required_fields.contains("email"));
         assert!(required_fields.contains("role"));
@@ -230,7 +236,7 @@ mod tests {
         assert!(required_fields.contains("iat"));
         assert!(required_fields.contains("jti"));
         assert!(required_fields.contains("token_type"));
-        
+
         // Should have properties
         let properties = schema_json["properties"].as_object().unwrap();
         assert!(properties.contains_key("sub"));
@@ -246,13 +252,16 @@ mod tests {
     fn test_openapi_contact_and_license() {
         let openapi = TestApiDoc::openapi();
         let openapi_json = serde_json::to_value(&openapi).unwrap();
-        
+
         // Test contact information
         let contact = &openapi_json["info"]["contact"];
         assert_eq!(contact["name"], "Rust Auth Service");
-        assert_eq!(contact["url"], "https://github.com/your-org/rust-auth-service");
+        assert_eq!(
+            contact["url"],
+            "https://github.com/your-org/rust-auth-service"
+        );
         assert_eq!(contact["email"], "your.email@example.com");
-        
+
         // Test license information
         let license = &openapi_json["info"]["license"];
         assert_eq!(license["name"], "MIT");

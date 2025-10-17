@@ -199,7 +199,7 @@ impl HealthMonitor {
             Err(e) => HealthCheck {
                 name,
                 status: HealthStatus::Unknown,
-                message: format!("Failed to check memory: {}", e),
+                message: format!("Failed to check memory: {value}"), e),
                 latency_ms: start.elapsed().as_millis() as u64,
                 timestamp: chrono::Utc::now(),
                 details: None,
@@ -242,7 +242,7 @@ impl HealthMonitor {
             Err(e) => HealthCheck {
                 name,
                 status: HealthStatus::Unknown,
-                message: format!("Failed to check disk space: {}", e),
+                message: format!("Failed to check disk space: {value}"), e),
                 latency_ms: start.elapsed().as_millis() as u64,
                 timestamp: chrono::Utc::now(),
                 details: None,
@@ -288,7 +288,7 @@ impl HealthMonitor {
             Err(e) => HealthCheck {
                 name,
                 status: HealthStatus::Unknown,
-                message: format!("Failed to check system load: {}", e),
+                message: format!("Failed to check system load: {value}"), e),
                 latency_ms: start.elapsed().as_millis() as u64,
                 timestamp: chrono::Utc::now(),
                 details: None,
@@ -328,7 +328,7 @@ impl HealthMonitor {
             Ok(Err(e)) => HealthCheck {
                 name,
                 status: HealthStatus::Critical,
-                message: format!("Database connection failed: {}", e),
+                message: format!("Database connection failed: {value}"), e),
                 latency_ms: start.elapsed().as_millis() as u64,
                 timestamp: chrono::Utc::now(),
                 details: None,
@@ -390,7 +390,7 @@ impl HealthMonitor {
             Ok(Err(e)) => HealthCheck {
                 name,
                 status: HealthStatus::Critical,
-                message: format!("Cache operation failed: {}", e),
+                message: format!("Cache operation failed: {value}"), e),
                 latency_ms: start.elapsed().as_millis() as u64,
                 timestamp: chrono::Utc::now(),
                 details: None,
@@ -438,7 +438,7 @@ impl HealthMonitor {
             Ok(Err(e)) => HealthCheck {
                 name,
                 status: HealthStatus::Warning, // Email is not critical for auth service
-                message: format!("Email service connection failed: {}", e),
+                message: format!("Email service connection failed: {value}"), e),
                 latency_ms: start.elapsed().as_millis() as u64,
                 timestamp: chrono::Utc::now(),
                 details: None,
@@ -499,7 +499,7 @@ impl HealthMonitor {
             Ok(Err(e)) => HealthCheck {
                 name,
                 status: HealthStatus::Critical,
-                message: format!("Password hashing failed: {}", e),
+                message: format!("Password hashing failed: {value}"), e),
                 latency_ms: start.elapsed().as_millis() as u64,
                 timestamp: chrono::Utc::now(),
                 details: None,
@@ -507,7 +507,7 @@ impl HealthMonitor {
             Err(e) => HealthCheck {
                 name,
                 status: HealthStatus::Critical,
-                message: format!("Password hashing task failed: {}", e),
+                message: format!("Password hashing task failed: {value}"), e),
                 latency_ms: start.elapsed().as_millis() as u64,
                 timestamp: chrono::Utc::now(),
                 details: None,

@@ -46,7 +46,7 @@ fn log_warning_with_context(warning_type: &str, message: &str, request_id: &str)
 
 /// Application error types
 #[derive(Debug, thiserror::Error)]
-#[allow(dead_code)]  // Many variants unused in current implementation
+#[allow(dead_code)] // Many variants unused in current implementation
 pub enum AppError {
     #[error("Validation error: {message}")]
     Validation { message: String },

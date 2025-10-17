@@ -185,9 +185,9 @@ impl Config {
         let config_file = format!("config/{}.yml", environment);
         let mut config = if std::path::Path::new(&config_file).exists() {
             let config_str = std::fs::read_to_string(&config_file)
-                .with_context(|| format!("Failed to read {}", config_file))?;
+                .with_context(|| format!("Failed to read {config_file}"))?;
             serde_yaml::from_str::<Config>(&config_str)
-                .with_context(|| format!("Failed to parse {}", config_file))?
+                .with_context(|| format!("Failed to parse {config_file}"))?
         } else {
             // Fallback to config.yml or default
             Self::from_env_and_file()?

@@ -70,7 +70,7 @@ impl CacheProvider for RedisCache {
             Err(e) => {
                 self.record_miss().await;
                 error!("Redis GET error for key '{}': {}", key, e);
-                Err(anyhow::anyhow!("Redis GET failed: {}", e))
+                Err(anyhow::anyhow!("Redis GET failed: {e}"))
             }
         }
     }
@@ -88,7 +88,7 @@ impl CacheProvider for RedisCache {
         } else {
             conn.set_ex(key, value, ttl_seconds).await
         }
-        .with_context(|| format!("Failed to set Redis key '{}'", key))?;
+        .with_context(|| format!("Failed to set Redis key '{key}'"))?;
 
         Ok(())
     }
@@ -99,7 +99,7 @@ impl CacheProvider for RedisCache {
         let deleted: i32 = conn
             .del(key)
             .await
-            .with_context(|| format!("Failed to delete Redis key '{}'", key))?;
+            .with_context(|| format!("Failed to delete Redis key '{key}'"))?;
 
         if deleted == 0 {
             warn!("Redis key '{}' was not found during deletion", key);
@@ -207,7 +207,7 @@ impl RedisPubSub {
         let _: i32 = conn
             .publish(channel, message)
             .await
-            .with_context(|| format!("Failed to publish to Redis channel '{}'", channel))?;
+            .with_context(|| format!("Failed to publish to Redis channel '{channel}'"))?;
 
         Ok(())
     }
@@ -223,7 +223,7 @@ impl RedisPubSub {
             pubsub
                 .subscribe(channel)
                 .await
-                .with_context(|| format!("Failed to subscribe to Redis channel '{}'", channel))?;
+                .with_context(|| format!("Failed to subscribe to Redis channel '{channel}'"))?;
         }
 
         Ok(pubsub)

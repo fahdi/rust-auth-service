@@ -60,28 +60,27 @@ impl InputValidator {
         let mut errors = Vec::new();
 
         if name.is_empty() {
-            errors.push(format!("{} is required", field_name));
+            errors.push(format!("{field_name} is required"));
             return ValidationResult::Invalid(errors);
         }
 
         if name.len() < 2 {
-            errors.push(format!("{} must be at least 2 characters long", field_name));
+            errors.push(format!("{field_name} must be at least 2 characters long"));
         }
 
         if name.len() > 50 {
-            errors.push(format!("{} must not exceed 50 characters", field_name));
+            errors.push(format!("{field_name} must not exceed 50 characters"));
         }
 
         if !self.name_regex.is_match(name) {
             errors.push(format!(
-                "{} can only contain letters, spaces, hyphens, and apostrophes",
-                field_name
+                "{field_name} can only contain letters, spaces, hyphens, and apostrophes"
             ));
         }
 
         // Check for suspicious patterns
         if name.chars().all(|c| c.is_ascii_digit()) {
-            errors.push(format!("{} cannot be all numbers", field_name));
+            errors.push(format!("{field_name} cannot be all numbers"));
         }
 
         if errors.is_empty() {

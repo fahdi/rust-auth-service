@@ -1,13 +1,13 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use tracing::Subscriber;
 use tracing_subscriber::{
     fmt::{self, time::ChronoUtc},
     layer::SubscriberExt,
     util::SubscriberInitExt,
     EnvFilter, Layer,
 };
-use tracing::Subscriber;
 
 /// Logging configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -86,12 +86,7 @@ pub struct RequestContext {
 
 impl RequestContext {
     #[allow(dead_code)]
-    pub fn new(
-        request_id: String,
-        ip_address: String,
-        method: String,
-        path: String,
-    ) -> Self {
+    pub fn new(request_id: String, ip_address: String, method: String, path: String) -> Self {
         Self {
             request_id,
             user_id: None,
@@ -230,21 +225,39 @@ where
         _ctx: tracing_subscriber::layer::Context<'_, S>,
     ) {
         let metadata = event.metadata();
-        
+
         // Extract structured data from event
         let mut visitor = JsonVisitor::new();
         event.record(&mut visitor);
-        
+
         let mut json_data = visitor.into_map();
-        
+
         // Add service metadata
-        json_data.insert("service".to_string(), serde_json::Value::String(self.service_name.clone()));
-        json_data.insert("version".to_string(), serde_json::Value::String(self.version.clone()));
-        json_data.insert("environment".to_string(), serde_json::Value::String(self.environment.clone()));
-        json_data.insert("timestamp".to_string(), serde_json::Value::String(chrono::Utc::now().to_rfc3339()));
-        json_data.insert("level".to_string(), serde_json::Value::String(metadata.level().to_string()));
-        json_data.insert("target".to_string(), serde_json::Value::String(metadata.target().to_string()));
-        
+        json_data.insert(
+            "service".to_string(),
+            serde_json::Value::String(self.service_name.clone()),
+        );
+        json_data.insert(
+            "version".to_string(),
+            serde_json::Value::String(self.version.clone()),
+        );
+        json_data.insert(
+            "environment".to_string(),
+            serde_json::Value::String(self.environment.clone()),
+        );
+        json_data.insert(
+            "timestamp".to_string(),
+            serde_json::Value::String(chrono::Utc::now().to_rfc3339()),
+        );
+        json_data.insert(
+            "level".to_string(),
+            serde_json::Value::String(metadata.level().to_string()),
+        );
+        json_data.insert(
+            "target".to_string(),
+            serde_json::Value::String(metadata.target().to_string()),
+        );
+
         // Print structured log
         println!("{}", serde_json::to_string(&json_data).unwrap_or_default());
     }
@@ -261,7 +274,7 @@ impl JsonVisitor {
             map: std::collections::HashMap::new(),
         }
     }
-    
+
     fn into_map(self) -> std::collections::HashMap<String, serde_json::Value> {
         self.map
     }
@@ -269,36 +282,50 @@ impl JsonVisitor {
 
 impl tracing::field::Visit for JsonVisitor {
     fn record_str(&mut self, field: &tracing::field::Field, value: &str) {
-        self.map.insert(field.name().to_string(), serde_json::Value::String(value.to_string()));
+        self.map.insert(
+            field.name().to_string(),
+            serde_json::Value::String(value.to_string()),
+        );
     }
 
     fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
-        self.map.insert(field.name().to_string(), serde_json::Value::String(format!("{:?}", value)));
+        self.map.insert(
+            field.name().to_string(),
+            serde_json::Value::String(format!("{:?}", value)),
+        );
     }
 
     fn record_i64(&mut self, field: &tracing::field::Field, value: i64) {
-        self.map.insert(field.name().to_string(), serde_json::Value::Number(serde_json::Number::from(value)));
+        self.map.insert(
+            field.name().to_string(),
+            serde_json::Value::Number(serde_json::Number::from(value)),
+        );
     }
 
     fn record_u64(&mut self, field: &tracing::field::Field, value: u64) {
-        self.map.insert(field.name().to_string(), serde_json::Value::Number(serde_json::Number::from(value)));
+        self.map.insert(
+            field.name().to_string(),
+            serde_json::Value::Number(serde_json::Number::from(value)),
+        );
     }
 
     fn record_bool(&mut self, field: &tracing::field::Field, value: bool) {
-        self.map.insert(field.name().to_string(), serde_json::Value::Bool(value));
+        self.map
+            .insert(field.name().to_string(), serde_json::Value::Bool(value));
     }
 
     fn record_f64(&mut self, field: &tracing::field::Field, value: f64) {
         if let Some(num) = serde_json::Number::from_f64(value) {
-            self.map.insert(field.name().to_string(), serde_json::Value::Number(num));
+            self.map
+                .insert(field.name().to_string(), serde_json::Value::Number(num));
         }
     }
 }
 
 /// Initialize structured logging
 pub fn init_logging(config: &LoggingConfig) -> Result<()> {
-    let env_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new(&config.level));
+    let env_filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&config.level));
 
     match config.format {
         LogFormat::Json => {
@@ -328,7 +355,7 @@ pub fn init_logging(config: &LoggingConfig) -> Result<()> {
 #[allow(dead_code)]
 pub fn log_request(ctx: &RequestContext, status_code: u16, response_size: Option<usize>) {
     let duration_ms = ctx.elapsed_ms();
-    
+
     tracing::info!(
         request_id = %ctx.request_id,
         user_id = ?ctx.user_id,
@@ -390,7 +417,7 @@ pub fn log_security_event(ctx: &SecurityContext) {
 #[allow(dead_code)]
 pub fn log_performance(ctx: &PerformanceContext, success: bool) {
     let duration_ms = ctx.elapsed_ms();
-    
+
     if duration_ms > 1000 {
         tracing::warn!(
             operation = %ctx.operation,
@@ -461,17 +488,15 @@ mod tests {
             "192.168.1.1".to_string(),
             "GET".to_string(),
             "/api/users".to_string(),
-        ).with_user("user-456".to_string());
+        )
+        .with_user("user-456".to_string());
 
         assert_eq!(ctx.user_id, Some("user-456".to_string()));
     }
 
     #[test]
     fn test_performance_context() {
-        let ctx = PerformanceContext::new(
-            "database_query".to_string(),
-            "user_service".to_string(),
-        );
+        let ctx = PerformanceContext::new("database_query".to_string(), "user_service".to_string());
 
         assert_eq!(ctx.operation, "database_query");
         assert_eq!(ctx.component, "user_service");

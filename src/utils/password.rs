@@ -289,6 +289,23 @@ impl std::fmt::Display for StrengthLevel {
     }
 }
 
+impl Default for PasswordManager {
+    fn default() -> Self {
+        Self::new(DEFAULT_COST)
+    }
+}
+
+// Utility functions for simple password operations
+pub fn hash_password(password: &str) -> Result<String> {
+    let manager = PasswordManager::default();
+    manager.hash_password(password)
+}
+
+pub fn verify_password(password: &str, hash: &str) -> Result<bool> {
+    let manager = PasswordManager::default();
+    manager.verify_password(password, hash)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -403,21 +420,4 @@ mod tests {
         assert!(entropy2 > entropy1);
         assert!(entropy2 > 50.0);
     }
-}
-
-impl Default for PasswordManager {
-    fn default() -> Self {
-        Self::new(DEFAULT_COST)
-    }
-}
-
-// Utility functions for simple password operations
-pub fn hash_password(password: &str) -> Result<String> {
-    let manager = PasswordManager::default();
-    manager.hash_password(password)
-}
-
-pub fn verify_password(password: &str, hash: &str) -> Result<bool> {
-    let manager = PasswordManager::default();
-    manager.verify_password(password, hash)
 }

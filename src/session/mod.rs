@@ -285,7 +285,7 @@ impl Default for SessionConfig {
 
 /// Create a new session ID
 pub fn generate_session_id() -> String {
-    format!("sess_{}", Uuid::new_v4())
+    format!("sess_{value}"), Uuid::new_v4())
 }
 
 /// Create device fingerprint from user agent and other factors
