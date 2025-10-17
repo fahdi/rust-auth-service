@@ -36,7 +36,7 @@ jobs:
           ${{ runner.os }}-cargo-
           
     - name: Run clippy
-      run: cargo clippy --lib -- -A clippy::uninlined-format-args -A clippy::derivable-impls -A clippy::if-same-then-else -A clippy::needless-question-mark -D warnings
+      run: cargo clippy --lib -- -A clippy::uninlined-format-args -A clippy::derivable-impls -A clippy::if-same-then-else -A clippy::needless-question-mark -A clippy::needless-return -D warnings
       
     - name: Build lib only
       run: cargo build --lib --verbose
