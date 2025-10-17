@@ -3,6 +3,7 @@ pub mod cache;
 pub mod config;
 pub mod database;
 pub mod errors;
+pub mod handlers;
 pub mod mfa;
 pub mod migrations;
 pub mod models;
@@ -11,6 +12,18 @@ pub mod session;
 pub mod social;
 pub mod user_management;
 pub mod utils;
+
+use std::sync::Arc;
+
+// Application state shared across handlers
+#[derive(Clone)]
+pub struct AppState {
+    pub config: Arc<config::Config>,
+    pub database: Arc<dyn database::AuthDatabase>,
+    pub cache: Arc<cache::CacheService>,
+    pub oauth2_server: Arc<oauth2::server::OAuth2Server>,
+    pub token_manager: Arc<oauth2::tokens::TokenManager>,
+}
 
 // Re-export commonly used types
 pub use cache::{create_cache_provider, CacheProvider, CacheService};

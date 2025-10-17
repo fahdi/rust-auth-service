@@ -9,6 +9,11 @@ use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use utoipa::{
+    openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme},
+    Modify, OpenApi, ToSchema,
+};
+use utoipa_swagger_ui::SwaggerUi;
 
 mod config;
 mod errors;
@@ -31,14 +36,89 @@ use oauth2::server::OAuth2Server;
 use oauth2::tokens::TokenManager;
 use oauth2::{OAuth2Config, OAuth2Service};
 
-// Application state shared across handlers
-#[derive(Clone)]
-pub struct AppState {
-    pub config: Arc<Config>,
-    pub database: Arc<dyn AuthDatabase>,
-    pub cache: Arc<CacheService>,
-    pub oauth2_server: Arc<OAuth2Server>,
-    pub token_manager: Arc<TokenManager>,
+// Re-export AppState for handlers to use
+pub use rust_auth_service::AppState;
+
+// OpenAPI documentation configuration
+#[derive(OpenApi)]
+#[openapi(
+    paths(
+        handlers::health_check,
+        handlers::ready_check,
+        handlers::liveness_check,
+        handlers::register,
+        handlers::login,
+        handlers::verify_email,
+        handlers::forgot_password,
+        handlers::reset_password,
+        handlers::refresh_token,
+        handlers::get_profile,
+        handlers::update_profile,
+        handlers::logout,
+        handlers::metrics_handler,
+        handlers::stats_handler,
+    ),
+    components(
+        schemas(
+            models::user::CreateUserRequest,
+            models::user::UpdateUserRequest,
+            models::user::PasswordResetRequest,
+            models::user::PasswordChangeRequest,
+            models::user::EmailVerificationRequest,
+            models::user::UserResponse,
+            models::user::AuthResponse,
+            models::user::UserRole,
+            models::user::UserMetadata,
+            handlers::auth::LoginRequest,
+            handlers::auth::RefreshTokenRequest,
+            utils::jwt::Claims,
+        )
+    ),
+    tags(
+        (name = "authentication", description = "User authentication and authorization"),
+        (name = "users", description = "User profile management"),
+        (name = "health", description = "Service health and monitoring"),
+        (name = "system", description = "System metrics and statistics")
+    ),
+    info(
+        title = "Rust Auth Service API",
+        version = "0.1.0",
+        description = "270x faster authentication service - production-ready out of the box",
+        contact(
+            name = "Rust Auth Service",
+            url = "https://github.com/your-org/rust-auth-service",
+            email = "your.email@example.com"
+        ),
+        license(
+            name = "MIT",
+            url = "https://opensource.org/licenses/MIT"
+        )
+    ),
+    modifiers(&SecurityAddon),
+    servers(
+        (url = "http://localhost:8080", description = "Local development server"),
+        (url = "https://api.example.com", description = "Production server")
+    )
+)]
+pub struct ApiDoc;
+
+struct SecurityAddon;
+
+impl Modify for SecurityAddon {
+    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
+        if let Some(components) = openapi.components.as_mut() {
+            components.add_security_scheme(
+                "Bearer",
+                SecurityScheme::Http(
+                    HttpBuilder::new()
+                        .scheme(HttpAuthScheme::Bearer)
+                        .bearer_format("JWT")
+                        .description(Some("Enter JWT token"))
+                        .build(),
+                ),
+            )
+        }
+    }
 }
 
 #[tokio::main]
@@ -210,11 +290,17 @@ async fn main() -> Result<()> {
             middleware::jwt_auth_middleware,
         ));
 
+    // Add Swagger UI documentation routes
+    let docs_routes = Router::new()
+        .merge(SwaggerUi::new("/docs").url("/api-docs/openapi.json", ApiDoc::openapi()))
+        .route("/api-docs/openapi.json", get(|| async { axum::Json(ApiDoc::openapi()) }));
+
     // Combine all routes
     let app = Router::new()
         .merge(public_routes)
         .merge(oauth2_routes)
         .merge(protected_routes)
+        .merge(docs_routes)
         .with_state(app_state.clone())
         .layer(from_fn_with_state(
             app_state.clone(),

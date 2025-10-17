@@ -10,7 +10,7 @@ use crate::errors::AppError;
 use crate::models::user::User;
 use crate::utils::response::ApiResponse;
 use crate::AppState;
-use rust_auth_service::mfa::MfaType;
+use crate::mfa::MfaType;
 
 /// MFA setup request
 #[derive(Debug, Deserialize)]

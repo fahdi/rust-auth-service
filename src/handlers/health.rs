@@ -1,10 +1,16 @@
 use axum::{extract::State, http::StatusCode, response::Json};
 use serde_json::{json, Value};
 use tracing::error;
+use utoipa::ToSchema;
 
 use crate::AppState;
 
 // Health check handler
+#[utoipa::path(
+    get,
+    path = "/health",
+    tag = "health"
+)]
 pub async fn health_check(State(state): State<AppState>) -> Result<Json<Value>, StatusCode> {
     let db_health = match state.database.health_check().await {
         Ok(health) => health,
@@ -49,6 +55,11 @@ pub async fn health_check(State(state): State<AppState>) -> Result<Json<Value>, 
 }
 
 // Ready check handler (for Kubernetes readiness probes)
+#[utoipa::path(
+    get,
+    path = "/ready",
+    tag = "health"
+)]
 pub async fn ready_check(State(state): State<AppState>) -> Result<Json<Value>, StatusCode> {
     // Check if database and cache are ready
     let db_ready = state
@@ -73,6 +84,11 @@ pub async fn ready_check(State(state): State<AppState>) -> Result<Json<Value>, S
 }
 
 // Liveness check handler (for Kubernetes liveness probes)
+#[utoipa::path(
+    get,
+    path = "/live",
+    tag = "health"
+)]
 pub async fn liveness_check() -> Json<Value> {
     Json(json!({
         "status": "alive",
