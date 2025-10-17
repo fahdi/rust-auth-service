@@ -127,7 +127,7 @@ impl WebAuthnProvider {
         // TODO: Implement actual WebAuthn verification
         // For now, create a mock credential
         let credential = WebAuthnCredential {
-            id: format!("cred_{value}"), uuid::Uuid::new_v4()),
+            id: format!("cred_{}", uuid::Uuid::new_v4()),
             user_id: user_id.to_string(),
             public_key: "mock_public_key".to_string(),
             counter: 0,

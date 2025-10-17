@@ -254,7 +254,7 @@ impl User {
 
     /// Get user's full name
     pub fn full_name(&self) -> String {
-        format!("{} {value}"), self.first_name, self.last_name)
+        format!("{} {}", self.first_name, self.last_name)
     }
 
     /// Check if user account is locked

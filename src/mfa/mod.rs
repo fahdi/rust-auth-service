@@ -603,7 +603,7 @@ impl<T: MfaService> MfaManager<T> {
             status: MfaStatus::Pending,
             challenge_data: serde_json::json!({
                 "method_id": method.method_id,
-                "phone_number_masked": format!("***-***-{value}"), &phone_number[phone_number.len()-4..]),
+                "phone_number_masked": format!("***-***-{}", &phone_number[phone_number.len()-4..]),
                 "code": code, // This would be hashed in production
             }),
             attempts: 0,

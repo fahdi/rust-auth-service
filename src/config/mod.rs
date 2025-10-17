@@ -17,7 +17,7 @@ use email::EmailConfig;
 use rate_limit::RateLimitConfig;
 use server::ServerConfig;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
     pub server: ServerConfig,
     pub database: DatabaseConfig,
@@ -74,7 +74,7 @@ pub struct TracingConfig {
     pub sample_rate: f64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SecurityConfig {
     pub cors: CorsConfig,
 }
@@ -82,23 +82,6 @@ pub struct SecurityConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CorsConfig {
     pub allowed_origins: Vec<String>,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            server: ServerConfig::default(),
-            database: DatabaseConfig::default(),
-            auth: AuthConfig::default(),
-            cache: CacheConfig::default(),
-            email: EmailConfig::default(),
-            rate_limit: RateLimitConfig::default(),
-            monitoring: MonitoringConfig::default(),
-            environment: EnvironmentConfig::default(),
-            logging: LoggingConfig::default(),
-            security: SecurityConfig::default(),
-        }
-    }
 }
 
 impl Default for EnvironmentConfig {
@@ -156,14 +139,6 @@ impl Default for HealthChecksConfig {
 impl Default for AuditLoggingConfig {
     fn default() -> Self {
         Self { enabled: true }
-    }
-}
-
-impl Default for SecurityConfig {
-    fn default() -> Self {
-        Self {
-            cors: CorsConfig::default(),
-        }
     }
 }
 

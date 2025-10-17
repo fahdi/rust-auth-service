@@ -49,7 +49,7 @@ pub async fn jwt_auth_middleware(
     };
 
     // Check if token is blacklisted
-    let blacklist_key = format!("blacklist:token:{value}"), claims.jti);
+    let blacklist_key = format!("blacklist:token:{}", claims.jti);
     if let Ok(Some(_)) = state.cache.get(&blacklist_key).await {
         warn!("Blacklisted token used: {}", claims.sub);
         return Err(StatusCode::UNAUTHORIZED);

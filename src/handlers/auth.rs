@@ -490,7 +490,7 @@ pub async fn get_profile(
     State(state): State<AppState>,
     Extension(claims): Extension<JwtClaims>,
 ) -> Result<Json<UserResponse>, StatusCode> {
-    let cache_key = format!("user_profile:{value}"), claims.sub);
+    let cache_key = format!("user_profile:{}", claims.sub);
 
     // Try to get user profile from cache first
     if let Ok(Some(cached_profile)) = state.cache.get(&cache_key).await {
@@ -587,7 +587,7 @@ pub async fn update_profile(
             info!("Profile updated for user: {}", updated_user.email);
 
             // Invalidate cache after successful update
-            let cache_key = format!("user_profile:{value}"), claims.sub);
+            let cache_key = format!("user_profile:{}", claims.sub);
             if let Err(e) = state.cache.delete(&cache_key).await {
                 warn!("Failed to invalidate user profile cache: {}", e);
             } else {
@@ -610,7 +610,7 @@ pub async fn logout(
     Extension(claims): Extension<JwtClaims>,
 ) -> Result<Json<Value>, StatusCode> {
     // Add token to blacklist cache until it expires
-    let blacklist_key = format!("blacklist:token:{value}"), claims.jti);
+    let blacklist_key = format!("blacklist:token:{}", claims.jti);
     let ttl = std::time::Duration::from_secs(
         (claims.exp as u64).saturating_sub(
             std::time::SystemTime::now()
@@ -631,7 +631,7 @@ pub async fn logout(
     }
 
     // Invalidate user profile cache on logout
-    let cache_key = format!("user_profile:{value}"), claims.sub);
+    let cache_key = format!("user_profile:{}", claims.sub);
     if let Err(e) = state.cache.delete(&cache_key).await {
         warn!("Failed to invalidate user profile cache on logout: {}", e);
     }
