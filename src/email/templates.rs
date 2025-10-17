@@ -1,13 +1,73 @@
+//! # Email Template Engine
+//!
+//! This module provides a flexible template engine for rendering email content.
+//! It supports both file-based templates and built-in defaults, with placeholder
+//! substitution for dynamic content.
+//!
+//! ## Features
+//! - File-based template loading with fallback to built-in templates
+//! - Placeholder substitution for personalization
+//! - Professional HTML email templates with CSS styling
+//! - Plain text alternatives for compatibility
+//! - Template validation and error handling
+//!
+//! ## Template Variables
+//! All templates support these placeholder variables:
+//! - `{{name}}` - User's full name
+//! - `{{email}}` - User's email address
+//! - `{{verification_url}}` - Email verification link (verification emails)
+//! - `{{reset_url}}` - Password reset link (reset emails)
+//!
+//! ## Template Structure
+//! Templates should be complete HTML documents with:
+//! - DOCTYPE and html/head/body tags
+//! - Responsive CSS for mobile compatibility
+//! - Professional styling and branding
+//! - Clear call-to-action buttons
+//! - Security warnings where appropriate
+
 use anyhow::Result;
 use std::fs;
 
 use crate::config::email::EmailTemplates;
 
-/// Template engine for email content
+/// Email template engine for rendering dynamic email content
+///
+/// The template engine manages email templates and handles placeholder substitution
+/// to create personalized email content. It supports both file-based templates
+/// and built-in defaults for reliability.
+///
+/// # Template Loading Priority
+/// 1. **File-based templates**: Loaded from configured file paths
+/// 2. **Built-in templates**: Professional defaults if files are unavailable
+///
+/// # Placeholder Substitution
+/// Templates use `{{variable}}` syntax for dynamic content replacement.
+/// The engine performs simple string replacement, so ensure placeholders
+/// are properly escaped for HTML content.
+///
+/// # Example
+/// ```rust
+/// let config = EmailTemplates {
+///     verification: "templates/verify.html".to_string(),
+///     password_reset: "templates/reset.html".to_string(),
+/// };
+/// 
+/// let engine = TemplateEngine::new(&config)?;
+/// let html = engine.render_verification_email(
+///     "user@example.com",
+///     "John Doe",
+///     "https://app.com/verify?token=abc123"
+/// )?;
+/// ```
 pub struct TemplateEngine {
+    /// Optional custom verification email template loaded from file
     verification_template: Option<String>,
+    /// Optional custom password reset email template loaded from file
     password_reset_template: Option<String>,
+    /// Default sender email address for templates
     pub from_email: String,
+    /// Default sender display name for templates
     pub from_name: String,
 }
 

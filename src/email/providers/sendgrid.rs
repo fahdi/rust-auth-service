@@ -1,7 +1,7 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use tracing::{error, info};
 
 use crate::config::email::SendGridConfig;
@@ -40,10 +40,7 @@ struct SendGridContent {
     value: String,
 }
 
-#[derive(Deserialize)]
-struct SendGridResponse {
-    _message: Option<String>,
-}
+// SendGrid returns 202 Accepted with empty body, so no response struct needed
 
 impl SendGridProvider {
     /// Create new SendGrid provider
