@@ -1,3 +1,6 @@
+// MFA module is disabled - adding allow to suppress warnings
+#![allow(dead_code)]
+
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

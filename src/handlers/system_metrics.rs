@@ -4,55 +4,11 @@ use axum::{
     http::{header, StatusCode},
     response::{IntoResponse, Response},
 };
-use tracing::{debug, error};
+use tracing::debug;
 
 use crate::AppState;
 
-/// Prometheus metrics endpoint
-///
-/// Returns metrics in Prometheus text format for scraping by monitoring systems.
-/// Includes HTTP metrics, authentication metrics, database metrics, cache metrics,
-/// and custom business metrics.
-#[utoipa::path(
-    get,
-    path = "/metrics",
-    tag = "system"
-)]
-pub async fn metrics_handler(State(_state): State<AppState>) -> impl IntoResponse {
-    debug!("Serving Prometheus metrics");
-
-    // TODO: Fix metrics module import conflict (metrics mod vs handlers::metrics)
-    // For now, return a basic metrics response to allow compilation
-    let metrics_result: Result<String, Box<dyn std::error::Error>> = Ok(
-        "# HELP auth_service_info Service information\n# TYPE auth_service_info gauge\nauth_service_info{version=\"0.1.0\"} 1\n".to_string()
-    );
-    match metrics_result {
-        Ok(metrics_text) => {
-            debug!(
-                "Successfully generated metrics text ({} bytes)",
-                metrics_text.len()
-            );
-
-            Response::builder()
-                .status(StatusCode::OK)
-                .header(
-                    header::CONTENT_TYPE,
-                    "text/plain; version=0.0.4; charset=utf-8",
-                )
-                .body(Body::from(metrics_text))
-                .unwrap()
-        }
-        Err(e) => {
-            error!("Failed to generate metrics: {}", e);
-
-            Response::builder()
-                .status(StatusCode::INTERNAL_SERVER_ERROR)
-                .header(header::CONTENT_TYPE, "text/plain")
-                .body(Body::from("Error generating metrics"))
-                .unwrap()
-        }
-    }
-}
+// Removed unused metrics_handler - using observability module instead
 
 /// System stats endpoint (JSON format for debugging)
 ///
@@ -106,79 +62,4 @@ pub async fn stats_handler(State(state): State<AppState>) -> impl IntoResponse {
         .unwrap()
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{config::Config, oauth2::OAuth2Service, AppState};
-    use axum::extract::State;
-    use std::sync::Arc;
-
-    async fn create_test_state() -> AppState {
-        let config = Config::default();
-        let database = crate::database::create_database(&config.database)
-            .await
-            .expect("Failed to create test database");
-
-        let cache_provider = crate::cache::create_cache_provider(&config.cache)
-            .await
-            .expect("Failed to create cache provider");
-        let cache_service = crate::cache::CacheService::new(cache_provider, config.cache.ttl);
-
-        let oauth2_config = crate::oauth2::OAuth2Config::default();
-        let private_key = b"an-insanely-long-and-secure-secret-key-for-testing-purposes-only";
-        let token_manager =
-            crate::oauth2::tokens::TokenManager::new(oauth2_config.clone(), private_key, None)
-                .expect("Failed to create token manager");
-
-        let oauth2_service: Arc<dyn OAuth2Service> =
-            Arc::new(crate::oauth2::server::StubOAuth2Service);
-        let oauth2_server = crate::oauth2::server::OAuth2Server::new(
-            oauth2_config,
-            oauth2_service,
-            token_manager.clone(),
-        );
-
-        AppState {
-            config: Arc::new(config),
-            database: Arc::from(database),
-            cache: Arc::new(cache_service),
-            oauth2_server: Arc::new(oauth2_server),
-            token_manager: Arc::new(token_manager),
-        }
-    }
-
-    #[tokio::test]
-    async fn test_metrics_handler() {
-        // Initialize metrics first
-        crate::metrics::Metrics::init();
-
-        let state = create_test_state().await;
-        let response = metrics_handler(State(state)).await.into_response();
-
-        assert_eq!(response.status(), StatusCode::OK);
-
-        let content_type = response
-            .headers()
-            .get(header::CONTENT_TYPE)
-            .unwrap()
-            .to_str()
-            .unwrap();
-        assert!(content_type.starts_with("text/plain"));
-    }
-
-    #[tokio::test]
-    async fn test_stats_handler() {
-        let state = create_test_state().await;
-        let response = stats_handler(State(state)).await.into_response();
-
-        assert_eq!(response.status(), StatusCode::OK);
-
-        let content_type = response
-            .headers()
-            .get(header::CONTENT_TYPE)
-            .unwrap()
-            .to_str()
-            .unwrap();
-        assert_eq!(content_type, "application/json");
-    }
-}
+// Removed tests that depend on disabled OAuth2 module

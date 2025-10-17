@@ -1,3 +1,6 @@
+// MFA module is disabled - adding allow to suppress warnings
+#![allow(dead_code)]
+
 use axum::{
     extract::{Path, State},
     response::Json,

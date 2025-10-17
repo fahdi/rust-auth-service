@@ -85,6 +85,7 @@ pub struct RequestContext {
 }
 
 impl RequestContext {
+    #[allow(dead_code)]
     pub fn new(
         request_id: String,
         ip_address: String,
@@ -103,21 +104,25 @@ impl RequestContext {
         }
     }
 
+    #[allow(dead_code)]
     pub fn with_user(mut self, user_id: String) -> Self {
         self.user_id = Some(user_id);
         self
     }
 
+    #[allow(dead_code)]
     pub fn with_user_agent(mut self, user_agent: String) -> Self {
         self.user_agent = Some(user_agent);
         self
     }
 
+    #[allow(dead_code)]
     pub fn with_custom_field(mut self, key: String, value: String) -> Self {
         self.custom_fields.insert(key, value);
         self
     }
 
+    #[allow(dead_code)]
     pub fn elapsed_ms(&self) -> u64 {
         let elapsed = chrono::Utc::now().signed_duration_since(self.start_time);
         elapsed.num_milliseconds().max(0) as u64
@@ -137,6 +142,7 @@ pub struct SecurityContext {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[allow(dead_code)]
 pub enum SecurityEventType {
     LoginAttempt,
     LoginSuccess,
@@ -155,6 +161,7 @@ pub enum SecurityEventType {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[allow(dead_code)]
 pub enum RiskLevel {
     Low,
     Medium,
@@ -164,6 +171,7 @@ pub enum RiskLevel {
 
 /// Performance context for monitoring
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct PerformanceContext {
     pub operation: String,
     pub component: String,
@@ -172,6 +180,7 @@ pub struct PerformanceContext {
 }
 
 impl PerformanceContext {
+    #[allow(dead_code)]
     pub fn new(operation: String, component: String) -> Self {
         Self {
             operation,
@@ -181,11 +190,13 @@ impl PerformanceContext {
         }
     }
 
+    #[allow(dead_code)]
     pub fn with_metadata(mut self, key: String, value: serde_json::Value) -> Self {
         self.metadata.insert(key, value);
         self
     }
 
+    #[allow(dead_code)]
     pub fn elapsed_ms(&self) -> u64 {
         self.start_time.elapsed().as_millis() as u64
     }
@@ -199,6 +210,7 @@ pub struct StructuredLogLayer {
 }
 
 impl StructuredLogLayer {
+    #[allow(dead_code)]
     pub fn new(service_name: String, version: String, environment: String) -> Self {
         Self {
             service_name,
@@ -313,6 +325,7 @@ pub fn init_logging(config: &LoggingConfig) -> Result<()> {
 }
 
 /// Log a request with structured context
+#[allow(dead_code)]
 pub fn log_request(ctx: &RequestContext, status_code: u16, response_size: Option<usize>) {
     let duration_ms = ctx.elapsed_ms();
     
@@ -331,6 +344,7 @@ pub fn log_request(ctx: &RequestContext, status_code: u16, response_size: Option
 }
 
 /// Log a security event
+#[allow(dead_code)]
 pub fn log_security_event(ctx: &SecurityContext) {
     match ctx.risk_level {
         RiskLevel::Critical => {
@@ -373,6 +387,7 @@ pub fn log_security_event(ctx: &SecurityContext) {
 }
 
 /// Log performance metrics
+#[allow(dead_code)]
 pub fn log_performance(ctx: &PerformanceContext, success: bool) {
     let duration_ms = ctx.elapsed_ms();
     
