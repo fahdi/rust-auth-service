@@ -16,6 +16,8 @@ mongodb = []
 # postgresql = ["sqlx", "sqlx/postgres"]  # Disabled due to RSA vulnerability in sqlx dependency tree
 # Testing features
 integration-tests = []              # Enable integration tests requiring running services
+load-tests = []                     # Enable load testing scenarios
+test-containers = []                # Enable test container support
 
 [dependencies]
 # Web framework
@@ -97,6 +99,12 @@ tokio-test = "0.4"
 mockito = "1.0"
 tempfile = "3.8"
 base64 = "0.21"
+
+# Additional testing dependencies
+criterion = { version = "0.5", features = ["html_reports"] }
+wiremock = "0.5"
+testcontainers = "0.15"
+async-trait = "0.1"
 
 [[bin]]
 name = "test_cache"
