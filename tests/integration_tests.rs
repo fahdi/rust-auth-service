@@ -18,7 +18,6 @@ const TEST_PASSWORD: &str = "TestPassword123!";
 const TEST_FIRST_NAME: &str = "Integration";
 const TEST_LAST_NAME: &str = "Test";
 
-#[derive(Debug)]
 struct TestContext {
     db: Box<dyn AuthDatabase>,
     db_type: String,
@@ -74,7 +73,7 @@ async fn create_test_user() -> User {
         }),
     };
 
-    let password_hash = hash_password(TEST_PASSWORD, 4).unwrap();
+    let password_hash = hash_password(TEST_PASSWORD).unwrap();
     User::new(request, password_hash)
 }
 
@@ -265,7 +264,7 @@ async fn run_performance_benchmark(ctx: &TestContext) {
             role: Some(UserRole::User),
             metadata: None,
         };
-        let password_hash = hash_password("TestPassword123!", 4).unwrap();
+        let password_hash = hash_password("TestPassword123!").unwrap();
         let user = User::new(request, password_hash);
 
         let _ = ctx.db.create_user(user).await.unwrap();

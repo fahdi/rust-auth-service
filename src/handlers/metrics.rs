@@ -94,7 +94,7 @@ pub async fn stats_handler(State(state): State<AppState>) -> impl IntoResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{config::Config, AppState};
+    use crate::{config::Config, AppState, oauth2::OAuth2Service};
     use axum::extract::State;
     use std::sync::Arc;
 
@@ -110,11 +110,20 @@ mod tests {
         let cache_service = crate::cache::CacheService::new(cache_provider, config.cache.ttl);
 
         let oauth2_config = crate::oauth2::OAuth2Config::default();
-        let oauth2_server = crate::oauth2::server::OAuth2Server::new(&oauth2_config)
-            .expect("Failed to create OAuth2 server");
+        let private_key = b"an-insanely-long-and-secure-secret-key-for-testing-purposes-only";
+        let token_manager = crate::oauth2::tokens::TokenManager::new(
+            oauth2_config.clone(),
+            private_key,
+            None,
+        )
+        .expect("Failed to create token manager");
 
-        let token_manager = crate::oauth2::tokens::TokenManager::new(&config.auth.jwt)
-            .expect("Failed to create token manager");
+        let oauth2_service: Arc<dyn OAuth2Service> = Arc::new(crate::oauth2::server::StubOAuth2Service);
+        let oauth2_server = crate::oauth2::server::OAuth2Server::new(
+            oauth2_config,
+            oauth2_service,
+            token_manager.clone(),
+        );
 
         AppState {
             config: Arc::new(config),

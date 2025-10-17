@@ -217,7 +217,7 @@ impl AuthTestClient {
 
         if status == StatusCode::OK {
             AuthTokens::from_response(&body)
-                .ok_or("Failed to extract tokens from refresh response".into())
+                .ok_or_else(|| anyhow::anyhow!("Failed to extract tokens from refresh response"))
         } else {
             Err(anyhow::anyhow!(
                 "Token refresh failed with status {}: {}",
