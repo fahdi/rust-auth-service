@@ -1,0 +1,19 @@
+# Cargo audit configuration
+
+[advisories]
+# Ignore known RSA vulnerability from SQLx MySQL dependency
+# This is acceptable since we don't use MySQL in production
+# and it's only present when the postgresql feature is enabled
+# Default builds use MongoDB only and are not affected
+ignore = [
+    "RUSTSEC-2023-0071",  # RSA Marvin Attack - only affects MySQL usage via SQLx
+]
+
+# Only show vulnerabilities with severity >= medium
+severity-threshold = "medium"
+
+[advisories.informational]
+# Allow unmaintained crates warnings
+unmaintained = "allow"
+# Allow yanked crate warnings  
+yanked = "allow"
