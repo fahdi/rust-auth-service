@@ -1,0 +1,120 @@
+config:
+  target: "http://localhost:8080"
+  phases:
+    - duration: 60
+      arrivalRate: 10
+      name: "Warm up"
+    - duration: 120
+      arrivalRate: 50
+      name: "Sustained load"
+    - duration: 60
+      arrivalRate: 100
+      name: "Peak load"
+  defaults:
+    headers:
+      Content-Type: "application/json"
+  processor: "./auth_processor.js"
+
+scenarios:
+  - name: "User Registration Flow"
+    weight: 30
+    flow:
+      - post:
+          url: "/auth/register"
+          json:
+            email: "test{{ $randomString() }}@example.com"
+            password: "SecurePassword123!"
+            first_name: "Test"
+            last_name: "User"
+          capture:
+            - json: "$.user_id"
+              as: "userId"
+            - json: "$.verification_token"
+              as: "verificationToken"
+          expect:
+            - statusCode: 201
+            - contentType: json
+            - hasProperty: "user_id"
+
+      - post:
+          url: "/auth/verify"
+          json:
+            token: "{{ verificationToken }}"
+          expect:
+            - statusCode: 200
+
+  - name: "User Login Flow"
+    weight: 40
+    flow:
+      - post:
+          url: "/auth/login"
+          json:
+            email: "test{{ $randomInt(1, 1000) }}@example.com"
+            password: "SecurePassword123!"
+          capture:
+            - json: "$.access_token"
+              as: "accessToken"
+            - json: "$.refresh_token"
+              as: "refreshToken"
+          expect:
+            - statusCode: 200
+            - contentType: json
+            - hasProperty: "access_token"
+
+      - get:
+          url: "/auth/me"
+          headers:
+            Authorization: "Bearer {{ accessToken }}"
+          expect:
+            - statusCode: 200
+
+  - name: "Password Reset Flow"
+    weight: 20
+    flow:
+      - post:
+          url: "/auth/forgot-password"
+          json:
+            email: "test{{ $randomInt(1, 1000) }}@example.com"
+          expect:
+            - statusCode: 200
+
+  - name: "Health Check Endpoints"
+    weight: 10
+    flow:
+      - get:
+          url: "/health"
+          expect:
+            - statusCode: 200
+            - contentType: json
+
+      - get:
+          url: "/ready"
+          expect:
+            - statusCode: 200
+
+      - get:
+          url: "/live"
+          expect:
+            - statusCode: 200
+
+  - name: "Metrics Endpoint"
+    weight: 5
+    flow:
+      - get:
+          url: "/metrics"
+          expect:
+            - statusCode: 200
+            - contentType: "text/plain"
+
+# Performance thresholds
+ensure:
+  thresholds:
+    - http.response_time:
+        p95: 200  # 95th percentile response time should be under 200ms
+        p99: 500  # 99th percentile response time should be under 500ms
+    - http.response_time.auth_login:
+        p95: 100  # Login should be under 100ms for 95% of requests
+    - http.response_time.health:
+        p95: 10   # Health checks should be under 10ms for 95% of requests
+    - http.request_rate: 50  # Minimum requests per second
+    - http.response_status_2xx: 95  # 95% success rate minimum
