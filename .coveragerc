@@ -1,0 +1,74 @@
+# Coverage configuration for Rust Auth Service
+# This file defines coverage reporting standards and thresholds
+
+[coverage:run]
+source = src/
+parallel = true
+concurrency = multiprocessing
+
+[coverage:report]
+# Minimum coverage thresholds
+fail_under = 70
+
+# Output precision
+precision = 2
+
+# Show missing lines
+show_missing = true
+
+# Skip covered files
+skip_covered = false
+
+# Skip empty files
+skip_empty = true
+
+# Exclude patterns
+exclude_lines = 
+    pragma: no cover
+    def __repr__
+    if self.debug:
+    if settings.DEBUG
+    raise AssertionError
+    raise NotImplementedError
+    if 0:
+    if __name__ == .__main__.:
+    class .*\bProtocol\):
+    @(abc\.)?abstractmethod
+
+[coverage:html]
+directory = coverage/html
+title = Rust Auth Service Coverage Report
+
+[coverage:xml]
+output = coverage/coverage.xml
+
+[coverage:json]
+output = coverage/coverage.json
+pretty_print = true
+
+# Module-specific thresholds
+[coverage:thresholds]
+# Critical security modules
+auth = 85
+jwt = 90
+password = 85
+rate_limit = 85
+
+# Core functionality
+database = 75
+cache = 70
+email = 60
+
+# User management
+user_management = 60
+mfa = 80
+
+# Infrastructure
+config = 65
+middleware = 70
+handlers = 75
+
+# Observability
+metrics = 50
+logging = 50
+tracing = 50

@@ -1,0 +1,112 @@
+# Tarpaulin configuration for Rust Auth Service
+# Comprehensive test coverage analysis and reporting
+
+[tool.tarpaulin]
+# Include patterns for coverage
+include = [
+    "src/**/*.rs",
+]
+
+# Exclude patterns from coverage
+exclude = [
+    "src/bin/",  # Binary entry points
+    "src/main.rs",  # Main entry point
+    "tests/",  # Test files themselves
+    "target/",  # Build artifacts
+    "examples/",  # Example code
+]
+
+# Exclude lines from coverage (regex patterns)
+exclude-files = [
+    "src/lib.rs",  # Library root
+]
+
+# Output formats
+out = ["Html", "Xml", "Json", "Stdout"]
+output-dir = "./coverage"
+
+# Coverage engines
+engine = "llvm"
+
+# Timeout for each test
+timeout = 120
+
+# Run only library tests (exclude integration tests by default)
+lib = true
+
+# Verbose output
+verbose = true
+
+# Follow symbolic links
+follow-exec = true
+
+# Include all features
+all-features = false
+
+# Specific features to test
+features = []
+
+# Workspace configuration
+workspace = true
+
+# Post test command to run
+post-test = "echo 'Coverage analysis complete'"
+
+# Fail on coverage below threshold
+fail-under = 70.0
+
+# Run doctests
+doctests = false
+
+# Coverage thresholds per module
+[tool.tarpaulin.coverage.per-file]
+# Core authentication modules (high priority)
+"src/handlers/auth.rs" = 80.0
+"src/utils/jwt.rs" = 90.0
+"src/utils/password.rs" = 85.0
+"src/models/user.rs" = 90.0
+
+# Database modules (high priority)
+"src/database/mongodb.rs" = 75.0
+"src/database/mod.rs" = 70.0
+
+# Security modules (critical priority)
+"src/middleware/rate_limit.rs" = 85.0
+"src/config/validator.rs" = 75.0
+
+# Cache modules (medium priority)
+"src/cache/redis_cache.rs" = 70.0
+"src/cache/memory_cache.rs" = 80.0
+"src/cache/mod.rs" = 70.0
+
+# Email modules (medium priority)
+"src/email/" = 60.0
+
+# MFA modules (high priority)
+"src/mfa/totp.rs" = 85.0
+"src/mfa/webauthn.rs" = 80.0
+"src/mfa/backup_codes.rs" = 85.0
+
+# Observability (medium priority)
+"src/observability/" = 50.0
+
+# User management (medium priority)
+"src/user_management/" = 60.0
+
+[tool.tarpaulin.html]
+# HTML report configuration
+title = "Rust Auth Service - Test Coverage Report"
+description = "Comprehensive test coverage analysis for high-performance authentication microservice"
+
+[tool.tarpaulin.xml]
+# XML report for CI/CD integration
+pretty-print = true
+
+[tool.tarpaulin.json]
+# JSON report for programmatic analysis
+pretty-print = true
+
+# Environment variables for coverage
+[tool.tarpaulin.env]
+RUST_BACKTRACE = "1"
+RUST_LOG = "debug"
