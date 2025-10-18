@@ -1,0 +1,498 @@
+name: Monitoring & Alerting
+
+on:
+  push:
+    branches: [ main, develop ]
+  schedule:
+    # Run monitoring checks every 6 hours
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to monitor'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+          - both
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # HEALTH MONITORING
+  health-monitoring:
+    name: Health Check Monitoring
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    strategy:
+      matrix:
+        environment: [staging, production]
+        include:
+          - environment: staging
+            url: https://auth-staging.yourdomain.com
+          - environment: production
+            url: https://auth.yourdomain.com
+
+    steps:
+    - name: Health check - Basic endpoint
+      run: |
+        echo "Checking health endpoint for ${{ matrix.environment }}..."
+        response=$(curl -s -w "%{http_code}" -o health_response.json "${{ matrix.url }}/health")
+        
+        if [ "$response" = "200" ]; then
+          echo "✅ Health check passed for ${{ matrix.environment }}"
+          cat health_response.json
+        else
+          echo "❌ Health check failed for ${{ matrix.environment }} (HTTP $response)"
+          exit 1
+        fi
+
+    - name: Database connectivity check
+      run: |
+        echo "Checking database connectivity..."
+        db_status=$(curl -s "${{ matrix.url }}/health" | jq -r '.database.status')
+        
+        if [ "$db_status" = "healthy" ]; then
+          echo "✅ Database connectivity OK"
+        else
+          echo "❌ Database connectivity issue: $db_status"
+          exit 1
+        fi
+
+    - name: Cache connectivity check
+      run: |
+        echo "Checking cache connectivity..."
+        cache_status=$(curl -s "${{ matrix.url }}/health" | jq -r '.cache.status')
+        
+        if [ "$cache_status" = "healthy" ]; then
+          echo "✅ Cache connectivity OK"
+        else
+          echo "❌ Cache connectivity issue: $cache_status"
+          exit 1
+        fi
+
+    - name: Authentication endpoint check
+      run: |
+        echo "Testing authentication endpoints..."
+        
+        # Test login endpoint
+        login_response=$(curl -s -w "%{http_code}" -o login_response.json \
+          -X POST "${{ matrix.url }}/auth/login" \
+          -H "Content-Type: application/json" \
+          -d '{"email":"test@example.com","password":"invalid"}')
+        
+        # Should return 401 for invalid credentials
+        if [ "$login_response" = "401" ]; then
+          echo "✅ Login endpoint responding correctly"
+        else
+          echo "❌ Login endpoint unexpected response: $login_response"
+          exit 1
+        fi
+
+  # PERFORMANCE MONITORING
+  performance-monitoring:
+    name: Performance Monitoring
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    strategy:
+      matrix:
+        environment: [staging, production]
+        include:
+          - environment: staging
+            url: https://auth-staging.yourdomain.com
+            thresholds: '{"response_time":500,"availability":95}'
+          - environment: production
+            url: https://auth.yourdomain.com
+            thresholds: '{"response_time":200,"availability":99}'
+
+    steps:
+    - name: Install performance testing tools
+      run: |
+        # Install artillery for load testing
+        npm install -g artillery@latest
+        
+        # Install additional monitoring tools
+        sudo apt-get update
+        sudo apt-get install -y curl jq
+
+    - name: Response time monitoring
+      run: |
+        echo "Monitoring response times for ${{ matrix.environment }}..."
+        
+        # Test multiple endpoints
+        endpoints=("/health" "/metrics" "/auth/login")
+        total_time=0
+        count=0
+        
+        for endpoint in "${endpoints[@]}"; do
+          echo "Testing ${{ matrix.url }}$endpoint"
+          
+          response_time=$(curl -s -w "%{time_total}" -o /dev/null "${{ matrix.url }}$endpoint")
+          response_time_ms=$(echo "$response_time * 1000" | bc)
+          
+          echo "Response time: ${response_time_ms}ms"
+          total_time=$(echo "$total_time + $response_time_ms" | bc)
+          count=$((count + 1))
+        done
+        
+        avg_response_time=$(echo "scale=2; $total_time / $count" | bc)
+        threshold=$(echo '${{ matrix.thresholds }}' | jq -r '.response_time')
+        
+        echo "Average response time: ${avg_response_time}ms"
+        echo "Threshold: ${threshold}ms"
+        
+        if (( $(echo "$avg_response_time > $threshold" | bc -l) )); then
+          echo "❌ Response time exceeded threshold"
+          exit 1
+        else
+          echo "✅ Response time within acceptable limits"
+        fi
+
+    - name: Load testing
+      run: |
+        echo "Running load test for ${{ matrix.environment }}..."
+        
+        # Create artillery config
+        cat > artillery-config.yml << EOF
+        config:
+          target: '${{ matrix.url }}'
+          phases:
+            - duration: 60
+              arrivalRate: 10
+          defaults:
+            headers:
+              Content-Type: 'application/json'
+        scenarios:
+          - name: 'Health check load test'
+            requests:
+              - get:
+                  url: '/health'
+          - name: 'Metrics endpoint test'
+            requests:
+              - get:
+                  url: '/metrics'
+        EOF
+        
+        # Run load test
+        artillery run artillery-config.yml --output load-test-report.json
+        
+        # Generate and check report
+        artillery report load-test-report.json --output load-test-report.html
+        
+        # Extract metrics
+        p95_response_time=$(jq -r '.aggregate.latency.p95' load-test-report.json)
+        error_rate=$(jq -r '.aggregate.counters."http.codes.200" // 0' load-test-report.json)
+        
+        echo "P95 Response Time: ${p95_response_time}ms"
+        echo "Error Rate: ${error_rate}%"
+
+    - name: Upload performance reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: performance-report-${{ matrix.environment }}
+        path: |
+          load-test-report.json
+          load-test-report.html
+
+  # SECURITY MONITORING
+  security-monitoring:
+    name: Security Monitoring
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    strategy:
+      matrix:
+        environment: [staging, production]
+        include:
+          - environment: staging
+            url: https://auth-staging.yourdomain.com
+          - environment: production
+            url: https://auth.yourdomain.com
+
+    steps:
+    - name: SSL/TLS certificate check
+      run: |
+        echo "Checking SSL certificate for ${{ matrix.environment }}..."
+        
+        # Extract hostname from URL
+        hostname=$(echo "${{ matrix.url }}" | sed 's|https\?://||' | sed 's|/.*||')
+        
+        # Check certificate expiration
+        cert_info=$(echo | openssl s_client -servername "$hostname" -connect "$hostname:443" 2>/dev/null | openssl x509 -noout -dates)
+        
+        not_after=$(echo "$cert_info" | grep "notAfter" | cut -d= -f2)
+        expiry_date=$(date -d "$not_after" +%s)
+        current_date=$(date +%s)
+        days_until_expiry=$(( (expiry_date - current_date) / 86400 ))
+        
+        echo "Certificate expires in $days_until_expiry days"
+        
+        if [ $days_until_expiry -lt 30 ]; then
+          echo "⚠️  SSL certificate expires soon!"
+          if [ $days_until_expiry -lt 7 ]; then
+            echo "❌ Critical: SSL certificate expires in less than 7 days!"
+            exit 1
+          fi
+        else
+          echo "✅ SSL certificate is valid"
+        fi
+
+    - name: Security headers check
+      run: |
+        echo "Checking security headers for ${{ matrix.environment }}..."
+        
+        # Check for security headers
+        headers=$(curl -s -I "${{ matrix.url }}/health")
+        
+        # Required security headers
+        declare -A required_headers=(
+          ["X-Content-Type-Options"]="nosniff"
+          ["X-Frame-Options"]="DENY"
+          ["X-XSS-Protection"]="1; mode=block"
+          ["Strict-Transport-Security"]="max-age="
+        )
+        
+        missing_headers=()
+        for header in "${!required_headers[@]}"; do
+          if ! echo "$headers" | grep -i "$header" > /dev/null; then
+            missing_headers+=("$header")
+          fi
+        done
+        
+        if [ ${#missing_headers[@]} -eq 0 ]; then
+          echo "✅ All required security headers present"
+        else
+          echo "⚠️  Missing security headers: ${missing_headers[*]}"
+        fi
+
+    - name: Rate limiting check
+      run: |
+        echo "Testing rate limiting for ${{ matrix.environment }}..."
+        
+        # Test rate limiting by making rapid requests
+        for i in {1..20}; do
+          response=$(curl -s -w "%{http_code}" -o /dev/null "${{ matrix.url }}/health")
+          echo "Request $i: HTTP $response"
+          
+          if [ "$response" = "429" ]; then
+            echo "✅ Rate limiting is working (got 429 on request $i)"
+            break
+          fi
+          
+          sleep 0.1
+        done
+
+  # METRICS COLLECTION
+  metrics-collection:
+    name: Metrics Collection & Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [health-monitoring, performance-monitoring]
+
+    strategy:
+      matrix:
+        environment: [staging, production]
+        include:
+          - environment: staging
+            url: https://auth-staging.yourdomain.com
+          - environment: production
+            url: https://auth.yourdomain.com
+
+    steps:
+    - name: Collect Prometheus metrics
+      run: |
+        echo "Collecting metrics from ${{ matrix.environment }}..."
+        
+        # Collect metrics
+        curl -s "${{ matrix.url }}/metrics" > metrics.txt
+        
+        # Parse key metrics
+        echo "## Key Metrics for ${{ matrix.environment }}" > metrics-report.md
+        echo "Generated: $(date)" >> metrics-report.md
+        echo "" >> metrics-report.md
+        
+        # HTTP request metrics
+        http_requests_total=$(grep "http_requests_total" metrics.txt | head -1 | awk '{print $2}')
+        echo "- Total HTTP Requests: $http_requests_total" >> metrics-report.md
+        
+        # Response time metrics
+        response_time_p95=$(grep "http_request_duration_seconds.*0.95" metrics.txt | awk '{print $2}')
+        echo "- P95 Response Time: ${response_time_p95}s" >> metrics-report.md
+        
+        # Error rates
+        error_rate=$(grep "http_requests_total.*5.." metrics.txt | awk '{print $2}')
+        echo "- 5xx Error Count: $error_rate" >> metrics-report.md
+        
+        # Database connection pool
+        db_connections=$(grep "database_connections_active" metrics.txt | awk '{print $2}')
+        echo "- Active DB Connections: $db_connections" >> metrics-report.md
+        
+        # Cache hit rate
+        cache_hits=$(grep "cache_hits_total" metrics.txt | awk '{print $2}')
+        cache_misses=$(grep "cache_misses_total" metrics.txt | awk '{print $2}')
+        if [ -n "$cache_hits" ] && [ -n "$cache_misses" ]; then
+          hit_rate=$(echo "scale=2; $cache_hits / ($cache_hits + $cache_misses) * 100" | bc)
+          echo "- Cache Hit Rate: ${hit_rate}%" >> metrics-report.md
+        fi
+
+    - name: Upload metrics report
+      uses: actions/upload-artifact@v4
+      with:
+        name: metrics-report-${{ matrix.environment }}
+        path: |
+          metrics.txt
+          metrics-report.md
+
+  # ALERTING & NOTIFICATIONS
+  alerting:
+    name: Alerting & Notifications
+    runs-on: ubuntu-latest
+    needs: [health-monitoring, performance-monitoring, security-monitoring, metrics-collection]
+    if: failure()
+
+    steps:
+    - name: Determine alert severity
+      id: severity
+      run: |
+        # Determine severity based on which jobs failed
+        CRITICAL_JOBS=("health-monitoring")
+        HIGH_JOBS=("performance-monitoring" "security-monitoring")
+        
+        severity="low"
+        
+        # Check for critical failures
+        for job in "${CRITICAL_JOBS[@]}"; do
+          if [[ "${{ needs.health-monitoring.result }}" == "failure" ]]; then
+            severity="critical"
+            break
+          fi
+        done
+        
+        # Check for high severity failures
+        if [[ "$severity" != "critical" ]]; then
+          for job in "${HIGH_JOBS[@]}"; do
+            if [[ "${{ needs.performance-monitoring.result }}" == "failure" || "${{ needs.security-monitoring.result }}" == "failure" ]]; then
+              severity="high"
+              break
+            fi
+          done
+        fi
+        
+        echo "severity=$severity" >> $GITHUB_OUTPUT
+
+    - name: Send Slack notification
+      uses: 8398a7/action-slack@v3
+      with:
+        status: failure
+        channel: '#alerts'
+        text: |
+          🚨 **${{ steps.severity.outputs.severity == 'critical' && 'CRITICAL' || 'HIGH' }} ALERT**
+          
+          **Service**: Rust Auth Service
+          **Environment**: ${{ matrix.environment || 'Multiple' }}
+          **Failed Checks**: 
+          - Health Monitoring: ${{ needs.health-monitoring.result }}
+          - Performance Monitoring: ${{ needs.performance-monitoring.result }}
+          - Security Monitoring: ${{ needs.security-monitoring.result }}
+          
+          **Action Required**: Immediate investigation needed
+          **Workflow**: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+    - name: Create GitHub issue for critical alerts
+      if: steps.severity.outputs.severity == 'critical'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: `🚨 CRITICAL: Service monitoring failure detected`,
+            body: `
+            ## Critical Service Alert
+            
+            **Timestamp**: ${new Date().toISOString()}
+            **Environment**: Multiple
+            **Severity**: CRITICAL
+            
+            ### Failed Checks
+            - Health Monitoring: ${{ needs.health-monitoring.result }}
+            - Performance Monitoring: ${{ needs.performance-monitoring.result }}
+            - Security Monitoring: ${{ needs.security-monitoring.result }}
+            
+            ### Action Required
+            - [ ] Investigate service health issues
+            - [ ] Check infrastructure status
+            - [ ] Verify database connectivity
+            - [ ] Review recent deployments
+            - [ ] Update monitoring thresholds if needed
+            
+            ### Workflow Details
+            **Run**: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            **Commit**: ${{ github.sha }}
+            **Branch**: ${{ github.ref }}
+            `,
+            labels: ['critical', 'monitoring', 'incident']
+          })
+
+  # MONITORING REPORT
+  monitoring-report:
+    name: Generate Monitoring Report
+    runs-on: ubuntu-latest
+    needs: [health-monitoring, performance-monitoring, security-monitoring, metrics-collection]
+    if: always()
+
+    steps:
+    - name: Download all monitoring artifacts
+      uses: actions/download-artifact@v4
+
+    - name: Generate comprehensive monitoring report
+      run: |
+        echo "# Service Monitoring Report" > monitoring-report.md
+        echo "Generated: $(date)" >> monitoring-report.md
+        echo "Repository: ${{ github.repository }}" >> monitoring-report.md
+        echo "Workflow: ${{ github.run_id }}" >> monitoring-report.md
+        echo "" >> monitoring-report.md
+        
+        echo "## Monitoring Status Summary" >> monitoring-report.md
+        echo "| Check Type | Status | Environment |" >> monitoring-report.md
+        echo "|------------|--------|-------------|" >> monitoring-report.md
+        echo "| Health Monitoring | ${{ needs.health-monitoring.result }} | staging, production |" >> monitoring-report.md
+        echo "| Performance Monitoring | ${{ needs.performance-monitoring.result }} | staging, production |" >> monitoring-report.md
+        echo "| Security Monitoring | ${{ needs.security-monitoring.result }} | staging, production |" >> monitoring-report.md
+        echo "| Metrics Collection | ${{ needs.metrics-collection.result }} | staging, production |" >> monitoring-report.md
+        
+        echo "" >> monitoring-report.md
+        echo "## Overall Service Health" >> monitoring-report.md
+        
+        # Calculate health score
+        PASSED=0
+        TOTAL=4
+        
+        [[ "${{ needs.health-monitoring.result }}" == "success" ]] && PASSED=$((PASSED + 1))
+        [[ "${{ needs.performance-monitoring.result }}" == "success" ]] && PASSED=$((PASSED + 1))
+        [[ "${{ needs.security-monitoring.result }}" == "success" ]] && PASSED=$((PASSED + 1))
+        [[ "${{ needs.metrics-collection.result }}" == "success" ]] && PASSED=$((PASSED + 1))
+        
+        SCORE=$((PASSED * 100 / TOTAL))
+        echo "**Health Score: ${SCORE}% (${PASSED}/${TOTAL} checks passed)**" >> monitoring-report.md
+        
+        if [ $SCORE -eq 100 ]; then
+          echo "🟢 **Service Status: HEALTHY**" >> monitoring-report.md
+        elif [ $SCORE -ge 75 ]; then
+          echo "🟡 **Service Status: DEGRADED**" >> monitoring-report.md
+        else
+          echo "🔴 **Service Status: UNHEALTHY**" >> monitoring-report.md
+        fi
+
+    - name: Upload monitoring report
+      uses: actions/upload-artifact@v4
+      with:
+        name: comprehensive-monitoring-report
+        path: monitoring-report.md
