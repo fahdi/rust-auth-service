@@ -5,7 +5,7 @@ use axum::{
     routing::{get, post, put},
     Router,
 };
-use observability::{AppMetrics, LoggingConfig, MetricsConfig};
+use observability::{AppMetrics, ObservabilityConfig};
 use std::sync::Arc;
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
@@ -65,16 +65,8 @@ async fn observability_metrics_handler(
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialize comprehensive observability
-    let logging_config = LoggingConfig::default();
-    let metrics_config = MetricsConfig::default();
-
-    // Initialize structured logging
-    observability::init_logging(&logging_config)?;
-    info!("Structured logging initialized");
-
-    // Initialize metrics collection
-    let app_metrics = Arc::new(AppMetrics::new()?);
-    info!("Metrics collection initialized");
+    let observability_config = ObservabilityConfig::default();
+    let app_metrics = observability::init_observability(&observability_config).await?;
 
     info!(
         service = "rust-auth-service",
@@ -124,15 +116,7 @@ async fn main() -> Result<()> {
         }
     }
 
-    // Start system metrics collection background task
-    let metrics_clone = app_metrics.clone();
-    tokio::spawn(async move {
-        observability::start_system_metrics_collector(
-            metrics_clone,
-            metrics_config.collection_interval_secs,
-        )
-        .await;
-    });
+    // System metrics collection is now handled by init_observability()
 
     // Build application state using local types
     let app_state = AppState {
@@ -197,6 +181,7 @@ async fn main() -> Result<()> {
         // Admin API endpoints
         .route("/admin/api/stats", get(admin::get_dashboard_stats))
         .route("/admin/api/metrics", get(admin::get_system_metrics))
+        .route("/admin/api/metrics/realtime", get(admin::get_realtime_metrics))
         .route("/admin/api/users", get(admin::list_users))
         .route("/admin/api/users/search", get(admin::search_users))
         .route("/admin/api/users/export", get(admin::export_users))

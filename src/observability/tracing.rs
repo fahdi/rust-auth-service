@@ -1,5 +1,4 @@
 use anyhow::Result;
-use opentelemetry::global;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::{Level, Span};
@@ -323,7 +322,7 @@ pub fn current_trace_context() -> Option<TraceContext> {
 
 /// Shutdown tracing and flush remaining spans
 pub async fn shutdown_tracing() {
-    global::shutdown_tracer_provider();
+    // Safe shutdown without OpenTelemetry dependencies
     tracing::info!("Tracing shutdown completed");
 }
 

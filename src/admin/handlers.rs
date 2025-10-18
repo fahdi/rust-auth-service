@@ -10,6 +10,7 @@ use crate::{
     admin::{
         AdminActionRequest, AdminActionResponse, ClientManagement, DashboardStats,
         PaginatedResponse, PaginationParams, SecurityEvent, SystemMetrics, UserManagement,
+        RealTimeMetrics, collect_realtime_metrics,
     },
     errors::{AppError, AppResult},
     utils::jwt::JwtClaims,
@@ -342,4 +343,28 @@ pub async fn search_users(
     let response = PaginatedResponse::new(users, 1, 20, 0);
 
     Ok(Json(response))
+}
+
+/// Get real-time metrics for admin dashboard
+pub async fn get_realtime_metrics(
+    State(state): State<AppState>,
+    Extension(claims): Extension<JwtClaims>,
+) -> AppResult<Json<RealTimeMetrics>> {
+    // Verify admin access
+    if claims.role != "admin" {
+        return Err(AppError::Forbidden);
+    }
+
+    debug!("Fetching real-time metrics for admin: {}", claims.email);
+
+    match collect_realtime_metrics(&state.metrics) {
+        Ok(metrics) => {
+            info!("Real-time metrics collected successfully");
+            Ok(Json(metrics))
+        }
+        Err(e) => {
+            tracing::error!("Failed to collect real-time metrics: {}", e);
+            Err(AppError::Internal)
+        }
+    }
 }
