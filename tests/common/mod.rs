@@ -3,6 +3,7 @@ use std::sync::Arc;
 use tokio::sync::OnceCell;
 use tracing::info;
 
+pub mod cache;
 pub mod database;
 pub mod fixtures;
 pub mod utils;
