@@ -1,0 +1,129 @@
+config:
+  target: "http://localhost:8080"
+  phases:
+    - duration: 30
+      arrivalRate: 10
+      name: "Cache warmup"
+    - duration: 60
+      arrivalRate: 50
+      name: "Cache stress test"
+    - duration: 30
+      arrivalRate: 100
+      name: "Cache peak load"
+  defaults:
+    headers:
+      Content-Type: "application/json"
+
+scenarios:
+  - name: "Cache Hit Pattern Testing"
+    weight: 50
+    flow:
+      # Login to get access token (this should cache user data)
+      - post:
+          url: "/auth/login"
+          json:
+            email: "cache-test{{ $randomInt(1, 100) }}@example.com"
+            password: "CacheTest123!"
+          capture:
+            - json: "$.access_token"
+              as: "accessToken"
+          ifTrue: "accessToken"
+
+      # Repeated profile requests (should hit cache)
+      - loop:
+          - get:
+              url: "/auth/me"
+              headers:
+                Authorization: "Bearer {{ accessToken }}"
+              expect:
+                - statusCode: 200
+          count: 20
+
+  - name: "Cache Invalidation Testing"
+    weight: 30
+    flow:
+      # Login
+      - post:
+          url: "/auth/login"
+          json:
+            email: "invalidate{{ $randomInt(1, 50) }}@example.com"
+            password: "InvalidateTest123!"
+          capture:
+            - json: "$.access_token"
+              as: "accessToken"
+
+      # Get profile (cache miss)
+      - get:
+          url: "/auth/me"
+          headers:
+            Authorization: "Bearer {{ accessToken }}"
+
+      # Update profile (should invalidate cache)
+      - put:
+          url: "/auth/profile"
+          headers:
+            Authorization: "Bearer {{ accessToken }}"
+          json:
+            first_name: "Updated{{ $randomInt(1, 1000) }}"
+
+      # Get profile again (cache miss after invalidation)
+      - get:
+          url: "/auth/me"
+          headers:
+            Authorization: "Bearer {{ accessToken }}"
+
+  - name: "Session Cache Testing"
+    weight: 15
+    flow:
+      # Multiple rapid logins to test session caching
+      - loop:
+          - post:
+              url: "/auth/login"
+              json:
+                email: "session{{ $randomInt(1, 20) }}@example.com"
+                password: "SessionTest123!"
+              capture:
+                - json: "$.access_token"
+                  as: "accessToken"
+                - json: "$.refresh_token"
+                  as: "refreshToken"
+
+          # Use refresh token (should hit cache)
+          - post:
+              url: "/auth/refresh"
+              json:
+                refresh_token: "{{ refreshToken }}"
+              ifTrue: "refreshToken"
+
+          # Logout (should invalidate session cache)
+          - post:
+              url: "/auth/logout"
+              headers:
+                Authorization: "Bearer {{ accessToken }}"
+              ifTrue: "accessToken"
+          count: 5
+
+  - name: "Rate Limiting Cache"
+    weight: 5
+    flow:
+      # Rapid requests to test rate limiting cache
+      - loop:
+          - get:
+              url: "/health"
+              expect:
+                # Allow rate limiting responses
+                - statusCode: [200, 429]
+          count: 30
+
+# Cache-specific performance thresholds
+ensure:
+  thresholds:
+    - http.response_time:
+        p95: 50   # Cache hits should be very fast
+        p99: 150
+    - http.response_time.auth_me:
+        p95: 30   # Cached profile reads should be under 30ms
+    - http.response_time.health:
+        p95: 5    # Health checks should be under 5ms
+    - http.request_rate: 50   # Minimum requests per second for cache testing
+    - http.response_status_2xx: 95  # High success rate expected with caching
