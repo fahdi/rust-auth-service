@@ -133,9 +133,10 @@ pub async fn create_database(config: &DatabaseConfig) -> Result<Box<dyn AuthData
             "MySQL support removed due to security vulnerability. Use 'mongodb' instead."
         )),
         _ => {
-            let available_types = vec!["mongodb"];
             #[cfg(feature = "postgresql")]
-            available_types.push("postgresql");
+            let available_types = ["mongodb", "postgresql"];
+            #[cfg(not(feature = "postgresql"))]
+            let available_types = ["mongodb"];
             
             Err(anyhow::anyhow!(
                 "Unsupported database type: {}. Available types: {}",

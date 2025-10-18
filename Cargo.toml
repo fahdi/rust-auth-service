@@ -13,7 +13,7 @@ categories = ["authentication", "web-programming::http-server"]
 default = ["mongodb"]  # Ultra-secure build: MongoDB only, zero RSA vulnerability
 # Database support
 mongodb = []
-postgresql = ["sqlx", "sqlx/postgres", "sqlx/runtime-tokio-rustls"]  # Re-enabled with latest SQLx
+postgresql = ["sqlx", "sqlx/postgres", "sqlx/runtime-tokio-rustls", "sqlx/chrono", "sqlx/uuid"]  # Re-enabled with latest SQLx
 # Testing features
 integration-tests = []              # Enable integration tests requiring running services
 load-tests = []                     # Enable load testing scenarios
@@ -36,7 +36,7 @@ serde_yaml = "0.9"
 
 # Database  
 mongodb = "3.0"
-sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "chrono", "uuid"], optional = true }
+sqlx = { version = "0.8", default-features = false, optional = true }
 
 # Authentication & Security
 jsonwebtoken = "9.2"
@@ -91,7 +91,7 @@ regex = "1.10"
 url = "2.5"
 urlencoding = "2.1"
 futures = "0.3"
-fastrand = "2.0"
+fastrand = "2.1"
 
 # Development
 [dev-dependencies]
@@ -102,7 +102,7 @@ base64 = "0.21"
 
 # Additional testing dependencies
 criterion = { version = "0.5", features = ["html_reports"] }
-wiremock = "0.5"
+wiremock = "0.6"
 testcontainers = "0.15"
 async-trait = "0.1"
 
