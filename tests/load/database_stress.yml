@@ -1,0 +1,133 @@
+config:
+  target: "http://localhost:8080"
+  phases:
+    - duration: 30
+      arrivalRate: 5
+      name: "Database warmup"
+    - duration: 90
+      arrivalRate: 25
+      name: "Database stress test"
+    - duration: 60
+      arrivalRate: 50
+      name: "Peak database load"
+  defaults:
+    headers:
+      Content-Type: "application/json"
+  
+scenarios:
+  - name: "Heavy Database Read Operations"
+    weight: 40
+    flow:
+      # Create test user first
+      - post:
+          url: "/auth/register"
+          json:
+            email: "dbtest{{ $randomString() }}@example.com"
+            password: "DbTestPassword123!"
+            first_name: "DB"
+            last_name: "Test"
+          capture:
+            - json: "$.access_token"
+              as: "accessToken"
+
+      # Perform multiple read operations
+      - loop:
+          - get:
+              url: "/auth/me"
+              headers:
+                Authorization: "Bearer {{ accessToken }}"
+              expect:
+                - statusCode: 200
+          count: 10
+
+  - name: "Concurrent User Registration"
+    weight: 30
+    flow:
+      - post:
+          url: "/auth/register"
+          json:
+            email: "concurrent{{ $randomInt(1, 10000) }}@example.com"
+            password: "ConcurrentTest123!"
+            first_name: "Concurrent"
+            last_name: "User{{ $randomInt(1, 1000) }}"
+          expect:
+            - statusCode: 201
+
+  - name: "Login/Logout Cycles"
+    weight: 20
+    flow:
+      # Register user
+      - post:
+          url: "/auth/register"
+          json:
+            email: "cycle{{ $randomString() }}@example.com"
+            password: "CycleTest123!"
+            first_name: "Cycle"
+            last_name: "Test"
+          capture:
+            - json: "$.verification_token"
+              as: "verificationToken"
+
+      # Verify email
+      - post:
+          url: "/auth/verify"
+          json:
+            token: "{{ verificationToken }}"
+
+      # Multiple login/logout cycles
+      - loop:
+          - post:
+              url: "/auth/login"
+              json:
+                email: "cycle{{ $randomString() }}@example.com"
+                password: "CycleTest123!"
+              capture:
+                - json: "$.access_token"
+                  as: "accessToken"
+          
+          - post:
+              url: "/auth/logout"
+              headers:
+                Authorization: "Bearer {{ accessToken }}"
+          count: 5
+
+  - name: "Profile Update Operations"
+    weight: 10
+    flow:
+      # Register and login
+      - post:
+          url: "/auth/register"
+          json:
+            email: "update{{ $randomString() }}@example.com"
+            password: "UpdateTest123!"
+            first_name: "Update"
+            last_name: "Test"
+          capture:
+            - json: "$.access_token"
+              as: "accessToken"
+
+      # Multiple profile updates
+      - loop:
+          - put:
+              url: "/auth/profile"
+              headers:
+                Authorization: "Bearer {{ accessToken }}"
+              json:
+                first_name: "Updated{{ $randomInt(1, 100) }}"
+                last_name: "User{{ $randomInt(1, 100) }}"
+              expect:
+                - statusCode: 200
+          count: 3
+
+# Database-specific performance thresholds
+ensure:
+  thresholds:
+    - http.response_time:
+        p95: 300  # Database operations can be slightly slower
+        p99: 1000
+    - http.response_time.auth_register:
+        p95: 250  # Registration involves database writes
+    - http.response_time.auth_me:
+        p95: 100  # Profile reads should be fast
+    - http.request_rate: 25  # Minimum requests per second for DB stress
+    - http.response_status_2xx: 90  # Allow for some database contention
