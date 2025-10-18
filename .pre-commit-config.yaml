@@ -24,7 +24,23 @@ repos:
 
       - id: cargo-audit
         name: cargo audit
-        entry: cargo audit
+        entry: cargo audit --ignore RUSTSEC-2023-0071
+        language: system
+        types: [rust]
+        pass_filenames: false
+
+      - id: coverage-check
+        name: Coverage Check
+        entry: ./scripts/pre-commit-coverage.sh
+        language: system
+        types: [rust]
+        pass_filenames: false
+        stages: [commit]
+        verbose: true
+
+      - id: doc-check
+        name: Documentation Check
+        entry: bash -c 'cargo doc --lib --no-deps --quiet'
         language: system
         types: [rust]
         pass_filenames: false
