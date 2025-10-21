@@ -67,7 +67,7 @@ pub trait EmailProvider: Send + Sync {
     /// }
     /// ```
     async fn send_email(&self, email: &EmailMessage) -> Result<EmailResponse>;
-    
+
     /// Get the human-readable name of this email provider
     ///
     /// # Returns
@@ -75,7 +75,7 @@ pub trait EmailProvider: Send + Sync {
     ///
     /// Used for logging, monitoring, and configuration validation.
     fn provider_name(&self) -> &'static str;
-    
+
     /// Perform a health check to verify the provider is operational
     ///
     /// # Returns
@@ -280,13 +280,13 @@ impl EmailService {
     ///         password_reset: "templates/reset.html".to_string(),
     ///     },
     /// };
-    /// 
+    ///
     /// let email_service = EmailService::new(&config).await?;
     /// ```
     pub async fn new(config: &EmailConfig) -> Result<Self> {
         let provider = providers::create_provider(config).await?;
         let templates = templates::TemplateEngine::new(&config.templates)?;
-        
+
         Ok(Self {
             provider,
             templates,
@@ -322,11 +322,11 @@ impl EmailService {
     /// ```rust
     /// let verification_token = generate_secure_token();
     /// user.set_email_verification_token(verification_token.clone(), 24); // 24 hours
-    /// 
+    ///
     /// let response = email_service
     ///     .send_verification_email(&user, &verification_token)
     ///     .await?;
-    /// 
+    ///
     /// match response.status {
     ///     EmailStatus::Sent => info!("Verification email sent to {}", user.email),
     ///     EmailStatus::Failed(reason) => error!("Failed to send verification: {}", reason),
@@ -335,7 +335,7 @@ impl EmailService {
     /// ```
     pub async fn send_verification_email(&self, user: &User, token: &str) -> Result<EmailResponse> {
         let verification_url = format!("https://yourapp.com/verify?token={token}");
-        
+
         let html_content = self.templates.render_verification_email(
             &user.email,
             &user.full_name(),
@@ -388,11 +388,11 @@ impl EmailService {
     /// ```rust
     /// let reset_token = generate_secure_token();
     /// user.set_password_reset_token(reset_token.clone(), 2); // 2 hours
-    /// 
+    ///
     /// let response = email_service
     ///     .send_password_reset_email(&user, &reset_token)
     ///     .await?;
-    /// 
+    ///
     /// match response.status {
     ///     EmailStatus::Sent => {
     ///         info!("Password reset email sent to {}", user.email);
@@ -405,9 +405,13 @@ impl EmailService {
     ///     _ => info!("Password reset email queued"),
     /// }
     /// ```
-    pub async fn send_password_reset_email(&self, user: &User, token: &str) -> Result<EmailResponse> {
+    pub async fn send_password_reset_email(
+        &self,
+        user: &User,
+        token: &str,
+    ) -> Result<EmailResponse> {
         let reset_url = format!("https://yourapp.com/reset-password?token={token}");
-        
+
         let html_content = self.templates.render_password_reset_email(
             &user.email,
             &user.full_name(),
@@ -419,9 +423,7 @@ impl EmailService {
             to_name: Some(user.full_name()),
             subject: "Reset your password".to_string(),
             html_content: Some(html_content),
-            text_content: Some(format!(
-                "Reset your password by visiting: {reset_url}"
-            )),
+            text_content: Some(format!("Reset your password by visiting: {reset_url}")),
             from_email: self.templates.from_email.clone(),
             from_name: self.templates.from_name.clone(),
         };
@@ -457,7 +459,7 @@ impl EmailService {
     ///     from_email: "system@yourapp.com".to_string(),
     ///     from_name: "System".to_string(),
     /// };
-    /// 
+    ///
     /// let response = email_service.send_email(&custom_email).await?;
     /// ```
     pub async fn send_email(&self, email: &EmailMessage) -> Result<EmailResponse> {

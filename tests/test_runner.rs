@@ -33,7 +33,7 @@ impl Default for TestRunnerConfig {
         Self {
             run_unit_tests: true,
             run_integration_tests: true,
-            run_load_tests: false, // Load tests are expensive
+            run_load_tests: false,      // Load tests are expensive
             run_container_tests: false, // Requires Docker
             generate_coverage: true,
             parallel_execution: true,
@@ -86,7 +86,7 @@ impl TestRunner {
     pub async fn run_all_tests(&self) -> Result<TestResults> {
         println!("🚀 Starting comprehensive test execution");
         let start_time = Instant::now();
-        
+
         let mut results = TestResults {
             unit_tests: None,
             integration_tests: None,
@@ -130,10 +130,10 @@ impl TestRunner {
         }
 
         results.total_duration = start_time.elapsed();
-        
+
         // Print summary
         self.print_test_summary(&results);
-        
+
         Ok(results)
     }
 
@@ -142,20 +142,16 @@ impl TestRunner {
         println!("🔍 Checking test prerequisites...");
 
         // Check if cargo is available
-        let cargo_version = Command::new("cargo")
-            .args(&["--version"])
-            .output()?;
-        
+        let cargo_version = Command::new("cargo").args(&["--version"]).output()?;
+
         if !cargo_version.status.success() {
             return Err(anyhow::anyhow!("Cargo is not available"));
         }
 
         // Check if Docker is available (for container tests)
         if self.config.run_container_tests {
-            let docker_version = Command::new("docker")
-                .args(&["--version"])
-                .output();
-            
+            let docker_version = Command::new("docker").args(&["--version"]).output();
+
             if docker_version.is_err() || !docker_version.unwrap().status.success() {
                 println!("⚠️ Docker not available, container tests will be skipped");
             }
@@ -166,13 +162,13 @@ impl TestRunner {
             let tarpaulin_check = Command::new("cargo")
                 .args(&["tarpaulin", "--version"])
                 .output();
-            
+
             if tarpaulin_check.is_err() || !tarpaulin_check.unwrap().status.success() {
                 println!("⚠️ cargo-tarpaulin not installed, installing...");
                 let install_output = Command::new("cargo")
                     .args(&["install", "cargo-tarpaulin"])
                     .output()?;
-                
+
                 if !install_output.status.success() {
                     println!("⚠️ Failed to install cargo-tarpaulin, coverage will be skipped");
                 }
@@ -186,20 +182,20 @@ impl TestRunner {
     /// Run unit tests
     async fn run_unit_tests(&self) -> Result<TestSuiteResult> {
         let start_time = Instant::now();
-        
+
         let mut cmd = Command::new("cargo");
         cmd.args(&["test", "--lib", "--bins"]);
-        
+
         if self.config.parallel_execution {
             cmd.args(&["--", "--test-threads", "4"]);
         }
 
         let output = cmd.output()?;
         let duration = start_time.elapsed();
-        
+
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
-        
+
         let (passed, failed, ignored) = self.parse_test_output(&stdout);
         let failures = self.extract_failures(&stderr);
 
@@ -216,20 +212,20 @@ impl TestRunner {
     /// Run integration tests
     async fn run_integration_tests(&self) -> Result<TestSuiteResult> {
         let start_time = Instant::now();
-        
+
         let mut cmd = Command::new("cargo");
         cmd.args(&["test", "--test", "*", "--features", "integration-tests"]);
-        
+
         if self.config.parallel_execution {
             cmd.args(&["--", "--test-threads", "2"]); // Fewer threads for integration tests
         }
 
         let output = cmd.output()?;
         let duration = start_time.elapsed();
-        
+
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
-        
+
         let (passed, failed, ignored) = self.parse_test_output(&stdout);
         let failures = self.extract_failures(&stderr);
 
@@ -246,17 +242,22 @@ impl TestRunner {
     /// Run load tests
     async fn run_load_tests(&self) -> Result<TestSuiteResult> {
         let start_time = Instant::now();
-        
+
         let mut cmd = Command::new("cargo");
-        cmd.args(&["test", "load_tests", "--features", "integration-tests,load-tests"]);
+        cmd.args(&[
+            "test",
+            "load_tests",
+            "--features",
+            "integration-tests,load-tests",
+        ]);
         cmd.args(&["--", "--test-threads", "1"]); // Load tests should run sequentially
 
         let output = cmd.output()?;
         let duration = start_time.elapsed();
-        
+
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
-        
+
         let (passed, failed, ignored) = self.parse_test_output(&stdout);
         let failures = self.extract_failures(&stderr);
 
@@ -273,17 +274,22 @@ impl TestRunner {
     /// Run container tests
     async fn run_container_tests(&self) -> Result<TestSuiteResult> {
         let start_time = Instant::now();
-        
+
         let mut cmd = Command::new("cargo");
-        cmd.args(&["test", "test_containers", "--features", "integration-tests,test-containers"]);
+        cmd.args(&[
+            "test",
+            "test_containers",
+            "--features",
+            "integration-tests,test-containers",
+        ]);
         cmd.args(&["--", "--test-threads", "1"]); // Container tests should run sequentially
 
         let output = cmd.output()?;
         let duration = start_time.elapsed();
-        
+
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
-        
+
         let (passed, failed, ignored) = self.parse_test_output(&stdout);
         let failures = self.extract_failures(&stderr);
 
@@ -305,25 +311,31 @@ impl TestRunner {
             "--verbose",
             "--all-features",
             "--workspace",
-            "--timeout", "300",
-            "--exclude-files", "target/*",
-            "--exclude-files", "tests/*",
-            "--exclude-files", "benches/*",
-            "--out", "Html",
-            "--out", "Xml",
+            "--timeout",
+            "300",
+            "--exclude-files",
+            "target/*",
+            "--exclude-files",
+            "tests/*",
+            "--exclude-files",
+            "benches/*",
+            "--out",
+            "Html",
+            "--out",
+            "Xml",
         ]);
 
         let output = cmd.output()?;
-        
+
         if !output.status.success() {
             return Err(anyhow::anyhow!("Coverage generation failed"));
         }
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        
+
         // Parse coverage from tarpaulin output
         let line_coverage = self.extract_coverage_percentage(&stdout, "Coverage Results:");
-        
+
         Ok(CoverageResult {
             line_coverage,
             branch_coverage: 0.0, // Tarpaulin doesn't provide branch coverage by default
@@ -384,7 +396,7 @@ impl TestRunner {
             } else if in_failure {
                 current_failure.push_str(line);
                 current_failure.push('\n');
-                
+
                 if line.is_empty() && current_failure.len() > 100 {
                     // End of failure block
                     in_failure = false;
@@ -472,20 +484,32 @@ impl TestRunner {
 
         // Overall Summary
         println!("\n🎯 OVERALL RESULTS:");
-        println!("  Total Tests: {}", total_passed + total_failed + total_ignored);
-        println!("  ✅ Passed: {} ({:.1}%)", total_passed, 
-            (total_passed as f64 / (total_passed + total_failed) as f64) * 100.0);
-        println!("  ❌ Failed: {} ({:.1}%)", total_failed,
-            (total_failed as f64 / (total_passed + total_failed) as f64) * 100.0);
+        println!(
+            "  Total Tests: {}",
+            total_passed + total_failed + total_ignored
+        );
+        println!(
+            "  ✅ Passed: {} ({:.1}%)",
+            total_passed,
+            (total_passed as f64 / (total_passed + total_failed) as f64) * 100.0
+        );
+        println!(
+            "  ❌ Failed: {} ({:.1}%)",
+            total_failed,
+            (total_failed as f64 / (total_passed + total_failed) as f64) * 100.0
+        );
         println!("  ⏭️ Ignored: {}", total_ignored);
-        println!("  ⏱️ Total Duration: {:.2}s", results.total_duration.as_secs_f64());
+        println!(
+            "  ⏱️ Total Duration: {:.2}s",
+            results.total_duration.as_secs_f64()
+        );
 
         // Success/Failure determination
         if total_failed == 0 {
             println!("\n🎉 ALL TESTS PASSED! 🎉");
         } else {
             println!("\n💥 {} TESTS FAILED 💥", total_failed);
-            
+
             // Print failure details
             self.print_failure_details(results);
         }
@@ -499,7 +523,7 @@ impl TestRunner {
         println!("  Failed: {}", suite.failed);
         println!("  Ignored: {}", suite.ignored);
         println!("  Duration: {:.2}s", suite.duration.as_secs_f64());
-        
+
         if suite.failed > 0 {
             println!("  ❌ {} failures detected", suite.failed);
         } else {
@@ -509,14 +533,23 @@ impl TestRunner {
 
     fn print_failure_details(&self, results: &TestResults) {
         println!("\n💥 FAILURE DETAILS:");
-        
-        let all_suites = [&results.unit_tests, &results.integration_tests, &results.load_tests, &results.container_tests];
+
+        let all_suites = [
+            &results.unit_tests,
+            &results.integration_tests,
+            &results.load_tests,
+            &results.container_tests,
+        ];
         for suite_option in all_suites.iter() {
             if let Some(suite) = suite_option {
                 if !suite.failures.is_empty() {
                     println!("\n❌ {} Failures:", suite.name);
                     for (i, failure) in suite.failures.iter().enumerate() {
-                        println!("  {}. {}", i + 1, failure.lines().next().unwrap_or("Unknown failure"));
+                        println!(
+                            "  {}. {}",
+                            i + 1,
+                            failure.lines().next().unwrap_or("Unknown failure")
+                        );
                     }
                 }
             }
@@ -571,12 +604,12 @@ async fn test_runner_smoke_test() -> Result<()> {
         timeout: Duration::from_secs(30),
         ..TestRunnerConfig::default()
     };
-    
+
     let runner = TestRunner::new(config);
     let results = runner.run_all_tests().await?;
-    
+
     // Verify that we got some results
     assert!(results.unit_tests.is_some());
-    
+
     Ok(())
 }

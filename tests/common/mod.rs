@@ -8,7 +8,7 @@ pub mod database;
 pub mod fixtures;
 pub mod utils;
 
-use crate::common::database::{TestDatabaseManager, TestDatabase};
+use crate::common::database::{TestDatabase, TestDatabaseManager};
 
 static TEST_MANAGER: OnceCell<TestDatabaseManager> = OnceCell::const_new();
 
@@ -28,7 +28,9 @@ pub async fn init_test_environment() -> Result<()> {
 pub async fn get_test_manager() -> &'static TestDatabaseManager {
     TEST_MANAGER
         .get_or_init(|| async {
-            TestDatabaseManager::new().await.expect("Failed to create test manager")
+            TestDatabaseManager::new()
+                .await
+                .expect("Failed to create test manager")
         })
         .await
 }
@@ -50,7 +52,7 @@ pub async fn cleanup_test_databases() -> Result<()> {
 /// Test result assertion helpers
 pub mod assertions {
     use crate::models::user::{User, UserError};
-    
+
     pub fn assert_user_equals(actual: &User, expected: &User) {
         assert_eq!(actual.email, expected.email);
         assert_eq!(actual.full_name, expected.full_name);
@@ -58,15 +60,18 @@ pub mod assertions {
         assert_eq!(actual.is_active, expected.is_active);
         assert_eq!(actual.email_verified, expected.email_verified);
     }
-    
+
     pub fn assert_user_error_type(error: &UserError, expected_type: &str) {
         match (error, expected_type) {
-            (UserError::NotFound, "not_found") => {},
-            (UserError::AlreadyExists, "already_exists") => {},
-            (UserError::InvalidCredentials, "invalid_credentials") => {},
-            (UserError::Locked, "locked") => {},
-            (UserError::DatabaseError(_), "database_error") => {},
-            _ => panic!("Unexpected error type: {:?}, expected: {}", error, expected_type),
+            (UserError::NotFound, "not_found") => {}
+            (UserError::AlreadyExists, "already_exists") => {}
+            (UserError::InvalidCredentials, "invalid_credentials") => {}
+            (UserError::Locked, "locked") => {}
+            (UserError::DatabaseError(_), "database_error") => {}
+            _ => panic!(
+                "Unexpected error type: {:?}, expected: {}",
+                error, expected_type
+            ),
         }
     }
 }

@@ -52,7 +52,7 @@ use crate::config::email::EmailTemplates;
 ///     verification: "templates/verify.html".to_string(),
 ///     password_reset: "templates/reset.html".to_string(),
 /// };
-/// 
+///
 /// let engine = TemplateEngine::new(&config)?;
 /// let html = engine.render_verification_email(
 ///     "user@example.com",

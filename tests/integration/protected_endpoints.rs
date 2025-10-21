@@ -15,45 +15,54 @@ use crate::integration::test_framework::*;
 #[tokio::test]
 async fn test_unauthorized_access_to_protected_endpoints() -> Result<()> {
     let framework = IntegrationTestFramework::new();
-    
+
     // Wait for service if it's running externally
     if !framework.is_service_running().await? {
-        println!("⚠️ Auth service not running. Start it with: cargo run --features integration-tests");
+        println!(
+            "⚠️ Auth service not running. Start it with: cargo run --features integration-tests"
+        );
         return Ok(());
     }
 
     let protected_endpoints = vec![
         ("/auth/me", "GET"),
-        ("/auth/profile", "PUT"), 
+        ("/auth/profile", "PUT"),
         ("/auth/logout", "POST"),
         ("/auth/refresh", "POST"),
     ];
 
-    println!("🔒 Testing unauthorized access to {} protected endpoints", protected_endpoints.len());
+    println!(
+        "🔒 Testing unauthorized access to {} protected endpoints",
+        protected_endpoints.len()
+    );
 
     for (endpoint, method) in protected_endpoints {
         println!("Testing {} {}", method, endpoint);
-        
+
         let status = match method {
             "GET" => framework.client.test_unauthorized_access(endpoint).await?,
             "POST" | "PUT" => {
                 // For POST/PUT endpoints, we need to manually test
-                let response = framework.client.authenticated_request(
-                    method, 
-                    endpoint, 
-                    "no_auth_header",  // This will be ignored since we don't add auth header
-                    Some(&json!({}))
-                ).await?;
+                let response = framework
+                    .client
+                    .authenticated_request(
+                        method,
+                        endpoint,
+                        "no_auth_header", // This will be ignored since we don't add auth header
+                        Some(&json!({})),
+                    )
+                    .await?;
                 response.status()
             }
             _ => continue,
         };
 
         assert_eq!(
-            status, 
+            status,
             StatusCode::UNAUTHORIZED,
             "Endpoint {} {} should return 401 Unauthorized when accessed without authentication",
-            method, endpoint
+            method,
+            endpoint
         );
     }
 
@@ -65,9 +74,11 @@ async fn test_unauthorized_access_to_protected_endpoints() -> Result<()> {
 #[tokio::test]
 async fn test_invalid_token_access_to_protected_endpoints() -> Result<()> {
     let framework = IntegrationTestFramework::new();
-    
+
     if !framework.is_service_running().await? {
-        println!("⚠️ Auth service not running. Start it with: cargo run --features integration-tests");
+        println!(
+            "⚠️ Auth service not running. Start it with: cargo run --features integration-tests"
+        );
         return Ok(());
     }
 
@@ -81,32 +92,35 @@ async fn test_invalid_token_access_to_protected_endpoints() -> Result<()> {
         "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.invalid.signature",
     ];
 
-    let endpoints = vec![
-        "/auth/me",
-        "/auth/profile",
-        "/auth/logout",
-    ];
+    let endpoints = vec!["/auth/me", "/auth/profile", "/auth/logout"];
 
-    println!("🔓 Testing invalid token access with {} tokens on {} endpoints", 
-        invalid_tokens.len(), endpoints.len());
+    println!(
+        "🔓 Testing invalid token access with {} tokens on {} endpoints",
+        invalid_tokens.len(),
+        endpoints.len()
+    );
 
     for endpoint in &endpoints {
         for (i, invalid_token) in invalid_tokens.iter().enumerate() {
-            println!("Testing endpoint {} with invalid token {} ({}/{})", 
-                endpoint, i + 1, i + 1, invalid_tokens.len());
-
-            let response = framework.client.authenticated_request(
-                "GET",
+            println!(
+                "Testing endpoint {} with invalid token {} ({}/{})",
                 endpoint,
-                invalid_token,
-                None
-            ).await?;
+                i + 1,
+                i + 1,
+                invalid_tokens.len()
+            );
+
+            let response = framework
+                .client
+                .authenticated_request("GET", endpoint, invalid_token, None)
+                .await?;
 
             assert_eq!(
                 response.status(),
                 StatusCode::UNAUTHORIZED,
                 "Endpoint {} should return 401 for invalid token: '{}'",
-                endpoint, invalid_token
+                endpoint,
+                invalid_token
             );
         }
     }
@@ -119,9 +133,11 @@ async fn test_invalid_token_access_to_protected_endpoints() -> Result<()> {
 #[tokio::test]
 async fn test_valid_token_access_to_protected_endpoints() -> Result<()> {
     let framework = IntegrationTestFramework::new();
-    
+
     if !framework.is_service_running().await? {
-        println!("⚠️ Auth service not running. Start it with: cargo run --features integration-tests");
+        println!(
+            "⚠️ Auth service not running. Start it with: cargo run --features integration-tests"
+        );
         return Ok(());
     }
 
@@ -142,7 +158,10 @@ async fn test_valid_token_access_to_protected_endpoints() -> Result<()> {
         "first_name": "Updated",
         "last_name": "Name"
     });
-    let update_response = framework.client.update_profile(&tokens.access_token, &update_data).await?;
+    let update_response = framework
+        .client
+        .update_profile(&tokens.access_token, &update_data)
+        .await?;
     assert_eq!(update_response["first_name"], "Updated");
     assert_eq!(update_response["last_name"], "Name");
     println!("✅ PUT /auth/profile works with valid token");
@@ -158,9 +177,12 @@ async fn test_valid_token_access_to_protected_endpoints() -> Result<()> {
         let new_tokens = framework.client.refresh_token(refresh_token).await?;
         assert!(!new_tokens.access_token.is_empty());
         println!("✅ POST /auth/refresh works with valid refresh token");
-        
+
         // Test that new token works
-        let profile_with_new_token = framework.client.get_profile(&new_tokens.access_token).await?;
+        let profile_with_new_token = framework
+            .client
+            .get_profile(&new_tokens.access_token)
+            .await?;
         assert_eq!(profile_with_new_token["email"], user.email);
         println!("✅ New access token from refresh works correctly");
     }
@@ -172,7 +194,10 @@ async fn test_valid_token_access_to_protected_endpoints() -> Result<()> {
 
     // Verify token is invalidated after logout
     let profile_after_logout = framework.client.get_profile(&tokens.access_token).await;
-    assert!(profile_after_logout.is_err(), "Token should be invalid after logout");
+    assert!(
+        profile_after_logout.is_err(),
+        "Token should be invalid after logout"
+    );
     println!("✅ Token invalidated after logout");
 
     println!("✅ All protected endpoints work correctly with valid tokens");
@@ -183,9 +208,11 @@ async fn test_valid_token_access_to_protected_endpoints() -> Result<()> {
 #[tokio::test]
 async fn test_jwt_token_expiration_handling() -> Result<()> {
     let framework = IntegrationTestFramework::new();
-    
+
     if !framework.is_service_running().await? {
-        println!("⚠️ Auth service not running. Start it with: cargo run --features integration-tests");
+        println!(
+            "⚠️ Auth service not running. Start it with: cargo run --features integration-tests"
+        );
         return Ok(());
     }
 
@@ -208,16 +235,22 @@ async fn test_jwt_token_expiration_handling() -> Result<()> {
     if let Some(refresh_token) = &tokens.refresh_token {
         let old_access_token = tokens.access_token.clone();
         let new_tokens = framework.client.refresh_token(refresh_token).await?;
-        
+
         // Verify new token is different
-        assert_ne!(new_tokens.access_token, old_access_token, "New token should be different");
+        assert_ne!(
+            new_tokens.access_token, old_access_token,
+            "New token should be different"
+        );
         println!("✅ Token refresh generates new access token");
-        
+
         // Verify new token works
-        let profile_with_new_token = framework.client.get_profile(&new_tokens.access_token).await?;
+        let profile_with_new_token = framework
+            .client
+            .get_profile(&new_tokens.access_token)
+            .await?;
         assert_eq!(profile_with_new_token["email"], user.email);
         println!("✅ New token from refresh works correctly");
-        
+
         // Verify both tokens are valid JWT format
         AuthAssertions::assert_valid_jwt_token(&new_tokens.access_token)
             .map_err(|e| anyhow::anyhow!("New JWT token invalid: {}", e))?;
@@ -232,15 +265,20 @@ async fn test_jwt_token_expiration_handling() -> Result<()> {
 #[tokio::test]
 async fn test_concurrent_protected_endpoint_access() -> Result<()> {
     let framework = IntegrationTestFramework::new();
-    
+
     if !framework.is_service_running().await? {
-        println!("⚠️ Auth service not running. Start it with: cargo run --features integration-tests");
+        println!(
+            "⚠️ Auth service not running. Start it with: cargo run --features integration-tests"
+        );
         return Ok(());
     }
 
     const CONCURRENT_REQUESTS: usize = 20;
-    
-    println!("🔄 Testing concurrent access to protected endpoints with {} requests", CONCURRENT_REQUESTS);
+
+    println!(
+        "🔄 Testing concurrent access to protected endpoints with {} requests",
+        CONCURRENT_REQUESTS
+    );
 
     // Create test user
     let user = framework.create_test_user("concurrent_test");
@@ -251,23 +289,28 @@ async fn test_concurrent_protected_endpoint_access() -> Result<()> {
     for i in 0..CONCURRENT_REQUESTS {
         let client = framework.client.clone();
         let token = tokens.access_token.clone();
-        
+
         let handle = tokio::spawn(async move {
             let timer = PerformanceTimer::new(&format!("Concurrent Request {}", i));
-            
+
             // Access profile endpoint
             let result = client.get_profile(&token).await;
             let elapsed = timer.finish();
-            
+
             match result {
-                Ok(profile) => (i, true, elapsed, profile["email"].as_str().unwrap_or("").to_string()),
+                Ok(profile) => (
+                    i,
+                    true,
+                    elapsed,
+                    profile["email"].as_str().unwrap_or("").to_string(),
+                ),
                 Err(e) => {
                     println!("Request {} failed: {}", i, e);
                     (i, false, elapsed, String::new())
                 }
             }
         });
-        
+
         handles.push(handle);
     }
 
@@ -282,7 +325,10 @@ async fn test_concurrent_protected_endpoint_access() -> Result<()> {
                 successful += 1;
                 total_time += elapsed;
                 response_times.push(elapsed);
-                assert_eq!(email, user.email, "Response should contain correct user data");
+                assert_eq!(
+                    email, user.email,
+                    "Response should contain correct user data"
+                );
             }
             Ok((_, false, elapsed, _)) => {
                 failed += 1;
@@ -297,18 +343,26 @@ async fn test_concurrent_protected_endpoint_access() -> Result<()> {
 
     println!("📊 Concurrent Access Results:");
     println!("  Total Requests: {}", CONCURRENT_REQUESTS);
-    println!("  Successful: {} ({:.1}%)", successful, (successful as f64 / CONCURRENT_REQUESTS as f64) * 100.0);
-    println!("  Failed: {} ({:.1}%)", failed, (failed as f64 / CONCURRENT_REQUESTS as f64) * 100.0);
-    
+    println!(
+        "  Successful: {} ({:.1}%)",
+        successful,
+        (successful as f64 / CONCURRENT_REQUESTS as f64) * 100.0
+    );
+    println!(
+        "  Failed: {} ({:.1}%)",
+        failed,
+        (failed as f64 / CONCURRENT_REQUESTS as f64) * 100.0
+    );
+
     if !response_times.is_empty() {
         let avg_time = response_times.iter().sum::<Duration>() / response_times.len() as u32;
         let max_time = response_times.iter().max().unwrap();
         let min_time = response_times.iter().min().unwrap();
-        
+
         println!("  Average Response Time: {:.2}ms", avg_time.as_millis());
         println!("  Max Response Time: {:.2}ms", max_time.as_millis());
         println!("  Min Response Time: {:.2}ms", min_time.as_millis());
-        
+
         // Assert reasonable performance
         AuthAssertions::assert_response_time_acceptable(avg_time, Duration::from_millis(500))
             .map_err(|e| anyhow::anyhow!("Performance assertion failed: {}", e))?;
@@ -318,7 +372,8 @@ async fn test_concurrent_protected_endpoint_access() -> Result<()> {
     assert!(
         successful >= (CONCURRENT_REQUESTS * 9 / 10),
         "At least 90% of concurrent requests should succeed, got {}/{}",
-        successful, CONCURRENT_REQUESTS
+        successful,
+        CONCURRENT_REQUESTS
     );
 
     println!("✅ Concurrent protected endpoint access works correctly");
@@ -329,9 +384,11 @@ async fn test_concurrent_protected_endpoint_access() -> Result<()> {
 #[tokio::test]
 async fn test_rate_limiting_on_protected_endpoints() -> Result<()> {
     let framework = IntegrationTestFramework::new();
-    
+
     if !framework.is_service_running().await? {
-        println!("⚠️ Auth service not running. Start it with: cargo run --features integration-tests");
+        println!(
+            "⚠️ Auth service not running. Start it with: cargo run --features integration-tests"
+        );
         return Ok(());
     }
 
@@ -348,12 +405,10 @@ async fn test_rate_limiting_on_protected_endpoints() -> Result<()> {
     let mut other_errors = 0;
 
     for i in 0..RAPID_REQUESTS {
-        let response = framework.client.authenticated_request(
-            "GET",
-            "/auth/me",
-            &tokens.access_token,
-            None
-        ).await?;
+        let response = framework
+            .client
+            .authenticated_request("GET", "/auth/me", &tokens.access_token, None)
+            .await?;
 
         match response.status() {
             StatusCode::OK => success_count += 1,
@@ -388,9 +443,11 @@ async fn test_rate_limiting_on_protected_endpoints() -> Result<()> {
 #[tokio::test]
 async fn test_role_based_access_control() -> Result<()> {
     let framework = IntegrationTestFramework::new();
-    
+
     if !framework.is_service_running().await? {
-        println!("⚠️ Auth service not running. Start it with: cargo run --features integration-tests");
+        println!(
+            "⚠️ Auth service not running. Start it with: cargo run --features integration-tests"
+        );
         return Ok(());
     }
 
@@ -399,15 +456,23 @@ async fn test_role_based_access_control() -> Result<()> {
     // Create regular user
     let regular_user = framework.create_test_user("regular_user");
     let (regular_tokens, regular_response) = framework.client.register(&regular_user).await?;
-    
+
     // Verify regular user role
-    let user_data = regular_response.get("user").expect("User data should be present");
-    let user_role = user_data.get("role").and_then(|r| r.as_str()).unwrap_or("user");
+    let user_data = regular_response
+        .get("user")
+        .expect("User data should be present");
+    let user_role = user_data
+        .get("role")
+        .and_then(|r| r.as_str())
+        .unwrap_or("user");
     assert_eq!(user_role, "user", "Default role should be 'user'");
     println!("✅ Regular user created with 'user' role");
 
     // Test regular user can access their own profile
-    let profile = framework.client.get_profile(&regular_tokens.access_token).await?;
+    let profile = framework
+        .client
+        .get_profile(&regular_tokens.access_token)
+        .await?;
     assert_eq!(profile["email"], regular_user.email);
     assert_eq!(profile["role"], "user");
     println!("✅ Regular user can access their own profile");
@@ -417,18 +482,24 @@ async fn test_role_based_access_control() -> Result<()> {
         "first_name": "Updated",
         "last_name": "User"
     });
-    let updated_profile = framework.client.update_profile(&regular_tokens.access_token, &update_data).await?;
+    let updated_profile = framework
+        .client
+        .update_profile(&regular_tokens.access_token, &update_data)
+        .await?;
     assert_eq!(updated_profile["first_name"], "Updated");
     println!("✅ Regular user can update their own profile");
 
     // Test logout works for regular user
-    let logout_response = framework.client.logout(&regular_tokens.access_token).await?;
+    let logout_response = framework
+        .client
+        .logout(&regular_tokens.access_token)
+        .await?;
     assert!(logout_response.get("message").is_some());
     println!("✅ Regular user can logout successfully");
 
     // Note: Admin-specific endpoints would be tested here if they existed
     // For now, we verify the basic role system is working
-    
+
     println!("✅ Role-based access control is working correctly");
     Ok(())
 }
@@ -437,9 +508,11 @@ async fn test_role_based_access_control() -> Result<()> {
 #[tokio::test]
 async fn test_security_headers_on_protected_endpoints() -> Result<()> {
     let framework = IntegrationTestFramework::new();
-    
+
     if !framework.is_service_running().await? {
-        println!("⚠️ Auth service not running. Start it with: cargo run --features integration-tests");
+        println!(
+            "⚠️ Auth service not running. Start it with: cargo run --features integration-tests"
+        );
         return Ok(());
     }
 
@@ -450,17 +523,15 @@ async fn test_security_headers_on_protected_endpoints() -> Result<()> {
     let (tokens, _) = framework.client.register(&user).await?;
 
     // Test profile endpoint security headers
-    let response = framework.client.authenticated_request(
-        "GET",
-        "/auth/me",
-        &tokens.access_token,
-        None
-    ).await?;
+    let response = framework
+        .client
+        .authenticated_request("GET", "/auth/me", &tokens.access_token, None)
+        .await?;
 
     assert_eq!(response.status(), StatusCode::OK);
 
     let headers = response.headers();
-    
+
     // Check for common security headers
     if let Some(content_type) = headers.get("content-type") {
         assert!(content_type.to_str()?.contains("application/json"));
@@ -474,7 +545,10 @@ async fn test_security_headers_on_protected_endpoints() -> Result<()> {
 
     // Test OPTIONS request for CORS preflight
     let options_response = reqwest::Client::new()
-        .request(reqwest::Method::OPTIONS, &format!("{}/auth/me", framework.config.service_url))
+        .request(
+            reqwest::Method::OPTIONS,
+            &format!("{}/auth/me", framework.config.service_url),
+        )
         .header("Origin", "https://example.com")
         .header("Access-Control-Request-Method", "GET")
         .header("Access-Control-Request-Headers", "authorization")
@@ -482,18 +556,20 @@ async fn test_security_headers_on_protected_endpoints() -> Result<()> {
         .await?;
 
     println!("CORS preflight status: {}", options_response.status());
-    
+
     println!("✅ Security headers are properly configured");
     Ok(())
 }
 
 /// Test session management and token invalidation
-#[tokio::test] 
+#[tokio::test]
 async fn test_session_management() -> Result<()> {
     let framework = IntegrationTestFramework::new();
-    
+
     if !framework.is_service_running().await? {
-        println!("⚠️ Auth service not running. Start it with: cargo run --features integration-tests");
+        println!(
+            "⚠️ Auth service not running. Start it with: cargo run --features integration-tests"
+        );
         return Ok(());
     }
 
@@ -509,10 +585,13 @@ async fn test_session_management() -> Result<()> {
 
     // Login again to get new session
     let (new_tokens, _) = framework.client.login(&user).await?;
-    
+
     // Both tokens should work (multiple sessions allowed)
     let profile2 = framework.client.get_profile(&tokens.access_token).await?;
-    let profile3 = framework.client.get_profile(&new_tokens.access_token).await?;
+    let profile3 = framework
+        .client
+        .get_profile(&new_tokens.access_token)
+        .await?;
     assert_eq!(profile2["email"], user.email);
     assert_eq!(profile3["email"], user.email);
     println!("✅ Multiple sessions are supported");
@@ -524,11 +603,17 @@ async fn test_session_management() -> Result<()> {
 
     // First token should be invalidated
     let profile_after_logout = framework.client.get_profile(&tokens.access_token).await;
-    assert!(profile_after_logout.is_err(), "First token should be invalid after logout");
+    assert!(
+        profile_after_logout.is_err(),
+        "First token should be invalid after logout"
+    );
     println!("✅ First token invalidated after logout");
 
     // Second token should still work
-    let profile4 = framework.client.get_profile(&new_tokens.access_token).await?;
+    let profile4 = framework
+        .client
+        .get_profile(&new_tokens.access_token)
+        .await?;
     assert_eq!(profile4["email"], user.email);
     println!("✅ Second token still works after first session logout");
 
@@ -539,7 +624,10 @@ async fn test_session_management() -> Result<()> {
 
     // Second token should now be invalidated
     let profile_after_logout2 = framework.client.get_profile(&new_tokens.access_token).await;
-    assert!(profile_after_logout2.is_err(), "Second token should be invalid after logout");
+    assert!(
+        profile_after_logout2.is_err(),
+        "Second token should be invalid after logout"
+    );
     println!("✅ Second token invalidated after logout");
 
     println!("✅ Session management works correctly");

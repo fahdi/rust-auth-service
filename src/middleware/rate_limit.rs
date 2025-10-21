@@ -200,7 +200,7 @@ pub async fn rate_limit_middleware(
     let identifier = match (rule.per_ip, rule.per_user, user_id) {
         (_, true, Some(uid)) => format!("user:{uid}"), // Per-user takes precedence when authenticated
         (true, _, _) => format!("ip:{client_ip}"),     // Per-IP when no user or per_user disabled
-        _ => "global".to_string(),                       // Global rate limiting
+        _ => "global".to_string(),                     // Global rate limiting
     };
 
     let key = generate_rate_limit_key(category, &identifier, current_time);

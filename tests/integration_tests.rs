@@ -3,9 +3,9 @@
 //! This file serves as the main integration test entry point.
 //! All integration test modules are imported here.
 
+mod common;
 mod helpers;
 mod integration;
-mod common;
 
 // Import all integration test modules
 pub use integration::*;

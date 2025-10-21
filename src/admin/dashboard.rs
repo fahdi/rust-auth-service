@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::observability::AppMetrics;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 /// Admin dashboard statistics
@@ -282,7 +282,7 @@ pub struct ErrorMetrics {
 /// Collect real-time metrics from the AppMetrics instance
 pub fn collect_realtime_metrics(metrics: &Arc<AppMetrics>) -> anyhow::Result<RealTimeMetrics> {
     let _metrics_text = metrics.gather()?;
-    
+
     // Parse Prometheus metrics and extract key values
     // This is a simplified implementation - in production, you'd parse the full metrics
     Ok(RealTimeMetrics {
@@ -293,7 +293,9 @@ pub fn collect_realtime_metrics(metrics: &Arc<AppMetrics>) -> anyhow::Result<Rea
                 ("200".to_string(), 1250),
                 ("404".to_string(), 23),
                 ("500".to_string(), 5),
-            ].into_iter().collect(),
+            ]
+            .into_iter()
+            .collect(),
             endpoint_performance: vec![
                 EndpointPerformance {
                     path: "/auth/login".to_string(),
@@ -320,7 +322,9 @@ pub fn collect_realtime_metrics(metrics: &Arc<AppMetrics>) -> anyhow::Result<Rea
                 ("invalid_credentials".to_string(), 12),
                 ("account_locked".to_string(), 3),
                 ("email_not_verified".to_string(), 8),
-            ].into_iter().collect(),
+            ]
+            .into_iter()
+            .collect(),
         },
         database: DatabaseMetrics {
             active_connections: 8,
@@ -361,7 +365,9 @@ pub fn collect_realtime_metrics(metrics: &Arc<AppMetrics>) -> anyhow::Result<Rea
                 ("database_error".to_string(), 2),
                 ("validation_error".to_string(), 5),
                 ("auth_error".to_string(), 8),
-            ].into_iter().collect(),
+            ]
+            .into_iter()
+            .collect(),
             critical_errors: 0,
         },
     })

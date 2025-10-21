@@ -1,7 +1,7 @@
 use anyhow::Result;
 use std::time::{Duration, Instant};
 use tokio::time;
-use tracing::{info, debug, warn};
+use tracing::{debug, info, warn};
 
 /// Performance measurement utilities for database operations
 pub struct PerformanceMetrics {
@@ -43,14 +43,18 @@ impl PerformanceMetrics {
 }
 
 /// Measure execution time of async operations
-pub async fn measure_async<F, T, E>(operation: &str, database_type: &str, f: F) -> Result<(T, PerformanceMetrics)>
+pub async fn measure_async<F, T, E>(
+    operation: &str,
+    database_type: &str,
+    f: F,
+) -> Result<(T, PerformanceMetrics)>
 where
     F: std::future::Future<Output = Result<T, E>>,
     E: std::fmt::Display,
 {
     let mut metrics = PerformanceMetrics::new(operation, database_type);
     let start = Instant::now();
-    
+
     match f.await {
         Ok(result) => {
             metrics.record_duration(start.elapsed());
@@ -78,13 +82,17 @@ where
     Fut: std::future::Future<Output = bool>,
 {
     let start = Instant::now();
-    
+
     loop {
         if condition().await {
-            debug!("Condition '{}' met after {:.2}s", description, start.elapsed().as_secs_f64());
+            debug!(
+                "Condition '{}' met after {:.2}s",
+                description,
+                start.elapsed().as_secs_f64()
+            );
             return Ok(());
         }
-        
+
         if start.elapsed() >= timeout {
             return Err(anyhow::anyhow!(
                 "Timeout waiting for condition '{}' after {:.2}s",
@@ -92,7 +100,7 @@ where
                 timeout.as_secs_f64()
             ));
         }
-        
+
         time::sleep(poll_interval).await;
     }
 }
@@ -107,9 +115,9 @@ impl ConsistencyChecker {
         user_email: &str,
     ) -> Result<()> {
         debug!("Checking user consistency for: {}", user_email);
-        
+
         let mut users = Vec::new();
-        
+
         // Fetch user from all databases
         for (db_type, db) in databases {
             match db.find_user_by_email(user_email).await {
@@ -118,29 +126,33 @@ impl ConsistencyChecker {
                 Err(e) => return Err(anyhow::anyhow!("Error fetching from {}: {:?}", db_type, e)),
             }
         }
-        
+
         if users.is_empty() {
             return Err(anyhow::anyhow!("No users found in any database"));
         }
-        
+
         // Compare all users
         let reference = &users[0].1;
         for (db_type, user) in &users[1..] {
             if !users_are_equivalent(reference, user) {
                 return Err(anyhow::anyhow!(
                     "User data inconsistent between {} and {}",
-                    users[0].0, db_type
+                    users[0].0,
+                    db_type
                 ));
             }
         }
-        
+
         info!("User consistency check passed for: {}", user_email);
         Ok(())
     }
 }
 
 /// Compare two users for functional equivalence (ignoring database-specific differences)
-fn users_are_equivalent(user1: &rust_auth_service::models::user::User, user2: &rust_auth_service::models::user::User) -> bool {
+fn users_are_equivalent(
+    user1: &rust_auth_service::models::user::User,
+    user2: &rust_auth_service::models::user::User,
+) -> bool {
     // Compare core fields that should be identical
     user1.email == user2.email
         && user1.password_hash == user2.password_hash
@@ -187,22 +199,23 @@ impl StressTestRunner {
         F: Fn(usize) -> Fut + Send + Sync + 'static,
         Fut: std::future::Future<Output = Result<()>> + Send + 'static,
     {
-        use std::sync::Arc;
         use std::sync::atomic::Ordering;
-        
+        use std::sync::Arc;
+
         let start = Instant::now();
         let operation_factory = Arc::new(operation_factory);
         let mut handles = Vec::new();
-        
+
         for batch in 0..self.concurrent_operations {
             let factory = operation_factory.clone();
             let success_count = Arc::new(&self.success_count);
             let error_count = Arc::new(&self.error_count);
-            
+
             let handle = tokio::spawn(async move {
                 for i in 0..self.operation_count / self.concurrent_operations {
-                    let operation_id = batch * (self.operation_count / self.concurrent_operations) + i;
-                    
+                    let operation_id =
+                        batch * (self.operation_count / self.concurrent_operations) + i;
+
                     match factory(operation_id).await {
                         Ok(()) => success_count.fetch_add(1, Ordering::Relaxed),
                         Err(e) => {
@@ -212,18 +225,21 @@ impl StressTestRunner {
                     };
                 }
             });
-            
+
             handles.push(handle);
         }
-        
+
         // Wait for all operations to complete
         for handle in handles {
-            handle.await.map_err(|e| anyhow::anyhow!("Task join error: {}", e))?;
+            handle
+                .await
+                .map_err(|e| anyhow::anyhow!("Task join error: {}", e))?;
         }
-        
+
         let duration = start.elapsed();
-        let total_ops = self.success_count.load(Ordering::Relaxed) + self.error_count.load(Ordering::Relaxed);
-        
+        let total_ops =
+            self.success_count.load(Ordering::Relaxed) + self.error_count.load(Ordering::Relaxed);
+
         info!(
             "Stress test completed: {} operations in {:.2}s ({:.1} ops/s), {} successes, {} errors",
             total_ops,
@@ -232,7 +248,7 @@ impl StressTestRunner {
             self.success_count.load(Ordering::Relaxed),
             self.error_count.load(Ordering::Relaxed)
         );
-        
+
         Ok(duration)
     }
 
@@ -240,7 +256,11 @@ impl StressTestRunner {
         use std::sync::atomic::Ordering;
         let successes = self.success_count.load(Ordering::Relaxed) as f64;
         let total = successes + self.error_count.load(Ordering::Relaxed) as f64;
-        if total == 0.0 { 0.0 } else { successes / total }
+        if total == 0.0 {
+            0.0
+        } else {
+            successes / total
+        }
     }
 }
 
@@ -251,7 +271,7 @@ impl TestEnvironment {
     /// Check if required databases are available for testing
     pub async fn check_database_availability(database_types: &[&str]) -> Result<Vec<String>> {
         let mut available = Vec::new();
-        
+
         for &db_type in database_types {
             if Self::is_database_available(db_type).await {
                 available.push(db_type.to_string());
@@ -260,18 +280,23 @@ impl TestEnvironment {
                 warn!("Database {} is not available for testing", db_type);
             }
         }
-        
+
         if available.is_empty() {
             return Err(anyhow::anyhow!("No databases available for testing"));
         }
-        
+
         Ok(available)
     }
 
     /// Check if specific database type is available
     async fn is_database_available(database_type: &str) -> bool {
         // Try to create a test configuration and connect
-        match crate::common::database::create_test_database_config(database_type, "availability_check").await {
+        match crate::common::database::create_test_database_config(
+            database_type,
+            "availability_check",
+        )
+        .await
+        {
             Ok(config) => {
                 match rust_auth_service::database::create_database(&config).await {
                     Ok(db) => {
@@ -295,40 +320,51 @@ impl TestEnvironment {
     ) -> String {
         let mut report = String::new();
         report.push_str("=== Database Integration Test Report ===\n\n");
-        
+
         // Summary
-        report.push_str(&format!("Tested Databases: {}\n", database_types.join(", ")));
-        report.push_str(&format!("Total Operations: {}\n", performance_metrics.len()));
-        
+        report.push_str(&format!(
+            "Tested Databases: {}\n",
+            database_types.join(", ")
+        ));
+        report.push_str(&format!(
+            "Total Operations: {}\n",
+            performance_metrics.len()
+        ));
+
         let successful = performance_metrics.iter().filter(|m| m.success).count();
         let failed = performance_metrics.len() - successful;
-        
+
         report.push_str(&format!("Successful: {}\n", successful));
         report.push_str(&format!("Failed: {}\n", failed));
-        
+
         if !performance_metrics.is_empty() {
             let avg_duration: f64 = performance_metrics
                 .iter()
                 .map(|m| m.duration.as_secs_f64())
-                .sum::<f64>() / performance_metrics.len() as f64;
-            
-            report.push_str(&format!("Average Duration: {:.2}ms\n\n", avg_duration * 1000.0));
+                .sum::<f64>()
+                / performance_metrics.len() as f64;
+
+            report.push_str(&format!(
+                "Average Duration: {:.2}ms\n\n",
+                avg_duration * 1000.0
+            ));
         }
-        
+
         // Per-database breakdown
         for db_type in database_types {
             let db_metrics: Vec<_> = performance_metrics
                 .iter()
                 .filter(|m| m.database_type == *db_type)
                 .collect();
-            
+
             if !db_metrics.is_empty() {
                 let db_successful = db_metrics.iter().filter(|m| m.success).count();
                 let db_avg: f64 = db_metrics
                     .iter()
                     .map(|m| m.duration.as_secs_f64())
-                    .sum::<f64>() / db_metrics.len() as f64;
-                
+                    .sum::<f64>()
+                    / db_metrics.len() as f64;
+
                 report.push_str(&format!(
                     "{}: {} operations, {} successful, {:.2}ms avg\n",
                     db_type,
@@ -338,7 +374,7 @@ impl TestEnvironment {
                 ));
             }
         }
-        
+
         report
     }
 }

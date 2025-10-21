@@ -85,7 +85,11 @@ pub async fn register(
             info!("User registered successfully: {}", created_user.email);
 
             // Send verification email
-            if let Err(e) = state.email.send_verification_email(&created_user, &verification_token).await {
+            if let Err(e) = state
+                .email
+                .send_verification_email(&created_user, &verification_token)
+                .await
+            {
                 error!("Failed to send verification email: {}", e);
             }
 
@@ -328,7 +332,11 @@ pub async fn forgot_password(
     }
 
     // Send password reset email
-    if let Err(e) = state.email.send_password_reset_email(&user, &reset_token).await {
+    if let Err(e) = state
+        .email
+        .send_password_reset_email(&user, &reset_token)
+        .await
+    {
         error!("Failed to send password reset email: {}", e);
     }
 

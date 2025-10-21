@@ -95,7 +95,10 @@ async fn main() -> Result<()> {
 
     // Initialize email service
     let email_service = EmailService::new(&config.email).await?;
-    info!("Email service initialized with provider: {}", email_service.provider_name());
+    info!(
+        "Email service initialized with provider: {}",
+        email_service.provider_name()
+    );
 
     // Test database connection
     match database.health_check().await {
@@ -181,7 +184,10 @@ async fn main() -> Result<()> {
         // Admin API endpoints
         .route("/admin/api/stats", get(admin::get_dashboard_stats))
         .route("/admin/api/metrics", get(admin::get_system_metrics))
-        .route("/admin/api/metrics/realtime", get(admin::get_realtime_metrics))
+        .route(
+            "/admin/api/metrics/realtime",
+            get(admin::get_realtime_metrics),
+        )
         .route("/admin/api/users", get(admin::list_users))
         .route("/admin/api/users/search", get(admin::search_users))
         .route("/admin/api/users/export", get(admin::export_users))

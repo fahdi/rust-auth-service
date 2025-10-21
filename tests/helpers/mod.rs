@@ -2,10 +2,10 @@ pub mod auth_test_helpers;
 
 // Re-export common modules for cache testing
 pub use crate::common::{
-    init_test_environment,
-    cache::{CacheTestManager, CacheTestHelpers},
-    utils::{measure_async, StressTestRunner},
+    cache::{CacheTestHelpers, CacheTestManager},
     fixtures::TestFixtures,
+    init_test_environment,
+    utils::{measure_async, StressTestRunner},
 };
 
 // Re-export helper utilities for easy access

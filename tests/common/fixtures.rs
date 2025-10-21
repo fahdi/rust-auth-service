@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use serde_json::json;
 use uuid::Uuid;
 
-use rust_auth_service::models::user::{User, LoginAttempt};
+use rust_auth_service::models::user::{LoginAttempt, User};
 
 /// Test data fixtures for consistent testing across database adapters
 pub struct TestFixtures;
@@ -14,7 +14,8 @@ impl TestFixtures {
         User {
             id: None,
             email: "complete.user@example.com".to_string(),
-            password_hash: "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewmyMcLOVAzk8VqK".to_string(),
+            password_hash: "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewmyMcLOVAzk8VqK"
+                .to_string(),
             full_name: "Complete Test User".to_string(),
             role: "user".to_string(),
             is_active: true,
@@ -37,7 +38,8 @@ impl TestFixtures {
         User {
             id: None,
             email: "minimal.user@example.com".to_string(),
-            password_hash: "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewmyMcLOVAzk8VqK".to_string(),
+            password_hash: "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewmyMcLOVAzk8VqK"
+                .to_string(),
             full_name: "Minimal User".to_string(),
             role: "user".to_string(),
             is_active: true,
@@ -60,7 +62,8 @@ impl TestFixtures {
         User {
             id: None,
             email: "admin@example.com".to_string(),
-            password_hash: "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewmyMcLOVAzk8VqK".to_string(),
+            password_hash: "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewmyMcLOVAzk8VqK"
+                .to_string(),
             full_name: "Admin User".to_string(),
             role: "admin".to_string(),
             is_active: true,
@@ -83,7 +86,8 @@ impl TestFixtures {
         User {
             id: None,
             email: "locked.user@example.com".to_string(),
-            password_hash: "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewmyMcLOVAzk8VqK".to_string(),
+            password_hash: "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewmyMcLOVAzk8VqK"
+                .to_string(),
             full_name: "Locked User".to_string(),
             role: "user".to_string(),
             is_active: true,
@@ -106,7 +110,8 @@ impl TestFixtures {
         User {
             id: None,
             email: "inactive.user@example.com".to_string(),
-            password_hash: "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewmyMcLOVAzk8VqK".to_string(),
+            password_hash: "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewmyMcLOVAzk8VqK"
+                .to_string(),
             full_name: "Inactive User".to_string(),
             role: "user".to_string(),
             is_active: false,
@@ -129,7 +134,8 @@ impl TestFixtures {
         User {
             id: None,
             email: "unverified.user@example.com".to_string(),
-            password_hash: "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewmyMcLOVAzk8VqK".to_string(),
+            password_hash: "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewmyMcLOVAzk8VqK"
+                .to_string(),
             full_name: "Unverified User".to_string(),
             role: "user".to_string(),
             is_active: true,
@@ -152,7 +158,8 @@ impl TestFixtures {
         User {
             id: None,
             email: "reset.user@example.com".to_string(),
-            password_hash: "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewmyMcLOVAzk8VqK".to_string(),
+            password_hash: "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewmyMcLOVAzk8VqK"
+                .to_string(),
             full_name: "Password Reset User".to_string(),
             role: "user".to_string(),
             is_active: true,
@@ -175,7 +182,9 @@ impl TestFixtures {
             id: None,
             email: email.to_string(),
             ip_address: "192.168.1.100".to_string(),
-            user_agent: Some("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36".to_string()),
+            user_agent: Some(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36".to_string(),
+            ),
             success: true,
             failure_reason: None,
             timestamp: Utc::now(),
@@ -203,7 +212,11 @@ impl TestFixtures {
             ip_address: "172.16.0.25".to_string(),
             user_agent: Some("MyApp/1.0 (iOS 14.0; iPhone)".to_string()),
             success,
-            failure_reason: if success { None } else { Some("Invalid credentials".to_string()) },
+            failure_reason: if success {
+                None
+            } else {
+                Some("Invalid credentials".to_string())
+            },
             timestamp: Utc::now(),
         }
     }
@@ -216,18 +229,31 @@ impl TestFixtures {
                 User {
                     id: None,
                     email: format!("bulk.user.{}@example.com", i),
-                    password_hash: "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewmyMcLOVAzk8VqK".to_string(),
+                    password_hash: "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewmyMcLOVAzk8VqK"
+                        .to_string(),
                     full_name: format!("Bulk User {}", i),
-                    role: if i % 10 == 0 { "admin".to_string() } else { "user".to_string() },
-                    is_active: i % 20 != 0, // Every 20th user is inactive
+                    role: if i % 10 == 0 {
+                        "admin".to_string()
+                    } else {
+                        "user".to_string()
+                    },
+                    is_active: i % 20 != 0,     // Every 20th user is inactive
                     email_verified: i % 3 != 0, // Every 3rd user is unverified
                     email_verification_token: None,
                     email_verification_expires: None,
                     password_reset_token: None,
                     password_reset_expires: None,
                     failed_login_attempts: i as u32 % 6, // 0-5 failed attempts
-                    locked_until: if i % 50 == 0 { Some(now + chrono::Duration::hours(1)) } else { None },
-                    last_login: if i % 5 == 0 { None } else { Some(now - chrono::Duration::hours(i as i64 % 48)) },
+                    locked_until: if i % 50 == 0 {
+                        Some(now + chrono::Duration::hours(1))
+                    } else {
+                        None
+                    },
+                    last_login: if i % 5 == 0 {
+                        None
+                    } else {
+                        Some(now - chrono::Duration::hours(i as i64 % 48))
+                    },
                     created_at: now - chrono::Duration::days(i as i64 % 365),
                     updated_at: now - chrono::Duration::hours(i as i64 % 24),
                 }
@@ -239,11 +265,12 @@ impl TestFixtures {
     pub fn random_user() -> User {
         let uuid = Uuid::new_v4();
         let now = Utc::now();
-        
+
         User {
             id: None,
             email: format!("random.{}@example.com", uuid),
-            password_hash: "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewmyMcLOVAzk8VqK".to_string(),
+            password_hash: "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewmyMcLOVAzk8VqK"
+                .to_string(),
             full_name: format!("Random User {}", &uuid.to_string()[0..8]),
             role: "user".to_string(),
             is_active: true,
@@ -268,7 +295,8 @@ impl TestFixtures {
             User {
                 id: None,
                 email: "long.name@example.com".to_string(),
-                password_hash: "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewmyMcLOVAzk8VqK".to_string(),
+                password_hash: "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewmyMcLOVAzk8VqK"
+                    .to_string(),
                 full_name: "A".repeat(255),
                 role: "user".to_string(),
                 is_active: true,
@@ -287,7 +315,8 @@ impl TestFixtures {
             User {
                 id: None,
                 email: "special.chars@example.com".to_string(),
-                password_hash: "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewmyMcLOVAzk8VqK".to_string(),
+                password_hash: "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewmyMcLOVAzk8VqK"
+                    .to_string(),
                 full_name: "José María Ñoño-González O'Connor".to_string(),
                 role: "user".to_string(),
                 is_active: true,
@@ -306,7 +335,8 @@ impl TestFixtures {
             User {
                 id: None,
                 email: "unicode.тест@example.com".to_string(),
-                password_hash: "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewmyMcLOVAzk8VqK".to_string(),
+                password_hash: "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewmyMcLOVAzk8VqK"
+                    .to_string(),
                 full_name: "Unicode Test User".to_string(),
                 role: "user".to_string(),
                 is_active: true,

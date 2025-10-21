@@ -58,7 +58,7 @@ use crate::email::{EmailMessage, EmailProvider, EmailResponse, EmailStatus};
 ///     api_key: "your-api-key".to_string(),
 ///     from_email: "noreply@yourapp.com".to_string(),
 /// };
-/// 
+///
 /// let provider = BrevoProvider::new(&config)?;
 /// let response = provider.send_email(&email_message).await?;
 /// ```
@@ -149,7 +149,7 @@ impl BrevoProvider {
     ///     api_key: "xkeysib-abc123".to_string(),
     ///     from_email: "noreply@yourapp.com".to_string(),
     /// };
-    /// 
+    ///
     /// let provider = BrevoProvider::new(&config)?;
     /// ```
     pub fn new(config: &BrevoConfig) -> Result<Self> {
@@ -169,7 +169,7 @@ impl BrevoProvider {
 impl EmailProvider for BrevoProvider {
     async fn send_email(&self, email: &EmailMessage) -> Result<EmailResponse> {
         let url = "https://api.brevo.com/v3/smtp/email";
-        
+
         let request = BrevoSendRequest {
             sender: BrevoSender {
                 email: email.from_email.clone(),
@@ -199,7 +199,7 @@ impl EmailProvider for BrevoProvider {
                 "Email sent successfully via Brevo to: {}, message_id: {:?}",
                 email.to, brevo_response.message_id
             );
-            
+
             Ok(EmailResponse {
                 message_id: brevo_response.message_id,
                 status: EmailStatus::Sent,
@@ -208,7 +208,7 @@ impl EmailProvider for BrevoProvider {
         } else {
             let error_text = response.text().await?;
             error!("Brevo API error: {}", error_text);
-            
+
             Ok(EmailResponse {
                 message_id: None,
                 status: EmailStatus::Failed(format!("Brevo API error: {error_text}")),
@@ -223,7 +223,7 @@ impl EmailProvider for BrevoProvider {
 
     async fn health_check(&self) -> Result<bool> {
         let url = "https://api.brevo.com/v3/account";
-        
+
         let response = self
             .client
             .get(url)

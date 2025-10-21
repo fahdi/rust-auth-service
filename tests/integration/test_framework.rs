@@ -64,8 +64,9 @@ impl Default for TestConfig {
                 .unwrap_or_else(|_| "true".to_string())
                 .parse()
                 .unwrap_or(true),
-            jwt_secret: std::env::var("TEST_JWT_SECRET")
-                .unwrap_or_else(|_| "test-jwt-secret-key-for-integration-tests-256-bits-minimum".to_string()),
+            jwt_secret: std::env::var("TEST_JWT_SECRET").unwrap_or_else(|_| {
+                "test-jwt-secret-key-for-integration-tests-256-bits-minimum".to_string()
+            }),
             startup_timeout: Duration::from_secs(60),
             operation_timeout: Duration::from_secs(30),
         }
@@ -102,7 +103,10 @@ impl IntegrationTestFramework {
     pub async fn start_service(&mut self) -> Result<()> {
         // Check if service is already running
         if self.is_service_running().await? {
-            println!("✅ Auth service is already running at {}", self.config.service_url);
+            println!(
+                "✅ Auth service is already running at {}",
+                self.config.service_url
+            );
             return Ok(());
         }
 
@@ -127,8 +131,14 @@ impl IntegrationTestFramework {
         }
 
         // Configure rate limiting and audit logging
-        cmd.env("RATE_LIMITING_ENABLED", self.config.enable_rate_limiting.to_string())
-            .env("AUDIT_LOGGING_ENABLED", self.config.enable_audit_logging.to_string());
+        cmd.env(
+            "RATE_LIMITING_ENABLED",
+            self.config.enable_rate_limiting.to_string(),
+        )
+        .env(
+            "AUDIT_LOGGING_ENABLED",
+            self.config.enable_audit_logging.to_string(),
+        );
 
         let child = cmd.spawn()?;
         self.service_process = Some(child);
@@ -367,12 +377,7 @@ impl IntegrationTestFramework {
 
     /// Test protected endpoints access control
     pub async fn test_protected_endpoints(&self) -> Result<ProtectedEndpointResults> {
-        let endpoints = vec![
-            "/auth/me",
-            "/auth/profile", 
-            "/auth/logout",
-            "/auth/refresh",
-        ];
+        let endpoints = vec!["/auth/me", "/auth/profile", "/auth/logout", "/auth/refresh"];
 
         let mut results = ProtectedEndpointResults {
             unauthorized_access: Vec::new(),
@@ -382,11 +387,15 @@ impl IntegrationTestFramework {
         for endpoint in endpoints {
             // Test unauthorized access
             let unauthorized_status = self.client.test_unauthorized_access(endpoint).await?;
-            results.unauthorized_access.push((endpoint.to_string(), unauthorized_status));
+            results
+                .unauthorized_access
+                .push((endpoint.to_string(), unauthorized_status));
 
             // Test invalid token access
             let invalid_token_status = self.client.test_invalid_token_access(endpoint).await?;
-            results.invalid_token_access.push((endpoint.to_string(), invalid_token_status));
+            results
+                .invalid_token_access
+                .push((endpoint.to_string(), invalid_token_status));
         }
 
         Ok(results)
@@ -394,7 +403,10 @@ impl IntegrationTestFramework {
 
     /// Run load test on authentication endpoints
     pub async fn run_load_test(&self, config: LoadTestConfig) -> Result<LoadTestResults> {
-        println!("🚀 Starting load test with {} concurrent users", config.concurrent_users);
+        println!(
+            "🚀 Starting load test with {} concurrent users",
+            config.concurrent_users
+        );
         let start_time = Instant::now();
         let mut handles = Vec::new();
         let mut response_times = Vec::new();
@@ -402,14 +414,14 @@ impl IntegrationTestFramework {
         for i in 0..config.concurrent_users {
             let client = self.client.clone();
             let user_config = config.clone();
-            
+
             let handle = tokio::spawn(async move {
                 let mut user_response_times = Vec::new();
                 let user = TestUser::new(&format!("load_test_{}", i));
 
                 for j in 0..user_config.operations_per_user {
                     let operation_start = Instant::now();
-                    
+
                     // Perform registration and login
                     let result = async {
                         let (_, _) = client.register(&user).await?;
@@ -417,7 +429,8 @@ impl IntegrationTestFramework {
                         let _ = client.get_profile(&tokens.access_token).await?;
                         let _ = client.logout(&tokens.access_token).await?;
                         anyhow::Ok(())
-                    }.await;
+                    }
+                    .await;
 
                     let operation_time = operation_start.elapsed();
                     user_response_times.push(operation_time);
@@ -537,25 +550,32 @@ impl TestContainer for MongoDbTestContainer {
             return Ok(());
         }
 
-        println!("🐳 Starting MongoDB test container: {}", self.container_name);
-        
+        println!(
+            "🐳 Starting MongoDB test container: {}",
+            self.container_name
+        );
+
         // This would start a MongoDB container using Docker
         // Implementation depends on docker availability
         let _output = Command::new("docker")
             .args(&[
                 "run",
                 "-d",
-                "--name", &self.container_name,
-                "-p", &format!("{}:27017", self.port),
-                "-e", "MONGO_INITDB_ROOT_USERNAME=admin",
-                "-e", "MONGO_INITDB_ROOT_PASSWORD=password123",
-                "mongo:latest"
+                "--name",
+                &self.container_name,
+                "-p",
+                &format!("{}:27017", self.port),
+                "-e",
+                "MONGO_INITDB_ROOT_USERNAME=admin",
+                "-e",
+                "MONGO_INITDB_ROOT_PASSWORD=password123",
+                "mongo:latest",
             ])
             .output()?;
 
         // Wait for container to be ready
         tokio::time::sleep(Duration::from_secs(10)).await;
-        
+
         self.started = true;
         println!("✅ MongoDB test container started");
         Ok(())
@@ -566,12 +586,15 @@ impl TestContainer for MongoDbTestContainer {
             return Ok(());
         }
 
-        println!("🛑 Stopping MongoDB test container: {}", self.container_name);
-        
+        println!(
+            "🛑 Stopping MongoDB test container: {}",
+            self.container_name
+        );
+
         let _output = Command::new("docker")
             .args(&["stop", &self.container_name])
             .output()?;
-            
+
         let _output = Command::new("docker")
             .args(&["rm", &self.container_name])
             .output()?;
@@ -582,7 +605,10 @@ impl TestContainer for MongoDbTestContainer {
     }
 
     fn connection_string(&self) -> String {
-        format!("mongodb://admin:password123@localhost:{}/auth_service_test?authSource=admin", self.port)
+        format!(
+            "mongodb://admin:password123@localhost:{}/auth_service_test?authSource=admin",
+            self.port
+        )
     }
 }
 

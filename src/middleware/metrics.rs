@@ -6,8 +6,8 @@ use axum::{
 use std::time::Instant;
 use tracing::debug;
 
+use crate::observability::{log_request, RequestContext};
 use crate::{metrics, AppState};
-use crate::observability::{RequestContext, log_request};
 
 /// Middleware to collect HTTP request metrics
 ///
@@ -40,7 +40,7 @@ pub async fn metrics_middleware(
         .and_then(|v| v.to_str().ok())
         .unwrap_or("unknown")
         .to_string();
-    
+
     let user_agent = request
         .headers()
         .get("user-agent")
@@ -77,10 +77,7 @@ pub async fn metrics_middleware(
 
     // 2. New observability metrics
     state.metrics.record_http_request(
-        &method,
-        &endpoint,
-        status,
-        duration,
+        &method, &endpoint, status, duration,
         None, // request_size - would need to be captured before processing
         None, // response_size - would need body inspection
     );

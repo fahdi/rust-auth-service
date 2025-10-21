@@ -61,16 +61,16 @@ impl SendGridProvider {
 impl EmailProvider for SendGridProvider {
     async fn send_email(&self, email: &EmailMessage) -> Result<EmailResponse> {
         let url = "https://api.sendgrid.com/v3/mail/send";
-        
+
         let mut content = Vec::new();
-        
+
         if let Some(text) = &email.text_content {
             content.push(SendGridContent {
                 content_type: "text/plain".to_string(),
                 value: text.clone(),
             });
         }
-        
+
         if let Some(html) = &email.html_content {
             content.push(SendGridContent {
                 content_type: "text/html".to_string(),
@@ -105,7 +105,7 @@ impl EmailProvider for SendGridProvider {
         if response.status().is_success() {
             // SendGrid returns 202 Accepted with empty body on success
             info!("Email sent successfully via SendGrid to: {}", email.to);
-            
+
             Ok(EmailResponse {
                 message_id: None, // SendGrid doesn't return message ID in response
                 status: EmailStatus::Sent,
@@ -114,7 +114,7 @@ impl EmailProvider for SendGridProvider {
         } else {
             let error_text = response.text().await?;
             error!("SendGrid API error: {}", error_text);
-            
+
             Ok(EmailResponse {
                 message_id: None,
                 status: EmailStatus::Failed(format!("SendGrid API error: {error_text}")),
@@ -131,7 +131,7 @@ impl EmailProvider for SendGridProvider {
         // SendGrid doesn't have a simple health check endpoint
         // We'll try to get API key info instead
         let url = "https://api.sendgrid.com/v3/user/account";
-        
+
         let response = self
             .client
             .get(url)

@@ -137,7 +137,7 @@ pub async fn create_database(config: &DatabaseConfig) -> Result<Box<dyn AuthData
             let available_types = ["mongodb", "postgresql"];
             #[cfg(not(feature = "postgresql"))]
             let available_types = ["mongodb"];
-            
+
             Err(anyhow::anyhow!(
                 "Unsupported database type: {}. Available types: {}",
                 config.r#type,

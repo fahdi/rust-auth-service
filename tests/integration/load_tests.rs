@@ -17,9 +17,11 @@ use crate::integration::test_framework::*;
 #[tokio::test]
 async fn test_basic_authentication_load() -> Result<()> {
     let framework = IntegrationTestFramework::new();
-    
+
     if !framework.is_service_running().await? {
-        println!("⚠️ Auth service not running. Start it with: cargo run --features integration-tests");
+        println!(
+            "⚠️ Auth service not running. Start it with: cargo run --features integration-tests"
+        );
         return Ok(());
     }
 
@@ -62,9 +64,11 @@ async fn test_basic_authentication_load() -> Result<()> {
 #[tokio::test]
 async fn test_high_concurrency_stress() -> Result<()> {
     let framework = IntegrationTestFramework::new();
-    
+
     if !framework.is_service_running().await? {
-        println!("⚠️ Auth service not running. Start it with: cargo run --features integration-tests");
+        println!(
+            "⚠️ Auth service not running. Start it with: cargo run --features integration-tests"
+        );
         return Ok(());
     }
 
@@ -72,7 +76,7 @@ async fn test_high_concurrency_stress() -> Result<()> {
 
     const HIGH_CONCURRENCY: usize = 100;
     const OPERATIONS_PER_USER: usize = 3;
-    
+
     let start_time = Instant::now();
     let mut handles = Vec::new();
     let semaphore = Arc::new(Semaphore::new(HIGH_CONCURRENCY));
@@ -81,51 +85,74 @@ async fn test_high_concurrency_stress() -> Result<()> {
     for i in 0..HIGH_CONCURRENCY {
         let client = framework.client.clone();
         let permit = semaphore.clone().acquire_owned().await.unwrap();
-        
+
         let handle = tokio::spawn(async move {
             let _permit = permit; // Hold permit for duration of task
             let mut user_results = Vec::new();
             let user = TestUser::new(&format!("stress_test_{}", i));
-            
+
             for j in 0..OPERATIONS_PER_USER {
                 let operation_start = Instant::now();
                 let operation_name = format!("User {} Operation {}", i, j);
-                
+
                 let result = match j {
                     0 => {
                         // Registration
                         let result = client.register(&user).await;
-                        (operation_name, "register".to_string(), result.is_ok(), operation_start.elapsed())
+                        (
+                            operation_name,
+                            "register".to_string(),
+                            result.is_ok(),
+                            operation_start.elapsed(),
+                        )
                     }
                     1 => {
                         // Login
                         let result = client.login(&user).await;
-                        (operation_name, "login".to_string(), result.is_ok(), operation_start.elapsed())
+                        (
+                            operation_name,
+                            "login".to_string(),
+                            result.is_ok(),
+                            operation_start.elapsed(),
+                        )
                     }
                     2 => {
                         // Get profile (need token from login)
                         let login_result = client.login(&user).await;
                         if let Ok((tokens, _)) = login_result {
                             let profile_result = client.get_profile(&tokens.access_token).await;
-                            (operation_name, "profile".to_string(), profile_result.is_ok(), operation_start.elapsed())
+                            (
+                                operation_name,
+                                "profile".to_string(),
+                                profile_result.is_ok(),
+                                operation_start.elapsed(),
+                            )
                         } else {
-                            (operation_name, "profile".to_string(), false, operation_start.elapsed())
+                            (
+                                operation_name,
+                                "profile".to_string(),
+                                false,
+                                operation_start.elapsed(),
+                            )
                         }
                     }
-                    _ => {
-                        (operation_name, "unknown".to_string(), false, operation_start.elapsed())
-                    }
+                    _ => (
+                        operation_name,
+                        "unknown".to_string(),
+                        false,
+                        operation_start.elapsed(),
+                    ),
                 };
-                
+
                 user_results.push(result);
-                
+
                 // Small delay between operations
                 tokio::time::sleep(Duration::from_millis(10)).await;
             }
-            
+
             user_results
         });
-        
+
         handles.push(handle);
     }
 
@@ -168,12 +195,21 @@ async fn test_high_concurrency_stress() -> Result<()> {
     println!("  Concurrent Users: {}", HIGH_CONCURRENCY);
     println!("  Operations per User: {}", OPERATIONS_PER_USER);
     println!("  Total Operations: {}", total_operations);
-    println!("  Successful: {} ({:.1}%)", successful_operations, 
-        (successful_operations as f64 / total_operations as f64) * 100.0);
-    println!("  Failed: {} ({:.1}%)", failed_operations,
-        (failed_operations as f64 / total_operations as f64) * 100.0);
+    println!(
+        "  Successful: {} ({:.1}%)",
+        successful_operations,
+        (successful_operations as f64 / total_operations as f64) * 100.0
+    );
+    println!(
+        "  Failed: {} ({:.1}%)",
+        failed_operations,
+        (failed_operations as f64 / total_operations as f64) * 100.0
+    );
     println!("  Total Duration: {:.2}s", total_duration.as_secs_f64());
-    println!("  Average Response Time: {:.2}ms", average_response_time.as_millis());
+    println!(
+        "  Average Response Time: {:.2}ms",
+        average_response_time.as_millis()
+    );
     println!("  Operations/Second: {:.2}", operations_per_second);
 
     // Performance assertions for stress test
@@ -197,9 +233,11 @@ async fn test_high_concurrency_stress() -> Result<()> {
 #[tokio::test]
 async fn test_registration_endpoint_load() -> Result<()> {
     let framework = IntegrationTestFramework::new();
-    
+
     if !framework.is_service_running().await? {
-        println!("⚠️ Auth service not running. Start it with: cargo run --features integration-tests");
+        println!(
+            "⚠️ Auth service not running. Start it with: cargo run --features integration-tests"
+        );
         return Ok(());
     }
 
@@ -211,17 +249,17 @@ async fn test_registration_endpoint_load() -> Result<()> {
 
     for i in 0..REGISTRATIONS {
         let client = framework.client.clone();
-        
+
         let handle = tokio::spawn(async move {
             let user = TestUser::new(&format!("reg_load_test_{}", i));
             let timer = PerformanceTimer::new(&format!("Registration {}", i));
-            
+
             let result = client.register(&user).await;
             let elapsed = timer.finish();
-            
+
             (i, result.is_ok(), elapsed, user.email)
         });
-        
+
         handles.push(handle);
     }
 
@@ -258,16 +296,34 @@ async fn test_registration_endpoint_load() -> Result<()> {
 
     println!("📊 Registration Load Test Results:");
     println!("  Total Registrations: {}", REGISTRATIONS);
-    println!("  Successful: {} ({:.1}%)", successful, (successful as f64 / REGISTRATIONS as f64) * 100.0);
-    println!("  Failed: {} ({:.1}%)", failed, (failed as f64 / REGISTRATIONS as f64) * 100.0);
+    println!(
+        "  Successful: {} ({:.1}%)",
+        successful,
+        (successful as f64 / REGISTRATIONS as f64) * 100.0
+    );
+    println!(
+        "  Failed: {} ({:.1}%)",
+        failed,
+        (failed as f64 / REGISTRATIONS as f64) * 100.0
+    );
     println!("  Total Duration: {:.2}s", total_duration.as_secs_f64());
-    println!("  Average Response Time: {:.2}ms", avg_response_time.as_millis());
+    println!(
+        "  Average Response Time: {:.2}ms",
+        avg_response_time.as_millis()
+    );
     println!("  Registrations/Second: {:.2}", registrations_per_second);
 
     // Verify all successful registrations created unique users
     let unique_emails: std::collections::HashSet<_> = registered_emails.iter().collect();
-    assert_eq!(unique_emails.len(), registered_emails.len(), "All registrations should be unique");
-    println!("✅ All {} registrations were unique", registered_emails.len());
+    assert_eq!(
+        unique_emails.len(),
+        registered_emails.len(),
+        "All registrations should be unique"
+    );
+    println!(
+        "✅ All {} registrations were unique",
+        registered_emails.len()
+    );
 
     // Performance assertions
     assert!(
@@ -290,9 +346,11 @@ async fn test_registration_endpoint_load() -> Result<()> {
 #[tokio::test]
 async fn test_login_endpoint_load() -> Result<()> {
     let framework = IntegrationTestFramework::new();
-    
+
     if !framework.is_service_running().await? {
-        println!("⚠️ Auth service not running. Start it with: cargo run --features integration-tests");
+        println!(
+            "⚠️ Auth service not running. Start it with: cargo run --features integration-tests"
+        );
         return Ok(());
     }
 
@@ -301,17 +359,23 @@ async fn test_login_endpoint_load() -> Result<()> {
     // First, create users for login testing
     const USERS_TO_CREATE: usize = 30;
     const LOGINS_PER_USER: usize = 3;
-    
-    println!("📝 Creating {} test users for login load test...", USERS_TO_CREATE);
+
+    println!(
+        "📝 Creating {} test users for login load test...",
+        USERS_TO_CREATE
+    );
     let mut test_users = Vec::new();
-    
+
     for i in 0..USERS_TO_CREATE {
         let user = TestUser::new(&format!("login_load_test_{}", i));
         let (_, _) = framework.client.register(&user).await?;
         test_users.push(user);
     }
-    
-    println!("✅ Created {} test users, starting login load test", test_users.len());
+
+    println!(
+        "✅ Created {} test users, starting login load test",
+        test_users.len()
+    );
 
     // Now perform concurrent logins
     let start_time = Instant::now();
@@ -321,26 +385,24 @@ async fn test_login_endpoint_load() -> Result<()> {
         for login_idx in 0..LOGINS_PER_USER {
             let client = framework.client.clone();
             let user = user.clone();
-            
+
             let handle = tokio::spawn(async move {
                 let operation_id = format!("User {} Login {}", user_idx, login_idx);
                 let timer = PerformanceTimer::new(&operation_id);
-                
+
                 let result = client.login(&user).await;
                 let elapsed = timer.finish();
-                
+
                 match result {
                     Ok((tokens, _)) => {
                         // Verify token is valid by accessing profile
                         let profile_result = client.get_profile(&tokens.access_token).await;
                         (operation_id, true, elapsed, profile_result.is_ok())
                     }
-                    Err(_) => {
-                        (operation_id, false, elapsed, false)
-                    }
+                    Err(_) => (operation_id, false, elapsed, false),
                 }
             });
-            
+
             handles.push(handle);
         }
     }
@@ -381,14 +443,26 @@ async fn test_login_endpoint_load() -> Result<()> {
 
     println!("📊 Login Load Test Results:");
     println!("  Total Login Attempts: {}", total_logins);
-    println!("  Successful Logins: {} ({:.1}%)", successful_logins, 
-        (successful_logins as f64 / total_logins as f64) * 100.0);
-    println!("  Failed Logins: {} ({:.1}%)", failed_logins,
-        (failed_logins as f64 / total_logins as f64) * 100.0);
-    println!("  Successful Profile Access: {} ({:.1}%)", successful_profile_access,
-        (successful_profile_access as f64 / successful_logins as f64) * 100.0);
+    println!(
+        "  Successful Logins: {} ({:.1}%)",
+        successful_logins,
+        (successful_logins as f64 / total_logins as f64) * 100.0
+    );
+    println!(
+        "  Failed Logins: {} ({:.1}%)",
+        failed_logins,
+        (failed_logins as f64 / total_logins as f64) * 100.0
+    );
+    println!(
+        "  Successful Profile Access: {} ({:.1}%)",
+        successful_profile_access,
+        (successful_profile_access as f64 / successful_logins as f64) * 100.0
+    );
     println!("  Total Duration: {:.2}s", total_duration.as_secs_f64());
-    println!("  Average Response Time: {:.2}ms", avg_response_time.as_millis());
+    println!(
+        "  Average Response Time: {:.2}ms",
+        avg_response_time.as_millis()
+    );
     println!("  Logins/Second: {:.2}", logins_per_second);
 
     // Performance assertions
@@ -418,9 +492,11 @@ async fn test_login_endpoint_load() -> Result<()> {
 #[tokio::test]
 async fn test_mixed_workload() -> Result<()> {
     let framework = IntegrationTestFramework::new();
-    
+
     if !framework.is_service_running().await? {
-        println!("⚠️ Auth service not running. Start it with: cargo run --features integration-tests");
+        println!(
+            "⚠️ Auth service not running. Start it with: cargo run --features integration-tests"
+        );
         return Ok(());
     }
 
@@ -432,11 +508,11 @@ async fn test_mixed_workload() -> Result<()> {
 
     for i in 0..CONCURRENT_OPERATIONS {
         let client = framework.client.clone();
-        
+
         let handle = tokio::spawn(async move {
             let operation_type = i % 4; // Distribute operations
             let user_id = format!("mixed_workload_{}", i);
-            
+
             match operation_type {
                 0 => {
                     // New user registration
@@ -450,7 +526,7 @@ async fn test_mixed_workload() -> Result<()> {
                     // User registration + login
                     let user = TestUser::new(&format!("reg_login_{}", user_id));
                     let timer = PerformanceTimer::new(&format!("Register+Login {}", i));
-                    
+
                     let register_result = client.register(&user).await;
                     if register_result.is_ok() {
                         let login_result = client.login(&user).await;
@@ -465,12 +541,16 @@ async fn test_mixed_workload() -> Result<()> {
                     // User registration + profile access
                     let user = TestUser::new(&format!("reg_profile_{}", user_id));
                     let timer = PerformanceTimer::new(&format!("Register+Profile {}", i));
-                    
+
                     let register_result = client.register(&user).await;
                     if let Ok((tokens, _)) = register_result {
                         let profile_result = client.get_profile(&tokens.access_token).await;
                         let elapsed = timer.finish();
-                        ("register+profile".to_string(), profile_result.is_ok(), elapsed)
+                        (
+                            "register+profile".to_string(),
+                            profile_result.is_ok(),
+                            elapsed,
+                        )
                     } else {
                         let elapsed = timer.finish();
                         ("register+profile".to_string(), false, elapsed)
@@ -480,7 +560,7 @@ async fn test_mixed_workload() -> Result<()> {
                     // Full flow: register + login + profile + logout
                     let user = TestUser::new(&format!("full_flow_{}", user_id));
                     let timer = PerformanceTimer::new(&format!("Full Flow {}", i));
-                    
+
                     let register_result = client.register(&user).await;
                     if register_result.is_ok() {
                         let login_result = client.login(&user).await;
@@ -503,10 +583,10 @@ async fn test_mixed_workload() -> Result<()> {
                         ("full_flow".to_string(), false, elapsed)
                     }
                 }
-                _ => unreachable!()
+                _ => unreachable!(),
             }
         });
-        
+
         handles.push(handle);
     }
 
@@ -516,7 +596,9 @@ async fn test_mixed_workload() -> Result<()> {
     for handle in handles {
         match handle.await {
             Ok((operation_type, success, elapsed)) => {
-                let entry = results.entry(operation_type).or_insert_with(|| (0, 0, Vec::new()));
+                let entry = results
+                    .entry(operation_type)
+                    .or_insert_with(|| (0, 0, Vec::new()));
                 if success {
                     entry.0 += 1;
                 } else {
@@ -536,7 +618,7 @@ async fn test_mixed_workload() -> Result<()> {
     let mut all_response_times = Vec::new();
 
     println!("📊 Mixed Workload Test Results:");
-    
+
     for (operation_type, (successful, failed, response_times)) in results {
         let total = successful + failed;
         let avg_time = if !response_times.is_empty() {
@@ -544,13 +626,21 @@ async fn test_mixed_workload() -> Result<()> {
         } else {
             Duration::from_secs(0)
         };
-        
+
         println!("  {}:", operation_type);
         println!("    Total: {}", total);
-        println!("    Successful: {} ({:.1}%)", successful, (successful as f64 / total as f64) * 100.0);
-        println!("    Failed: {} ({:.1}%)", failed, (failed as f64 / total as f64) * 100.0);
+        println!(
+            "    Successful: {} ({:.1}%)",
+            successful,
+            (successful as f64 / total as f64) * 100.0
+        );
+        println!(
+            "    Failed: {} ({:.1}%)",
+            failed,
+            (failed as f64 / total as f64) * 100.0
+        );
         println!("    Average Time: {:.2}ms", avg_time.as_millis());
-        
+
         total_successful += successful;
         total_failed += failed;
         all_response_times.extend(response_times);
@@ -565,12 +655,21 @@ async fn test_mixed_workload() -> Result<()> {
 
     println!("  Overall:");
     println!("    Total Operations: {}", total_successful + total_failed);
-    println!("    Successful: {} ({:.1}%)", total_successful, 
-        (total_successful as f64 / (total_successful + total_failed) as f64) * 100.0);
-    println!("    Failed: {} ({:.1}%)", total_failed,
-        (total_failed as f64 / (total_successful + total_failed) as f64) * 100.0);
+    println!(
+        "    Successful: {} ({:.1}%)",
+        total_successful,
+        (total_successful as f64 / (total_successful + total_failed) as f64) * 100.0
+    );
+    println!(
+        "    Failed: {} ({:.1}%)",
+        total_failed,
+        (total_failed as f64 / (total_successful + total_failed) as f64) * 100.0
+    );
     println!("    Total Duration: {:.2}s", total_duration.as_secs_f64());
-    println!("    Average Response Time: {:.2}ms", overall_avg_time.as_millis());
+    println!(
+        "    Average Response Time: {:.2}ms",
+        overall_avg_time.as_millis()
+    );
     println!("    Operations/Second: {:.2}", operations_per_second);
 
     // Performance assertions for mixed workload
@@ -594,9 +693,11 @@ async fn test_mixed_workload() -> Result<()> {
 #[tokio::test]
 async fn test_sustained_load() -> Result<()> {
     let framework = IntegrationTestFramework::new();
-    
+
     if !framework.is_service_running().await? {
-        println!("⚠️ Auth service not running. Start it with: cargo run --features integration-tests");
+        println!(
+            "⚠️ Auth service not running. Start it with: cargo run --features integration-tests"
+        );
         return Ok(());
     }
 
@@ -605,58 +706,63 @@ async fn test_sustained_load() -> Result<()> {
     const CONCURRENT_USERS: usize = 15;
     const TEST_DURATION: Duration = Duration::from_secs(120); // 2 minutes
     const OPERATION_INTERVAL: Duration = Duration::from_millis(500);
-    
+
     let start_time = Instant::now();
     let mut handles = Vec::new();
 
     for i in 0..CONCURRENT_USERS {
         let client = framework.client.clone();
         let end_time = start_time + TEST_DURATION;
-        
+
         let handle = tokio::spawn(async move {
             let mut operations = 0;
             let mut successful = 0;
             let mut failed = 0;
             let mut response_times = Vec::new();
-            
+
             while Instant::now() < end_time {
                 let user = TestUser::new(&format!("sustained_{}_{}", i, operations));
                 let operation_start = Instant::now();
-                
+
                 // Perform a complete auth flow
                 let result = async {
                     let (tokens, _) = client.register(&user).await?;
                     let _ = client.get_profile(&tokens.access_token).await?;
                     let _ = client.logout(&tokens.access_token).await?;
                     anyhow::Ok(())
-                }.await;
-                
+                }
+                .await;
+
                 let elapsed = operation_start.elapsed();
                 response_times.push(elapsed);
                 operations += 1;
-                
+
                 if result.is_ok() {
                     successful += 1;
                 } else {
                     failed += 1;
                 }
-                
+
                 // Report progress every 10 operations
                 if operations % 10 == 0 {
                     let remaining = end_time.saturating_duration_since(Instant::now());
-                    println!("User {}: {} operations, {:.1}s remaining", 
-                        i, operations, remaining.as_secs_f64());
+                    println!(
+                        "User {}: {} operations, {:.1}s remaining",
+                        i,
+                        operations,
+                        remaining.as_secs_f64()
+                    );
                 }
-                
+
                 // Wait before next operation (if we still have time)
                 if Instant::now() + OPERATION_INTERVAL < end_time {
                     tokio::time::sleep(OPERATION_INTERVAL).await;
                 }
             }
-            
+
             (i, operations, successful, failed, response_times)
         });
-        
+
         handles.push(handle);
     }
 
@@ -669,9 +775,11 @@ async fn test_sustained_load() -> Result<()> {
     for handle in handles {
         match handle.await {
             Ok((user_id, operations, successful, failed, response_times)) => {
-                println!("User {}: {} operations ({} successful, {} failed)", 
-                    user_id, operations, successful, failed);
-                
+                println!(
+                    "User {}: {} operations ({} successful, {} failed)",
+                    user_id, operations, successful, failed
+                );
+
                 total_operations += operations;
                 total_successful += successful;
                 total_failed += failed;
@@ -696,11 +804,20 @@ async fn test_sustained_load() -> Result<()> {
     println!("  Test Duration: {:.2}s", actual_duration.as_secs_f64());
     println!("  Concurrent Users: {}", CONCURRENT_USERS);
     println!("  Total Operations: {}", total_operations);
-    println!("  Successful: {} ({:.1}%)", total_successful, 
-        (total_successful as f64 / total_operations as f64) * 100.0);
-    println!("  Failed: {} ({:.1}%)", total_failed,
-        (total_failed as f64 / total_operations as f64) * 100.0);
-    println!("  Average Response Time: {:.2}ms", avg_response_time.as_millis());
+    println!(
+        "  Successful: {} ({:.1}%)",
+        total_successful,
+        (total_successful as f64 / total_operations as f64) * 100.0
+    );
+    println!(
+        "  Failed: {} ({:.1}%)",
+        total_failed,
+        (total_failed as f64 / total_operations as f64) * 100.0
+    );
+    println!(
+        "  Average Response Time: {:.2}ms",
+        avg_response_time.as_millis()
+    );
     println!("  Operations/Second: {:.2}", operations_per_second);
 
     // Calculate performance over time (stability check)
@@ -710,7 +827,11 @@ async fn test_sustained_load() -> Result<()> {
             println!("  Performance over time:");
             for (i, chunk) in all_response_times.chunks(chunk_size).enumerate() {
                 let avg_chunk_time = chunk.iter().sum::<Duration>() / chunk.len() as u32;
-                println!("    Period {}: {:.2}ms average", i + 1, avg_chunk_time.as_millis());
+                println!(
+                    "    Period {}: {:.2}ms average",
+                    i + 1,
+                    avg_chunk_time.as_millis()
+                );
             }
         }
     }
@@ -742,9 +863,11 @@ async fn test_sustained_load() -> Result<()> {
 #[tokio::test]
 async fn test_resource_usage_under_load() -> Result<()> {
     let framework = IntegrationTestFramework::new();
-    
+
     if !framework.is_service_running().await? {
-        println!("⚠️ Auth service not running. Start it with: cargo run --features integration-tests");
+        println!(
+            "⚠️ Auth service not running. Start it with: cargo run --features integration-tests"
+        );
         return Ok(());
     }
 
@@ -755,25 +878,33 @@ async fn test_resource_usage_under_load() -> Result<()> {
 
     const USERS_TO_CREATE: usize = 100;
     let start_time = Instant::now();
-    
-    println!("📈 Creating {} users to test resource usage...", USERS_TO_CREATE);
-    
+
+    println!(
+        "📈 Creating {} users to test resource usage...",
+        USERS_TO_CREATE
+    );
+
     // Create many users to test memory usage
     let mut handles = Vec::new();
-    
+
     for i in 0..USERS_TO_CREATE {
         let client = framework.client.clone();
-        
+
         let handle = tokio::spawn(async move {
             let user = TestUser::new(&format!("resource_test_{}", i));
-            
+
             // Perform multiple operations per user
             let register_result = client.register(&user).await;
             if let Ok((tokens, _)) = register_result {
                 let _ = client.get_profile(&tokens.access_token).await;
-                let _ = client.update_profile(&tokens.access_token, &json!({
-                    "first_name": format!("Updated{}", i)
-                })).await;
+                let _ = client
+                    .update_profile(
+                        &tokens.access_token,
+                        &json!({
+                            "first_name": format!("Updated{}", i)
+                        }),
+                    )
+                    .await;
                 let _ = client.get_profile(&tokens.access_token).await;
                 let _ = client.logout(&tokens.access_token).await;
                 true
@@ -781,9 +912,9 @@ async fn test_resource_usage_under_load() -> Result<()> {
                 false
             }
         });
-        
+
         handles.push(handle);
-        
+
         // Pace the user creation to avoid overwhelming the system
         if i % 10 == 0 {
             tokio::time::sleep(Duration::from_millis(100)).await;
@@ -806,36 +937,63 @@ async fn test_resource_usage_under_load() -> Result<()> {
 
     println!("📊 Resource Usage Test Results:");
     println!("  Users Created: {}", USERS_TO_CREATE);
-    println!("  Successful: {} ({:.1}%)", successful_users, 
-        (successful_users as f64 / USERS_TO_CREATE as f64) * 100.0);
-    println!("  Failed: {} ({:.1}%)", failed_users,
-        (failed_users as f64 / USERS_TO_CREATE as f64) * 100.0);
+    println!(
+        "  Successful: {} ({:.1}%)",
+        successful_users,
+        (successful_users as f64 / USERS_TO_CREATE as f64) * 100.0
+    );
+    println!(
+        "  Failed: {} ({:.1}%)",
+        failed_users,
+        (failed_users as f64 / USERS_TO_CREATE as f64) * 100.0
+    );
     println!("  Total Duration: {:.2}s", total_duration.as_secs_f64());
-    println!("  Users/Second: {:.2}", successful_users as f64 / total_duration.as_secs_f64());
+    println!(
+        "  Users/Second: {:.2}",
+        successful_users as f64 / total_duration.as_secs_f64()
+    );
 
     // Test that service is still responsive after creating many users
     println!("🔍 Testing service responsiveness after load...");
     let health_check_start = Instant::now();
     let health_result = framework.client.health_check().await;
     let health_check_time = health_check_start.elapsed();
-    
-    assert!(health_result.is_ok(), "Service should still be healthy after load test");
-    assert!(health_check_time < Duration::from_millis(5000), 
-        "Health check should be fast after load test, took {}ms", health_check_time.as_millis());
-    
-    println!("✅ Service remains responsive (health check: {:.2}ms)", health_check_time.as_millis());
+
+    assert!(
+        health_result.is_ok(),
+        "Service should still be healthy after load test"
+    );
+    assert!(
+        health_check_time < Duration::from_millis(5000),
+        "Health check should be fast after load test, took {}ms",
+        health_check_time.as_millis()
+    );
+
+    println!(
+        "✅ Service remains responsive (health check: {:.2}ms)",
+        health_check_time.as_millis()
+    );
 
     // Test new user creation after load
     let new_user = TestUser::new("post_load_test");
     let new_user_start = Instant::now();
     let new_user_result = framework.client.register(&new_user).await;
     let new_user_time = new_user_start.elapsed();
-    
-    assert!(new_user_result.is_ok(), "Should be able to create new users after load test");
-    assert!(new_user_time < Duration::from_millis(3000),
-        "New user creation should be fast after load test, took {}ms", new_user_time.as_millis());
-    
-    println!("✅ New user creation still works (time: {:.2}ms)", new_user_time.as_millis());
+
+    assert!(
+        new_user_result.is_ok(),
+        "Should be able to create new users after load test"
+    );
+    assert!(
+        new_user_time < Duration::from_millis(3000),
+        "New user creation should be fast after load test, took {}ms",
+        new_user_time.as_millis()
+    );
+
+    println!(
+        "✅ New user creation still works (time: {:.2}ms)",
+        new_user_time.as_millis()
+    );
 
     // Performance assertions
     assert!(

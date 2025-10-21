@@ -2,7 +2,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use lettre::{
     message::{header::ContentType, Mailbox, Message},
-    transport::smtp::{authentication::Credentials},
+    transport::smtp::authentication::Credentials,
     SmtpTransport, Transport,
 };
 use tracing::{error, info};
@@ -19,10 +19,7 @@ pub struct SmtpProvider {
 impl SmtpProvider {
     /// Create new SMTP provider
     pub async fn new(config: &SmtpConfig) -> Result<Self> {
-        let credentials = Credentials::new(
-            config.username.clone(),
-            config.password.clone(),
-        );
+        let credentials = Credentials::new(config.username.clone(), config.password.clone());
 
         let transport = if config.use_tls {
             SmtpTransport::relay(&config.host)?
@@ -70,20 +67,19 @@ impl EmailProvider for SmtpProvider {
         let message = if let Some(html_content) = &email.html_content {
             if let Some(text_content) = &email.text_content {
                 // Both HTML and text content
-                message_builder
-                    .multipart(
-                        lettre::message::MultiPart::alternative()
-                            .singlepart(
-                                lettre::message::SinglePart::builder()
-                                    .header(ContentType::TEXT_PLAIN)
-                                    .body(text_content.clone()),
-                            )
-                            .singlepart(
-                                lettre::message::SinglePart::builder()
-                                    .header(ContentType::TEXT_HTML)
-                                    .body(html_content.clone()),
-                            ),
-                    )?
+                message_builder.multipart(
+                    lettre::message::MultiPart::alternative()
+                        .singlepart(
+                            lettre::message::SinglePart::builder()
+                                .header(ContentType::TEXT_PLAIN)
+                                .body(text_content.clone()),
+                        )
+                        .singlepart(
+                            lettre::message::SinglePart::builder()
+                                .header(ContentType::TEXT_HTML)
+                                .body(html_content.clone()),
+                        ),
+                )?
             } else {
                 // HTML only
                 message_builder
@@ -96,7 +92,9 @@ impl EmailProvider for SmtpProvider {
                 .header(ContentType::TEXT_PLAIN)
                 .body(text_content.clone())?
         } else {
-            return Err(anyhow::anyhow!("Email must have either text or HTML content"));
+            return Err(anyhow::anyhow!(
+                "Email must have either text or HTML content"
+            ));
         };
 
         // Send email
@@ -106,7 +104,7 @@ impl EmailProvider for SmtpProvider {
                     "Email sent successfully via SMTP to: {}, response: {:?}",
                     email.to, response
                 );
-                
+
                 Ok(EmailResponse {
                     message_id: Some(response.first_line().unwrap_or("").to_string()),
                     status: EmailStatus::Sent,
@@ -115,7 +113,7 @@ impl EmailProvider for SmtpProvider {
             }
             Err(e) => {
                 error!("SMTP send error: {}", e);
-                
+
                 Ok(EmailResponse {
                     message_id: None,
                     status: EmailStatus::Failed(format!("SMTP error: {e}")),

@@ -493,9 +493,7 @@ impl AuthDatabase for MongoDatabase {
                     Ok(())
                 }
             }
-            Err(e) => Err(UserError::Database(format!(
-                "Failed to verify email: {e}"
-            ))),
+            Err(e) => Err(UserError::Database(format!("Failed to verify email: {e}"))),
         }
     }
 

@@ -161,7 +161,10 @@ impl MongoDbContainer {
             sleep(Duration::from_secs(2)).await;
         }
 
-        Err(anyhow::anyhow!("MongoDB container {} not ready after 30 seconds", self.name))
+        Err(anyhow::anyhow!(
+            "MongoDB container {} not ready after 30 seconds",
+            self.name
+        ))
     }
 }
 
@@ -182,10 +185,14 @@ impl TestContainer for MongoDbContainer {
             .args(&[
                 "run",
                 "-d",
-                "--name", &self.name,
-                "-p", &format!("{}:27017", self.port),
-                "-e", "MONGO_INITDB_ROOT_USERNAME=admin",
-                "-e", "MONGO_INITDB_ROOT_PASSWORD=password123",
+                "--name",
+                &self.name,
+                "-p",
+                &format!("{}:27017", self.port),
+                "-e",
+                "MONGO_INITDB_ROOT_USERNAME=admin",
+                "-e",
+                "MONGO_INITDB_ROOT_PASSWORD=password123",
                 "mongo:7-jammy",
             ])
             .output()?;
@@ -218,9 +225,7 @@ impl TestContainer for MongoDbContainer {
             .args(&["stop", &self.name])
             .output()?;
 
-        let _ = Command::new("docker")
-            .args(&["rm", &self.name])
-            .output()?;
+        let _ = Command::new("docker").args(&["rm", &self.name]).output()?;
 
         self.started = false;
         self.container_id = None;
@@ -264,17 +269,13 @@ impl RedisContainer {
 
         while start_time.elapsed() < timeout {
             let output = Command::new("docker")
-                .args(&[
-                    "exec",
-                    &self.name,
-                    "redis-cli",
-                    "ping",
-                ])
+                .args(&["exec", &self.name, "redis-cli", "ping"])
                 .output();
 
             if let Ok(output) = output {
-                if output.status.success() && 
-                   String::from_utf8_lossy(&output.stdout).trim() == "PONG" {
+                if output.status.success()
+                    && String::from_utf8_lossy(&output.stdout).trim() == "PONG"
+                {
                     println!("✅ Redis container {} is ready", self.name);
                     return Ok(());
                 }
@@ -283,7 +284,10 @@ impl RedisContainer {
             sleep(Duration::from_secs(1)).await;
         }
 
-        Err(anyhow::anyhow!("Redis container {} not ready after 20 seconds", self.name))
+        Err(anyhow::anyhow!(
+            "Redis container {} not ready after 20 seconds",
+            self.name
+        ))
     }
 }
 
@@ -304,8 +308,10 @@ impl TestContainer for RedisContainer {
             .args(&[
                 "run",
                 "-d",
-                "--name", &self.name,
-                "-p", &format!("{}:6379", self.port),
+                "--name",
+                &self.name,
+                "-p",
+                &format!("{}:6379", self.port),
                 "redis:7-alpine",
             ])
             .output()?;
@@ -338,9 +344,7 @@ impl TestContainer for RedisContainer {
             .args(&["stop", &self.name])
             .output()?;
 
-        let _ = Command::new("docker")
-            .args(&["rm", &self.name])
-            .output()?;
+        let _ = Command::new("docker").args(&["rm", &self.name]).output()?;
 
         self.started = false;
         self.container_id = None;
@@ -369,7 +373,11 @@ pub struct EmailMockContainer {
 impl EmailMockContainer {
     pub fn new(name: &str) -> Self {
         Self {
-            name: format!("test-email-mock-{}-{}", name, &Uuid::new_v4().to_string()[..8]),
+            name: format!(
+                "test-email-mock-{}-{}",
+                name,
+                &Uuid::new_v4().to_string()[..8]
+            ),
             port: 1080,
             container_id: None,
             started: false,
@@ -396,7 +404,10 @@ impl EmailMockContainer {
             sleep(Duration::from_secs(1)).await;
         }
 
-        Err(anyhow::anyhow!("Email mock server {} not ready after 15 seconds", self.name))
+        Err(anyhow::anyhow!(
+            "Email mock server {} not ready after 15 seconds",
+            self.name
+        ))
     }
 }
 
@@ -413,7 +424,8 @@ impl TestContainer for EmailMockContainer {
         let child = Command::new("python3")
             .args(&[
                 "-c",
-                &format!(r#"
+                &format!(
+                    r#"
 import http.server
 import socketserver
 import json
@@ -460,7 +472,9 @@ class EmailMockHandler(http.server.BaseHTTPRequestHandler):
 
 with socketserver.TCPServer(("", {}), EmailMockHandler) as httpd:
     httpd.serve_forever()
-"#, self.port)
+"#,
+                    self.port
+                ),
             ])
             .stdout(Stdio::null())
             .stderr(Stdio::null())
@@ -509,17 +523,20 @@ where
     Fut: std::future::Future<Output = Result<()>>,
 {
     println!("🚀 Starting integration test: {}", test_name);
-    
+
     let container_manager = TestContainerManager::new();
-    
+
     // Check if Docker is available
     if !TestContainerManager::is_docker_available() {
-        println!("⚠️ Docker not available, skipping container-based test: {}", test_name);
+        println!(
+            "⚠️ Docker not available, skipping container-based test: {}",
+            test_name
+        );
         return Ok(());
     }
-    
+
     let result = test_fn(container_manager).await;
-    
+
     match result {
         Ok(_) => {
             println!("✅ Integration test completed successfully: {}", test_name);
@@ -541,14 +558,15 @@ async fn test_with_mongodb_container() -> Result<()> {
         // Start MongoDB container
         let mongo_connection = containers.start_mongodb("test").await?;
         println!("📊 MongoDB connection: {}", mongo_connection);
-        
+
         // Test connection (this would typically involve actual database operations)
         assert!(mongo_connection.contains("mongodb://"));
         assert!(mongo_connection.contains("auth_service_test"));
-        
+
         println!("✅ MongoDB container test completed");
         Ok(())
-    }).await
+    })
+    .await
 }
 
 /// Test with Redis container
@@ -560,14 +578,15 @@ async fn test_with_redis_container() -> Result<()> {
         // Start Redis container
         let redis_connection = containers.start_redis("test").await?;
         println!("⚡ Redis connection: {}", redis_connection);
-        
+
         // Test connection
         assert!(redis_connection.contains("redis://"));
         assert!(redis_connection.contains("localhost"));
-        
+
         println!("✅ Redis container test completed");
         Ok(())
-    }).await
+    })
+    .await
 }
 
 /// Test with email mock container
@@ -579,42 +598,43 @@ async fn test_with_email_mock_container() -> Result<()> {
         // Start email mock server
         let email_endpoint = containers.start_email_mock("test").await?;
         println!("📧 Email mock endpoint: {}", email_endpoint);
-        
+
         // Test mock server
         let client = reqwest::Client::new();
         let health_response = client
             .get(&format!("{}/health", email_endpoint))
             .send()
             .await?;
-        
+
         assert!(health_response.status().is_success());
-        
+
         // Test sending mock email
         let email_data = serde_json::json!({
             "to": "test@example.com",
             "subject": "Test Email",
             "body": "This is a test email"
         });
-        
+
         let send_response = client
             .post(&format!("{}/send", email_endpoint))
             .json(&email_data)
             .send()
             .await?;
-        
+
         assert!(send_response.status().is_success());
-        
+
         // Verify email was received
         let emails_response = client
             .get(&format!("{}/emails", email_endpoint))
             .send()
             .await?;
-        
+
         assert!(emails_response.status().is_success());
         let emails: serde_json::Value = emails_response.json().await?;
         assert!(emails.as_array().unwrap().len() > 0);
-        
+
         println!("✅ Email mock container test completed");
         Ok(())
-    }).await
+    })
+    .await
 }

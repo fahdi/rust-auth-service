@@ -16,9 +16,11 @@ use crate::integration::test_framework::*;
 #[tokio::test]
 async fn test_complete_password_reset_flow() -> Result<()> {
     let framework = IntegrationTestFramework::new();
-    
+
     if !framework.is_service_running().await? {
-        println!("⚠️ Auth service not running. Start it with: cargo run --features integration-tests");
+        println!(
+            "⚠️ Auth service not running. Start it with: cargo run --features integration-tests"
+        );
         return Ok(());
     }
 
@@ -28,7 +30,7 @@ async fn test_complete_password_reset_flow() -> Result<()> {
     let user = framework.create_test_user("password_reset_test");
     let initial_password = user.password.clone();
     let (_initial_tokens, _) = framework.client.register(&user).await?;
-    
+
     // Verify initial login works
     let (login_tokens, _) = framework.client.login(&user).await?;
     assert!(!login_tokens.access_token.is_empty());
@@ -42,50 +44,61 @@ async fn test_complete_password_reset_flow() -> Result<()> {
 
     // Step 3: Simulate reset token (in real scenario, this would come from email)
     let reset_token = generate_test_reset_token(&user.email);
-    
+
     // Step 4: Reset password with new password
     let new_password = "NewSecurePassword456!";
     println!("🔐 Resetting password with new password");
-    
-    let reset_response = framework.client.reset_password(&reset_token, new_password).await;
-    
+
+    let reset_response = framework
+        .client
+        .reset_password(&reset_token, new_password)
+        .await;
+
     match reset_response {
         Ok(response) => {
             println!("✅ Password reset successful");
             assert!(response.get("message").is_some());
-            
+
             // Step 5: Verify old password no longer works
             let old_user = TestUser::with_custom_data(
-                &user.email, 
-                &initial_password, 
-                &user.first_name, 
-                &user.last_name
+                &user.email,
+                &initial_password,
+                &user.first_name,
+                &user.last_name,
             );
-            
+
             let old_login_result = framework.client.login(&old_user).await;
-            assert!(old_login_result.is_err(), "Old password should not work after reset");
+            assert!(
+                old_login_result.is_err(),
+                "Old password should not work after reset"
+            );
             println!("✅ Old password correctly rejected");
-            
+
             // Step 6: Verify new password works
             let new_user = TestUser::with_custom_data(
-                &user.email, 
-                new_password, 
-                &user.first_name, 
-                &user.last_name
+                &user.email,
+                new_password,
+                &user.first_name,
+                &user.last_name,
             );
-            
+
             let new_login_result = framework.client.login(&new_user).await?;
             assert!(!new_login_result.0.access_token.is_empty());
             println!("✅ New password works correctly");
-            
+
             // Step 7: Verify user can access profile with new credentials
-            let profile = framework.client.get_profile(&new_login_result.0.access_token).await?;
+            let profile = framework
+                .client
+                .get_profile(&new_login_result.0.access_token)
+                .await?;
             assert_eq!(profile["email"], user.email);
             println!("✅ User can access profile with new password");
-            
         }
         Err(e) => {
-            println!("ℹ️ Password reset failed (expected if reset tokens not implemented): {}", e);
+            println!(
+                "ℹ️ Password reset failed (expected if reset tokens not implemented): {}",
+                e
+            );
             // This is acceptable in test environment - password reset might not be fully implemented
         }
     }
@@ -98,9 +111,11 @@ async fn test_complete_password_reset_flow() -> Result<()> {
 #[tokio::test]
 async fn test_forgot_password_email_scenarios() -> Result<()> {
     let framework = IntegrationTestFramework::new();
-    
+
     if !framework.is_service_running().await? {
-        println!("⚠️ Auth service not running. Start it with: cargo run --features integration-tests");
+        println!(
+            "⚠️ Auth service not running. Start it with: cargo run --features integration-tests"
+        );
         return Ok(());
     }
 
@@ -109,7 +124,7 @@ async fn test_forgot_password_email_scenarios() -> Result<()> {
     // Test 1: Valid registered email
     let user = framework.create_test_user("forgot_password_valid");
     let (_, _) = framework.client.register(&user).await?;
-    
+
     let valid_response = framework.client.forgot_password(&user.email).await?;
     assert!(valid_response.get("message").is_some());
     println!("✅ Forgot password works with valid registered email");
@@ -134,7 +149,7 @@ async fn test_forgot_password_email_scenarios() -> Result<()> {
     for invalid_email in invalid_emails {
         println!("Testing invalid email: '{}'", invalid_email);
         let invalid_response = framework.client.forgot_password(&invalid_email).await;
-        
+
         match invalid_response {
             Ok(_) => {
                 // Some implementations might accept any format for security
@@ -155,9 +170,11 @@ async fn test_forgot_password_email_scenarios() -> Result<()> {
 #[tokio::test]
 async fn test_password_reset_invalid_tokens() -> Result<()> {
     let framework = IntegrationTestFramework::new();
-    
+
     if !framework.is_service_running().await? {
-        println!("⚠️ Auth service not running. Start it with: cargo run --features integration-tests");
+        println!(
+            "⚠️ Auth service not running. Start it with: cargo run --features integration-tests"
+        );
         return Ok(());
     }
 
@@ -167,29 +184,35 @@ async fn test_password_reset_invalid_tokens() -> Result<()> {
     let uuid_token = Uuid::new_v4().to_string();
     let long_token = "a".repeat(200);
     let invalid_tokens = vec![
-        "",                                    // Empty token
-        "invalid_reset_token",                // Simple invalid token
-        "expired_token_12345",               // Fake expired token
-        &uuid_token,                         // Valid UUID but not a reset token
+        "",                    // Empty token
+        "invalid_reset_token", // Simple invalid token
+        "expired_token_12345", // Fake expired token
+        &uuid_token,           // Valid UUID but not a reset token
         "malformed-reset-token-format",
-        &long_token,                         // Too long
+        &long_token, // Too long
         "special!@#$%^&*()characters",
         "token with spaces",
-        "🎉emoji🎉token🎉",                  // Unicode characters
+        "🎉emoji🎉token🎉", // Unicode characters
     ];
 
     for (i, invalid_token) in invalid_tokens.iter().enumerate() {
-        println!("Testing invalid token {} ({}/{}): '{}'", 
-            i + 1, i + 1, invalid_tokens.len(), 
-            if invalid_token.len() > 30 { 
-                format!("{}...", &invalid_token[..30]) 
-            } else { 
-                invalid_token.to_string() 
+        println!(
+            "Testing invalid token {} ({}/{}): '{}'",
+            i + 1,
+            i + 1,
+            invalid_tokens.len(),
+            if invalid_token.len() > 30 {
+                format!("{}...", &invalid_token[..30])
+            } else {
+                invalid_token.to_string()
             }
         );
 
-        let reset_result = framework.client.reset_password(invalid_token, new_password).await;
-        
+        let reset_result = framework
+            .client
+            .reset_password(invalid_token, new_password)
+            .await;
+
         match reset_result {
             Ok(_) => {
                 println!("⚠️ Password reset unexpectedly succeeded with invalid token");
@@ -208,9 +231,11 @@ async fn test_password_reset_invalid_tokens() -> Result<()> {
 #[tokio::test]
 async fn test_password_reset_invalid_passwords() -> Result<()> {
     let framework = IntegrationTestFramework::new();
-    
+
     if !framework.is_service_running().await? {
-        println!("⚠️ Auth service not running. Start it with: cargo run --features integration-tests");
+        println!(
+            "⚠️ Auth service not running. Start it with: cargo run --features integration-tests"
+        );
         return Ok(());
     }
 
@@ -220,19 +245,30 @@ async fn test_password_reset_invalid_passwords() -> Result<()> {
     let user = framework.create_test_user("password_validation_test");
     let (_, _) = framework.client.register(&user).await?;
     let _ = framework.client.forgot_password(&user.email).await?;
-    
+
     let reset_token = generate_test_reset_token(&user.email);
     let invalid_passwords = ValidationTestUtils::invalid_passwords();
-    
-    for (i, invalid_password) in invalid_passwords.iter().enumerate() {
-        println!("Testing invalid password {} ({}/{}): '{}'", 
-            i + 1, i + 1, invalid_passwords.len(), invalid_password);
 
-        let reset_result = framework.client.reset_password(&reset_token, invalid_password).await;
-        
+    for (i, invalid_password) in invalid_passwords.iter().enumerate() {
+        println!(
+            "Testing invalid password {} ({}/{}): '{}'",
+            i + 1,
+            i + 1,
+            invalid_passwords.len(),
+            invalid_password
+        );
+
+        let reset_result = framework
+            .client
+            .reset_password(&reset_token, invalid_password)
+            .await;
+
         match reset_result {
             Ok(_) => {
-                println!("⚠️ Password reset succeeded with weak password: '{}'", invalid_password);
+                println!(
+                    "⚠️ Password reset succeeded with weak password: '{}'",
+                    invalid_password
+                );
             }
             Err(_) => {
                 println!("✅ Weak password properly rejected");
@@ -243,7 +279,10 @@ async fn test_password_reset_invalid_passwords() -> Result<()> {
     // Test valid passwords should work (if reset is implemented)
     let valid_passwords = ValidationTestUtils::valid_passwords();
     for valid_password in valid_passwords {
-        let reset_result = framework.client.reset_password(&reset_token, valid_password).await;
+        let reset_result = framework
+            .client
+            .reset_password(&reset_token, valid_password)
+            .await;
         match reset_result {
             Ok(_) => {
                 println!("✅ Valid password accepted");
@@ -264,9 +303,11 @@ async fn test_password_reset_invalid_passwords() -> Result<()> {
 #[tokio::test]
 async fn test_password_reset_token_expiration() -> Result<()> {
     let framework = IntegrationTestFramework::new();
-    
+
     if !framework.is_service_running().await? {
-        println!("⚠️ Auth service not running. Start it with: cargo run --features integration-tests");
+        println!(
+            "⚠️ Auth service not running. Start it with: cargo run --features integration-tests"
+        );
         return Ok(());
     }
 
@@ -280,10 +321,13 @@ async fn test_password_reset_token_expiration() -> Result<()> {
     // Simulate an expired reset token
     let expired_token = generate_expired_reset_token(&user.email);
     let new_password = "NewPassword123!";
-    
+
     println!("🔗 Testing password reset with expired token");
-    let reset_result = framework.client.reset_password(&expired_token, new_password).await;
-    
+    let reset_result = framework
+        .client
+        .reset_password(&expired_token, new_password)
+        .await;
+
     match reset_result {
         Ok(_) => {
             println!("ℹ️ Expired token reset succeeded (token expiration may not be implemented)");
@@ -301,9 +345,11 @@ async fn test_password_reset_token_expiration() -> Result<()> {
 #[tokio::test]
 async fn test_double_password_reset() -> Result<()> {
     let framework = IntegrationTestFramework::new();
-    
+
     if !framework.is_service_running().await? {
-        println!("⚠️ Auth service not running. Start it with: cargo run --features integration-tests");
+        println!(
+            "⚠️ Auth service not running. Start it with: cargo run --features integration-tests"
+        );
         return Ok(());
     }
 
@@ -317,19 +363,25 @@ async fn test_double_password_reset() -> Result<()> {
     let reset_token = generate_test_reset_token(&user.email);
     let first_new_password = "FirstNewPassword123!";
     let second_new_password = "SecondNewPassword456!";
-    
+
     // First reset attempt
     println!("🔐 First password reset attempt");
-    let first_reset = framework.client.reset_password(&reset_token, first_new_password).await;
-    
+    let first_reset = framework
+        .client
+        .reset_password(&reset_token, first_new_password)
+        .await;
+
     match first_reset {
         Ok(_) => {
             println!("✅ First password reset successful");
-            
+
             // Second reset attempt with same token
             println!("🔐 Second password reset attempt with same token");
-            let second_reset = framework.client.reset_password(&reset_token, second_new_password).await;
-            
+            let second_reset = framework
+                .client
+                .reset_password(&reset_token, second_new_password)
+                .await;
+
             match second_reset {
                 Ok(_) => {
                     println!("⚠️ Second reset succeeded (token reuse allowed - security concern)");
@@ -338,18 +390,24 @@ async fn test_double_password_reset() -> Result<()> {
                     println!("✅ Second reset rejected (token already used)");
                 }
             }
-            
+
             // Verify which password actually works
             let test_user_first = TestUser::with_custom_data(
-                &user.email, first_new_password, &user.first_name, &user.last_name
+                &user.email,
+                first_new_password,
+                &user.first_name,
+                &user.last_name,
             );
             let test_user_second = TestUser::with_custom_data(
-                &user.email, second_new_password, &user.first_name, &user.last_name
+                &user.email,
+                second_new_password,
+                &user.first_name,
+                &user.last_name,
             );
-            
+
             let first_login = framework.client.login(&test_user_first).await;
             let second_login = framework.client.login(&test_user_second).await;
-            
+
             match (first_login.is_ok(), second_login.is_ok()) {
                 (true, false) => println!("✅ First password is active"),
                 (false, true) => println!("✅ Second password is active"),
@@ -370,9 +428,11 @@ async fn test_double_password_reset() -> Result<()> {
 #[tokio::test]
 async fn test_concurrent_password_reset_requests() -> Result<()> {
     let framework = IntegrationTestFramework::new();
-    
+
     if !framework.is_service_running().await? {
-        println!("⚠️ Auth service not running. Start it with: cargo run --features integration-tests");
+        println!(
+            "⚠️ Auth service not running. Start it with: cargo run --features integration-tests"
+        );
         return Ok(());
     }
 
@@ -389,14 +449,14 @@ async fn test_concurrent_password_reset_requests() -> Result<()> {
     for i in 0..CONCURRENT_REQUESTS {
         let client = framework.client.clone();
         let email = user.email.clone();
-        
+
         let handle = tokio::spawn(async move {
             let timer = PerformanceTimer::new(&format!("Forgot Password Request {}", i));
             let result = client.forgot_password(&email).await;
             let elapsed = timer.finish();
             (i, result.is_ok(), elapsed)
         });
-        
+
         handles.push(handle);
     }
 
@@ -425,15 +485,18 @@ async fn test_concurrent_password_reset_requests() -> Result<()> {
     println!("  Total Requests: {}", CONCURRENT_REQUESTS);
     println!("  Successful: {}", successful);
     println!("  Failed: {}", failed);
-    
+
     if !response_times.is_empty() {
         let avg_time = response_times.iter().sum::<Duration>() / response_times.len() as u32;
         println!("  Average Response Time: {:.2}ms", avg_time.as_millis());
     }
 
     // All requests should handle gracefully
-    assert!(successful + failed == CONCURRENT_REQUESTS, "All requests should complete");
-    
+    assert!(
+        successful + failed == CONCURRENT_REQUESTS,
+        "All requests should complete"
+    );
+
     println!("✅ Concurrent password reset handling works correctly");
     Ok(())
 }
@@ -442,9 +505,11 @@ async fn test_concurrent_password_reset_requests() -> Result<()> {
 #[tokio::test]
 async fn test_password_reset_rate_limiting() -> Result<()> {
     let framework = IntegrationTestFramework::new();
-    
+
     if !framework.is_service_running().await? {
-        println!("⚠️ Auth service not running. Start it with: cargo run --features integration-tests");
+        println!(
+            "⚠️ Auth service not running. Start it with: cargo run --features integration-tests"
+        );
         return Ok(());
     }
 
@@ -461,7 +526,10 @@ async fn test_password_reset_rate_limiting() -> Result<()> {
     // Make rapid forgot password requests
     for i in 0..30 {
         let response = reqwest::Client::new()
-            .post(&format!("{}/auth/forgot-password", framework.config.service_url))
+            .post(&format!(
+                "{}/auth/forgot-password",
+                framework.config.service_url
+            ))
             .json(&json!({ "email": user.email }))
             .send()
             .await?;
@@ -498,9 +566,11 @@ async fn test_password_reset_rate_limiting() -> Result<()> {
 #[tokio::test]
 async fn test_password_reset_malformed_requests() -> Result<()> {
     let framework = IntegrationTestFramework::new();
-    
+
     if !framework.is_service_running().await? {
-        println!("⚠️ Auth service not running. Start it with: cargo run --features integration-tests");
+        println!(
+            "⚠️ Auth service not running. Start it with: cargo run --features integration-tests"
+        );
         return Ok(());
     }
 
@@ -508,7 +578,7 @@ async fn test_password_reset_malformed_requests() -> Result<()> {
 
     // Test malformed forgot password requests
     let malformed_forgot_payloads = vec![
-        json!({}),                                   // Empty payload
+        json!({}),                                  // Empty payload
         json!({ "invalid_field": "value" }),        // Wrong field name
         json!({ "email": null }),                   // Null email
         json!({ "email": 123 }),                    // Wrong type
@@ -517,11 +587,19 @@ async fn test_password_reset_malformed_requests() -> Result<()> {
     ];
 
     for (i, payload) in malformed_forgot_payloads.iter().enumerate() {
-        println!("Testing malformed forgot password payload {} ({}/{}): {:?}", 
-            i + 1, i + 1, malformed_forgot_payloads.len(), payload);
+        println!(
+            "Testing malformed forgot password payload {} ({}/{}): {:?}",
+            i + 1,
+            i + 1,
+            malformed_forgot_payloads.len(),
+            payload
+        );
 
         let response = reqwest::Client::new()
-            .post(&format!("{}/auth/forgot-password", framework.config.service_url))
+            .post(&format!(
+                "{}/auth/forgot-password",
+                framework.config.service_url
+            ))
             .json(payload)
             .send()
             .await?;
@@ -531,28 +609,39 @@ async fn test_password_reset_malformed_requests() -> Result<()> {
                 println!("✅ Malformed forgot password request properly rejected");
             }
             _ => {
-                println!("⚠️ Unexpected status for malformed request: {}", response.status());
+                println!(
+                    "⚠️ Unexpected status for malformed request: {}",
+                    response.status()
+                );
             }
         }
     }
 
     // Test malformed reset password requests
     let malformed_reset_payloads = vec![
-        json!({}),                                              // Empty payload
-        json!({ "token": "valid_token" }),                     // Missing password
-        json!({ "password": "ValidPassword123!" }),            // Missing token
+        json!({}),                                                 // Empty payload
+        json!({ "token": "valid_token" }),                         // Missing password
+        json!({ "password": "ValidPassword123!" }),                // Missing token
         json!({ "token": null, "password": "ValidPassword123!" }), // Null token
-        json!({ "token": "valid_token", "password": null }),   // Null password
-        json!({ "token": 123, "password": "ValidPassword123!" }), // Wrong token type
-        json!({ "token": "valid_token", "password": 123 }),    // Wrong password type
+        json!({ "token": "valid_token", "password": null }),       // Null password
+        json!({ "token": 123, "password": "ValidPassword123!" }),  // Wrong token type
+        json!({ "token": "valid_token", "password": 123 }),        // Wrong password type
     ];
 
     for (i, payload) in malformed_reset_payloads.iter().enumerate() {
-        println!("Testing malformed reset password payload {} ({}/{}): {:?}", 
-            i + 1, i + 1, malformed_reset_payloads.len(), payload);
+        println!(
+            "Testing malformed reset password payload {} ({}/{}): {:?}",
+            i + 1,
+            i + 1,
+            malformed_reset_payloads.len(),
+            payload
+        );
 
         let response = reqwest::Client::new()
-            .post(&format!("{}/auth/reset-password", framework.config.service_url))
+            .post(&format!(
+                "{}/auth/reset-password",
+                framework.config.service_url
+            ))
             .json(payload)
             .send()
             .await?;
@@ -562,7 +651,10 @@ async fn test_password_reset_malformed_requests() -> Result<()> {
                 println!("✅ Malformed reset password request properly rejected");
             }
             _ => {
-                println!("⚠️ Unexpected status for malformed request: {}", response.status());
+                println!(
+                    "⚠️ Unexpected status for malformed request: {}",
+                    response.status()
+                );
             }
         }
     }
@@ -575,9 +667,11 @@ async fn test_password_reset_malformed_requests() -> Result<()> {
 #[tokio::test]
 async fn test_password_reset_security_measures() -> Result<()> {
     let framework = IntegrationTestFramework::new();
-    
+
     if !framework.is_service_running().await? {
-        println!("⚠️ Auth service not running. Start it with: cargo run --features integration-tests");
+        println!(
+            "⚠️ Auth service not running. Start it with: cargo run --features integration-tests"
+        );
         return Ok(());
     }
 
@@ -586,12 +680,12 @@ async fn test_password_reset_security_measures() -> Result<()> {
     // Test 1: Password reset should not reveal user existence
     let nonexistent_email = "security_test_nonexistent@example.com";
     let nonexistent_response = framework.client.forgot_password(nonexistent_email).await?;
-    
+
     // Register a real user
     let real_user = framework.create_test_user("security_test_real");
     let (_, _) = framework.client.register(&real_user).await?;
     let real_response = framework.client.forgot_password(&real_user.email).await?;
-    
+
     // Responses should be similar (don't reveal if user exists)
     assert!(nonexistent_response.get("message").is_some());
     assert!(real_response.get("message").is_some());
@@ -603,52 +697,69 @@ async fn test_password_reset_security_measures() -> Result<()> {
         let test_email = format!("security_token_test_{}@example.com", i);
         reset_tokens.push(generate_test_reset_token(&test_email));
     }
-    
+
     // Tokens should be unique
     let mut unique_tokens = std::collections::HashSet::new();
     for token in &reset_tokens {
-        assert!(unique_tokens.insert(token.clone()), "Reset tokens should be unique");
+        assert!(
+            unique_tokens.insert(token.clone()),
+            "Reset tokens should be unique"
+        );
     }
     println!("✅ Reset tokens are unique");
-    
+
     // Test 3: Timing attack resistance
     let timing_tests = 5;
     let mut nonexistent_times = Vec::new();
     let mut existing_times = Vec::new();
-    
+
     for i in 0..timing_tests {
         // Time request for non-existent user
         let timer = std::time::Instant::now();
-        let _ = framework.client.forgot_password(&format!("timing_test_nonexistent_{}@example.com", i)).await;
+        let _ = framework
+            .client
+            .forgot_password(&format!("timing_test_nonexistent_{}@example.com", i))
+            .await;
         nonexistent_times.push(timer.elapsed());
-        
+
         // Time request for existing user
         let timer = std::time::Instant::now();
         let _ = framework.client.forgot_password(&real_user.email).await;
         existing_times.push(timer.elapsed());
-        
+
         // Small delay between tests
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
-    
-    let avg_nonexistent: Duration = nonexistent_times.iter().sum::<Duration>() / nonexistent_times.len() as u32;
-    let avg_existing: Duration = existing_times.iter().sum::<Duration>() / existing_times.len() as u32;
-    
+
+    let avg_nonexistent: Duration =
+        nonexistent_times.iter().sum::<Duration>() / nonexistent_times.len() as u32;
+    let avg_existing: Duration =
+        existing_times.iter().sum::<Duration>() / existing_times.len() as u32;
+
     println!("⏱️ Timing Analysis:");
-    println!("  Nonexistent users: {:.2}ms average", avg_nonexistent.as_millis());
-    println!("  Existing users: {:.2}ms average", avg_existing.as_millis());
-    
+    println!(
+        "  Nonexistent users: {:.2}ms average",
+        avg_nonexistent.as_millis()
+    );
+    println!(
+        "  Existing users: {:.2}ms average",
+        avg_existing.as_millis()
+    );
+
     // Times should be reasonably similar (within 2x) to resist timing attacks
     let ratio = if avg_nonexistent > avg_existing {
         avg_nonexistent.as_millis() as f64 / avg_existing.as_millis() as f64
     } else {
         avg_existing.as_millis() as f64 / avg_nonexistent.as_millis() as f64
     };
-    
+
     if ratio < 2.0 {
         println!("✅ Timing attack resistance: ratio {:.2} (good)", ratio);
     } else {
-        println!("⚠️ Potential timing attack vulnerability: ratio {:.2}", ratio);
+        println!(
+            "⚠️ Potential timing attack vulnerability: ratio {:.2}",
+            ratio
+        );
     }
 
     println!("✅ Password reset security measures test completed");
@@ -659,21 +770,31 @@ async fn test_password_reset_security_measures() -> Result<()> {
 
 fn generate_test_reset_token(email: &str) -> String {
     // Generate a test token that looks like a real reset token
-    format!("reset_{}_{}", email.replace("@", "_at_").replace(".", "_dot_"), Uuid::new_v4())
+    format!(
+        "reset_{}_{}",
+        email.replace("@", "_at_").replace(".", "_dot_"),
+        Uuid::new_v4()
+    )
 }
 
 fn generate_expired_reset_token(email: &str) -> String {
     // Generate a token that simulates an expired token
-    format!("expired_reset_{}_{}", email.replace("@", "_at_").replace(".", "_dot_"), "expired")
+    format!(
+        "expired_reset_{}_{}",
+        email.replace("@", "_at_").replace(".", "_dot_"),
+        "expired"
+    )
 }
 
 /// Test password reset performance
 #[tokio::test]
 async fn test_password_reset_performance() -> Result<()> {
     let framework = IntegrationTestFramework::new();
-    
+
     if !framework.is_service_running().await? {
-        println!("⚠️ Auth service not running. Start it with: cargo run --features integration-tests");
+        println!(
+            "⚠️ Auth service not running. Start it with: cargo run --features integration-tests"
+        );
         return Ok(());
     }
 
@@ -694,16 +815,19 @@ async fn test_password_reset_performance() -> Result<()> {
         let _ = framework.client.forgot_password(&user.email).await; // Result doesn't matter for performance test
         let forgot_elapsed = timer.finish();
         forgot_response_times.push(forgot_elapsed);
-        
+
         // Test reset password performance
         let reset_token = generate_test_reset_token(&format!("perf_test_{}@example.com", i));
         let new_password = format!("NewPassword{}!", i);
-        
+
         let timer = PerformanceTimer::new(&format!("Reset Password {}", i));
-        let _ = framework.client.reset_password(&reset_token, &new_password).await;
+        let _ = framework
+            .client
+            .reset_password(&reset_token, &new_password)
+            .await;
         let reset_elapsed = timer.finish();
         reset_response_times.push(reset_elapsed);
-        
+
         // Delay between tests
         tokio::time::sleep(Duration::from_millis(50)).await;
     }
@@ -734,7 +858,7 @@ async fn test_password_reset_performance() -> Result<()> {
     // Assert reasonable performance
     AuthAssertions::assert_response_time_acceptable(forgot_avg, Duration::from_millis(1000))
         .map_err(|e| anyhow::anyhow!("Forgot password performance assertion failed: {}", e))?;
-    
+
     AuthAssertions::assert_response_time_acceptable(reset_avg, Duration::from_millis(1000))
         .map_err(|e| anyhow::anyhow!("Reset password performance assertion failed: {}", e))?;
 
