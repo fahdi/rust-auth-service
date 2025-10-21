@@ -1,0 +1,164 @@
+config:
+  target: "http://localhost:8080"
+  phases:
+    # Warm-up phase
+    - duration: 30
+      arrivalRate: 10
+      name: "Warm-up"
+    # Ramp-up phase
+    - duration: 60
+      arrivalRate: 10
+      rampTo: 100
+      name: "Ramp-up"
+    # Sustained load phase
+    - duration: 300
+      arrivalRate: 100
+      name: "Sustained Load"
+    # Peak load phase
+    - duration: 60
+      arrivalRate: 100
+      rampTo: 200
+      name: "Peak Load"
+    # Cool-down phase
+    - duration: 30
+      arrivalRate: 200
+      rampTo: 10
+      name: "Cool-down"
+
+  processor: "./scenarios.js"
+  
+  # Performance targets from Issue #43
+  ensure:
+    p95: 200  # 95th percentile response time should be < 200ms
+    p99: 500  # 99th percentile response time should be < 500ms
+    maxErrorRate: 5  # Error rate should be < 5%
+
+  # HTTP configuration
+  http:
+    timeout: 30
+    pool: 50
+    
+  # Payload configuration for user registration/login
+  payload:
+    path: "./test_users.csv"
+    fields:
+      - "username"
+      - "email" 
+      - "password"
+    order: sequence
+    skipHeader: true
+
+scenarios:
+  # Health Check Load Test - High RPS Target (>10,000 RPS)
+  - name: "Health Check Load"
+    weight: 20
+    flow:
+      - get:
+          url: "/health"
+          expect:
+            - statusCode: 200
+            - contentType: "application/json"
+            - hasProperty: "status"
+            - equals:
+                - "success"
+                - "{{ status }}"
+
+  # User Registration Load Test - Target >500 RPS  
+  - name: "User Registration Load"
+    weight: 15
+    flow:
+      - function: "generateUniqueUser"
+      - post:
+          url: "/auth/register"
+          json:
+            username: "{{ username }}"
+            email: "{{ email }}"
+            password: "{{ password }}"
+            first_name: "Test"
+            last_name: "User"
+          expect:
+            - statusCode: 201
+            - contentType: "application/json"
+            - hasProperty: "tokens"
+          capture:
+            - json: "$.tokens.access_token"
+              as: "access_token"
+            - json: "$.user.id"
+              as: "user_id"
+
+  # User Authentication Load Test - Target >1000 RPS
+  - name: "User Authentication Load"
+    weight: 25
+    flow:
+      - function: "selectExistingUser"
+      - post:
+          url: "/auth/login"
+          json:
+            email: "{{ email }}"
+            password: "{{ password }}"
+          expect:
+            - statusCode: 200
+            - contentType: "application/json"
+            - hasProperty: "tokens"
+          capture:
+            - json: "$.tokens.access_token"
+              as: "access_token"
+            - json: "$.tokens.refresh_token"
+              as: "refresh_token"
+
+  # Protected Endpoint Load Test - Target >2000 RPS
+  - name: "Protected Endpoint Load"
+    weight: 25
+    flow:
+      - function: "getValidToken"
+      - get:
+          url: "/auth/me"
+          headers:
+            Authorization: "Bearer {{ access_token }}"
+          expect:
+            - statusCode: 200
+            - contentType: "application/json"
+            - hasProperty: "user"
+
+  # Password Reset Load Test
+  - name: "Password Reset Load"
+    weight: 10
+    flow:
+      - function: "selectExistingUser"
+      - post:
+          url: "/auth/forgot-password"
+          json:
+            email: "{{ email }}"
+          expect:
+            - statusCode: 200
+            - contentType: "application/json"
+
+  # Mixed Workload Scenario - Realistic usage pattern
+  - name: "Mixed Workload"
+    weight: 5
+    flow:
+      - loop:
+          - get:
+              url: "/health"
+          - function: "selectExistingUser"
+          - post:
+              url: "/auth/login"
+              json:
+                email: "{{ email }}"
+                password: "{{ password }}"
+              capture:
+                - json: "$.tokens.access_token"
+                  as: "access_token"
+          - get:
+              url: "/auth/me"
+              headers:
+                Authorization: "Bearer {{ access_token }}"
+          - think: 1  # 1 second think time
+        count: 3
+
+# Plugins for enhanced reporting
+plugins:
+  expect: {}
+  metrics-by-endpoint: {}
+  # hls: 
+  #   target: "./artillery-report.json"
