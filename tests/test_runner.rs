@@ -214,10 +214,10 @@ impl TestRunner {
         let start_time = Instant::now();
 
         let mut cmd = Command::new("cargo");
-        cmd.args(&["test", "--test", "*", "--features", "integration-tests"]);
+        cmd.args(["test", "--test", "*", "--features", "integration-tests"]);
 
         if self.config.parallel_execution {
-            cmd.args(&["--", "--test-threads", "2"]); // Fewer threads for integration tests
+            cmd.args(["--", "--test-threads", "2"]); // Fewer threads for integration tests
         }
 
         let output = cmd.output()?;
@@ -244,13 +244,13 @@ impl TestRunner {
         let start_time = Instant::now();
 
         let mut cmd = Command::new("cargo");
-        cmd.args(&[
+        cmd.args([
             "test",
             "load_tests",
             "--features",
             "integration-tests,load-tests",
         ]);
-        cmd.args(&["--", "--test-threads", "1"]); // Load tests should run sequentially
+        cmd.args(["--", "--test-threads", "1"]); // Load tests should run sequentially
 
         let output = cmd.output()?;
         let duration = start_time.elapsed();
@@ -276,13 +276,13 @@ impl TestRunner {
         let start_time = Instant::now();
 
         let mut cmd = Command::new("cargo");
-        cmd.args(&[
+        cmd.args([
             "test",
             "test_containers",
             "--features",
             "integration-tests,test-containers",
         ]);
-        cmd.args(&["--", "--test-threads", "1"]); // Container tests should run sequentially
+        cmd.args(["--", "--test-threads", "1"]); // Container tests should run sequentially
 
         let output = cmd.output()?;
         let duration = start_time.elapsed();
@@ -306,7 +306,7 @@ impl TestRunner {
     /// Generate coverage report
     async fn generate_coverage(&self) -> Result<CoverageResult> {
         let mut cmd = Command::new("cargo");
-        cmd.args(&[
+        cmd.args([
             "tarpaulin",
             "--verbose",
             "--all-features",
@@ -540,17 +540,15 @@ impl TestRunner {
             &results.load_tests,
             &results.container_tests,
         ];
-        for suite_option in all_suites.iter() {
-            if let Some(suite) = suite_option {
-                if !suite.failures.is_empty() {
-                    println!("\n❌ {} Failures:", suite.name);
-                    for (i, failure) in suite.failures.iter().enumerate() {
-                        println!(
-                            "  {}. {}",
-                            i + 1,
-                            failure.lines().next().unwrap_or("Unknown failure")
-                        );
-                    }
+        for suite in all_suites.iter().filter_map(|s| s.as_ref()) {
+            if !suite.failures.is_empty() {
+                println!("\n❌ {} Failures:", suite.name);
+                for (i, failure) in suite.failures.iter().enumerate() {
+                    println!(
+                        "  {}. {}",
+                        i + 1,
+                        failure.lines().next().unwrap_or("Unknown failure")
+                    );
                 }
             }
         }
