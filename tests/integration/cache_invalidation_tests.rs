@@ -6,7 +6,7 @@ use tracing::{debug, info};
 
 use crate::helpers::*;
 
-use rust_auth_service::cache::{CacheKey, CacheProvider};
+use rust_auth_service::cache::CacheKey;
 
 /// Cache invalidation strategy tests
 #[cfg(test)]

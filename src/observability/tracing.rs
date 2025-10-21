@@ -45,6 +45,7 @@ impl Default for TracingConfig {
 
 /// Trace context for request correlation
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct TraceContext {
     pub trace_id: String,
     pub span_id: String,
@@ -52,6 +53,7 @@ pub struct TraceContext {
     pub baggage: HashMap<String, String>,
 }
 
+#[allow(dead_code)]
 impl TraceContext {
     pub fn new() -> Self {
         Self {
@@ -91,12 +93,14 @@ pub async fn init_tracing(config: &TracingConfig) -> Result<()> {
 }
 
 /// Create OpenTelemetry layer for tracing subscriber (simplified)
+#[allow(dead_code)]
 pub fn create_otel_layer() -> Option<()> {
     // Simplified for now - would integrate full OpenTelemetry in production
     None
 }
 
 /// Span builder for creating custom spans
+#[allow(dead_code)]
 pub struct SpanBuilder {
     name: String,
     level: Level,
@@ -104,6 +108,7 @@ pub struct SpanBuilder {
     fields: Vec<(String, String)>,
 }
 
+#[allow(dead_code)]
 impl SpanBuilder {
     pub fn new(name: &str) -> Self {
         Self {
@@ -146,6 +151,7 @@ impl SpanBuilder {
 }
 
 /// Trace a database operation
+#[allow(dead_code)]
 pub async fn trace_database_operation<T, F, Fut>(operation: &str, table: &str, f: F) -> Result<T>
 where
     F: FnOnce() -> Fut,
@@ -163,8 +169,8 @@ where
     let result = f().await;
     let duration_ms = start.elapsed().as_millis() as u64;
 
-    span.record("duration_ms", &duration_ms);
-    span.record("success", &result.is_ok());
+    span.record("duration_ms", duration_ms);
+    span.record("success", result.is_ok());
 
     if result.is_err() {
         tracing::error!(
@@ -187,6 +193,7 @@ where
 }
 
 /// Trace a cache operation
+#[allow(dead_code)]
 pub async fn trace_cache_operation<T, F, Fut>(operation: &str, key: &str, f: F) -> Result<T>
 where
     F: FnOnce() -> Fut,
@@ -204,8 +211,8 @@ where
     let result = f().await;
     let duration_ms = start.elapsed().as_millis() as u64;
 
-    span.record("duration_ms", &duration_ms);
-    span.record("success", &result.is_ok());
+    span.record("duration_ms", duration_ms);
+    span.record("success", result.is_ok());
 
     if result.is_err() {
         tracing::error!(
@@ -221,6 +228,7 @@ where
 }
 
 /// Trace an authentication operation
+#[allow(dead_code)]
 pub async fn trace_auth_operation<T, F, Fut>(
     operation: &str,
     user_id: Option<&str>,
@@ -242,8 +250,8 @@ where
     let result = f().await;
     let duration_ms = start.elapsed().as_millis() as u64;
 
-    span.record("duration_ms", &duration_ms);
-    span.record("success", &result.is_ok());
+    span.record("duration_ms", duration_ms);
+    span.record("success", result.is_ok());
 
     if result.is_err() {
         tracing::warn!(
@@ -259,6 +267,7 @@ where
 }
 
 /// Trace an external API call
+#[allow(dead_code)]
 pub async fn trace_external_call<T, F, Fut>(
     service: &str,
     endpoint: &str,
@@ -282,8 +291,8 @@ where
     let result = f().await;
     let duration_ms = start.elapsed().as_millis() as u64;
 
-    span.record("duration_ms", &duration_ms);
-    span.record("success", &result.is_ok());
+    span.record("duration_ms", duration_ms);
+    span.record("success", result.is_ok());
 
     if result.is_err() {
         tracing::error!(
@@ -308,12 +317,14 @@ where
 }
 
 /// Add baggage to current span
+#[allow(dead_code)]
 pub fn add_span_baggage(key: &str, value: &str) {
     let current_span = tracing::Span::current();
     current_span.record(key, value);
 }
 
 /// Get current trace context
+#[allow(dead_code)]
 pub fn current_trace_context() -> Option<TraceContext> {
     // This would need to be implemented with actual OpenTelemetry context extraction
     // For now, return a placeholder
@@ -321,6 +332,7 @@ pub fn current_trace_context() -> Option<TraceContext> {
 }
 
 /// Shutdown tracing and flush remaining spans
+#[allow(dead_code)]
 pub async fn shutdown_tracing() {
     // Safe shutdown without OpenTelemetry dependencies
     tracing::info!("Tracing shutdown completed");

@@ -5,7 +5,7 @@ use tracing::{debug, info, warn};
 
 use crate::helpers::*;
 
-use rust_auth_service::cache::{CacheProvider, RedisCache};
+use rust_auth_service::cache::RedisCache;
 
 /// Redis-specific integration tests
 #[cfg(test)]
@@ -450,7 +450,7 @@ mod redis_integration {
         // when cache entries are modified or expired
 
         // Set up test data
-        let test_channel = "cache:invalidation:test";
+        let _test_channel = "cache:invalidation:test";
         let test_keys = vec!["pubsub:test:key1", "pubsub:test:key2", "pubsub:test:key3"];
 
         // Set test values

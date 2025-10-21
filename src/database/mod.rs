@@ -3,7 +3,8 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 pub mod mongodb;
-// pub mod mysql;  // Removed due to RSA vulnerability (RUSTSEC-2023-0071)
+#[cfg(feature = "mysql")]
+pub mod mysql;
 #[cfg(feature = "postgresql")]
 pub mod postgresql;
 
@@ -128,14 +129,24 @@ pub async fn create_database(config: &DatabaseConfig) -> Result<Box<dyn AuthData
         "postgresql" => Err(anyhow::anyhow!(
             "PostgreSQL support not enabled. Compile with --features postgresql"
         )),
-        // MySQL support removed due to RSA vulnerability (RUSTSEC-2023-0071)
+        #[cfg(feature = "mysql")]
+        "mysql" => {
+            let db = mysql::MySqlDatabase::new(&config.url, &config.pool).await?;
+            db.initialize().await?;
+            Ok(Box::new(db))
+        }
+        #[cfg(not(feature = "mysql"))]
         "mysql" => Err(anyhow::anyhow!(
-            "MySQL support removed due to security vulnerability. Use 'mongodb' instead."
+            "MySQL support not enabled. Compile with --features mysql"
         )),
         _ => {
-            #[cfg(feature = "postgresql")]
+            #[cfg(all(feature = "postgresql", feature = "mysql"))]
+            let available_types = ["mongodb", "postgresql", "mysql"];
+            #[cfg(all(feature = "postgresql", not(feature = "mysql")))]
             let available_types = ["mongodb", "postgresql"];
-            #[cfg(not(feature = "postgresql"))]
+            #[cfg(all(not(feature = "postgresql"), feature = "mysql"))]
+            let available_types = ["mongodb", "mysql"];
+            #[cfg(all(not(feature = "postgresql"), not(feature = "mysql")))]
             let available_types = ["mongodb"];
 
             Err(anyhow::anyhow!(
@@ -153,4 +164,5 @@ pub async fn create_database(config: &DatabaseConfig) -> Result<Box<dyn AuthData
 pub use mongodb::create_database as create_mongo_database;
 #[cfg(feature = "postgresql")]
 pub use postgresql::create_pool as create_pg_pool;
-// MySQL pool creation removed due to security vulnerability
+#[cfg(feature = "mysql")]
+pub use mysql::create_pool as create_mysql_pool;

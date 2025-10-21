@@ -142,7 +142,7 @@ impl TestRunner {
         println!("🔍 Checking test prerequisites...");
 
         // Check if cargo is available
-        let cargo_version = Command::new("cargo").args(&["--version"]).output()?;
+        let cargo_version = Command::new("cargo").args(["--version"]).output()?;
 
         if !cargo_version.status.success() {
             return Err(anyhow::anyhow!("Cargo is not available"));
@@ -150,7 +150,7 @@ impl TestRunner {
 
         // Check if Docker is available (for container tests)
         if self.config.run_container_tests {
-            let docker_version = Command::new("docker").args(&["--version"]).output();
+            let docker_version = Command::new("docker").args(["--version"]).output();
 
             if docker_version.is_err() || !docker_version.unwrap().status.success() {
                 println!("⚠️ Docker not available, container tests will be skipped");
@@ -160,13 +160,13 @@ impl TestRunner {
         // Check if tarpaulin is available (for coverage)
         if self.config.generate_coverage {
             let tarpaulin_check = Command::new("cargo")
-                .args(&["tarpaulin", "--version"])
+                .args(["tarpaulin", "--version"])
                 .output();
 
             if tarpaulin_check.is_err() || !tarpaulin_check.unwrap().status.success() {
                 println!("⚠️ cargo-tarpaulin not installed, installing...");
                 let install_output = Command::new("cargo")
-                    .args(&["install", "cargo-tarpaulin"])
+                    .args(["install", "cargo-tarpaulin"])
                     .output()?;
 
                 if !install_output.status.success() {
@@ -184,10 +184,10 @@ impl TestRunner {
         let start_time = Instant::now();
 
         let mut cmd = Command::new("cargo");
-        cmd.args(&["test", "--lib", "--bins"]);
+        cmd.args(["test", "--lib", "--bins"]);
 
         if self.config.parallel_execution {
-            cmd.args(&["--", "--test-threads", "4"]);
+            cmd.args(["--", "--test-threads", "4"]);
         }
 
         let output = cmd.output()?;

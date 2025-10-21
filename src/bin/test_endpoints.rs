@@ -150,7 +150,7 @@ async fn test_health_endpoints(
 
     for endpoint in endpoints {
         let start = Instant::now();
-        let response = client.get(&format!("{base_url}{endpoint}")).send().await;
+        let response = client.get(format!("{base_url}{endpoint}")).send().await;
         let duration = start.elapsed();
 
         match response {
@@ -332,9 +332,9 @@ async fn test_protected_endpoints(
         let start = Instant::now();
 
         let request = match method {
-            "GET" => client.get(&format!("{base_url}{endpoint}")),
-            "POST" => client.post(&format!("{base_url}{endpoint}")),
-            "PUT" => client.put(&format!("{base_url}{endpoint}")),
+            "GET" => client.get(format!("{base_url}{endpoint}")),
+            "POST" => client.post(format!("{base_url}{endpoint}")),
+            "PUT" => client.put(format!("{base_url}{endpoint}")),
             _ => continue,
         };
 
@@ -453,10 +453,10 @@ async fn test_error_scenarios(
         let start = Instant::now();
 
         let response = if endpoint == "/auth/me" {
-            client.get(&format!("{base_url}{endpoint}")).send().await
+            client.get(format!("{base_url}{endpoint}")).send().await
         } else {
             client
-                .post(&format!("{base_url}{endpoint}"))
+                .post(format!("{base_url}{endpoint}"))
                 .json(&payload)
                 .send()
                 .await

@@ -169,11 +169,11 @@ jobs:
               Content-Type: 'application/json'
         scenarios:
           - name: 'Health check load test'
-            requests:
+            flow:
               - get:
                   url: '/health'
           - name: 'Metrics endpoint test'
-            requests:
+            flow:
               - get:
                   url: '/metrics'
         EOF

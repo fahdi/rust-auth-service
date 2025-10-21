@@ -14,6 +14,7 @@ default = ["mongodb"]  # Ultra-secure build: MongoDB only, zero RSA vulnerabilit
 # Database support
 mongodb = []
 postgresql = ["sqlx", "sqlx/postgres", "sqlx/runtime-tokio-rustls", "sqlx/chrono", "sqlx/uuid"]  # Re-enabled with latest SQLx
+mysql = ["sqlx", "sqlx/mysql", "sqlx/runtime-tokio-rustls", "sqlx/chrono", "sqlx/uuid"]
 # Testing features
 integration-tests = []              # Enable integration tests requiring running services
 load-tests = []                     # Enable load testing scenarios

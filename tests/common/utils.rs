@@ -156,11 +156,11 @@ fn users_are_equivalent(
     // Compare core fields that should be identical
     user1.email == user2.email
         && user1.password_hash == user2.password_hash
-        && user1.full_name == user2.full_name
+        && user1.full_name() == user2.full_name()
         && user1.role == user2.role
         && user1.is_active == user2.is_active
         && user1.email_verified == user2.email_verified
-        && user1.failed_login_attempts == user2.failed_login_attempts
+        && user1.login_attempts == user2.login_attempts
         && timestamps_are_close(&user1.created_at, &user2.created_at, Duration::from_secs(5))
         && timestamps_are_close(&user1.updated_at, &user2.updated_at, Duration::from_secs(5))
 }

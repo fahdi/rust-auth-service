@@ -10,21 +10,11 @@ use anyhow::Result;
 use std::sync::Arc;
 
 /// Comprehensive observability configuration
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ObservabilityConfig {
     pub logging: LoggingConfig,
     pub metrics: MetricsConfig,
     pub tracing: TracingConfig,
-}
-
-impl Default for ObservabilityConfig {
-    fn default() -> Self {
-        Self {
-            logging: LoggingConfig::default(),
-            metrics: MetricsConfig::default(),
-            tracing: TracingConfig::default(),
-        }
-    }
 }
 
 /// Initialize comprehensive observability stack

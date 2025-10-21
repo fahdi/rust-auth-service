@@ -9,7 +9,8 @@ use tokio::fs;
 use tracing::{info, warn};
 
 pub mod mongodb;
-// pub mod mysql;  // Removed due to RSA vulnerability (RUSTSEC-2023-0071)
+#[cfg(feature = "mysql")]
+pub mod mysql;
 #[cfg(feature = "postgresql")]
 pub mod postgresql;
 pub mod runner;
