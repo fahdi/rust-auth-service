@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use serde_json::json;
 use uuid::Uuid;
 
-use rust_auth_service::models::user::{LoginAttempt, User, UserRole, UserMetadata};
+use rust_auth_service::models::user::{LoginAttempt, User, UserMetadata, UserRole};
 
 /// Test data fixtures for consistent testing across database adapters
 pub struct TestFixtures;
@@ -243,7 +243,7 @@ impl TestFixtures {
                     password_hash: "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewmyMcLOVAzk8VqK"
                         .to_string(),
                     first_name: "Test".to_string(),
-            last_name: "User".to_string(), // Remove this line and replace with proper parsing format!("Bulk User {}", i),
+                    last_name: "User".to_string(), // Remove this line and replace with proper parsing format!("Bulk User {}", i),
                     role: if i % 10 == 0 {
                         "admin".to_string()
                     } else {
