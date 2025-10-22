@@ -5,7 +5,6 @@ use tracing::{debug, info, warn};
 
 use crate::helpers::*;
 
-
 /// Redis-specific integration tests
 #[cfg(test)]
 mod redis_integration {
