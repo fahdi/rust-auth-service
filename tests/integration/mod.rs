@@ -1,4 +1,4 @@
-#![allow(unused_imports)]
+#![allow(unused_imports, ambiguous_glob_reexports)]
 
 pub mod auth_flow;
 pub mod cache_invalidation_tests;

@@ -111,7 +111,7 @@ pub struct ConsistencyChecker;
 impl ConsistencyChecker {
     /// Check if user data is consistent across databases
     pub async fn check_user_consistency(
-        databases: &[(&str, &rust_auth_service::database::AuthDatabase)],
+        databases: &[(&str, &dyn rust_auth_service::database::AuthDatabase)],
         user_email: &str,
     ) -> Result<()> {
         debug!("Checking user consistency for: {}", user_email);
