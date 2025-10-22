@@ -6,8 +6,8 @@ use tracing::{debug, error, info};
 use uuid::Uuid;
 
 use rust_auth_service::{
-    config::{Config, DatabaseConfig},
     config::database::PoolConfig,
+    config::{Config, DatabaseConfig},
     database::{create_database, AuthDatabase},
     models::user::{LoginAttempt, User},
 };
