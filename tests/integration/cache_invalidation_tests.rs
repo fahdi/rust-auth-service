@@ -1,8 +1,7 @@
 use anyhow::Result;
-use std::sync::Arc;
 use std::time::Duration;
 use tokio;
-use tracing::{debug, info};
+use tracing::info;
 
 use crate::helpers::*;
 

@@ -4,7 +4,6 @@
 //! Tests performance under load, concurrent operations, stress scenarios, and scalability limits.
 
 use anyhow::Result;
-use reqwest::StatusCode;
 use serde_json::json;
 use std::sync::Arc;
 use std::time::{Duration, Instant};

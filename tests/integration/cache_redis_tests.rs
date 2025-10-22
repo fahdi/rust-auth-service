@@ -5,7 +5,6 @@ use tracing::{debug, info, warn};
 
 use crate::helpers::*;
 
-use rust_auth_service::cache::RedisCache;
 
 /// Redis-specific integration tests
 #[cfg(test)]
