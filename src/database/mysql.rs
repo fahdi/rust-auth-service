@@ -811,11 +811,11 @@ impl AuthDatabase for MySqlDatabase {
         }
     }
 
-    async fn update_user_role(&self, user_id: &str, role: UserRole) -> Result<(), UserError> {
+    async fn update_user_role(&self, user_id: &str, role: &str) -> Result<(), UserError> {
         let query = "UPDATE users SET role = ?, updated_at = ? WHERE user_id = ?";
 
         let result = sqlx::query(query)
-            .bind(role.to_string())
+            .bind(role)
             .bind(Utc::now())
             .bind(user_id)
             .execute(&self.pool)
@@ -829,12 +829,7 @@ impl AuthDatabase for MySqlDatabase {
         }
     }
 
-    async fn set_user_lock_status(
-        &self,
-        user_id: &str,
-        is_locked: bool,
-        locked_until: Option<chrono::DateTime<chrono::Utc>>,
-    ) -> Result<(), UserError> {
+    async fn set_user_lock_status(&self, user_id: &str, locked: bool) -> Result<(), UserError> {
         let query = r#"
             UPDATE users SET 
                 is_active = ?,
@@ -843,8 +838,14 @@ impl AuthDatabase for MySqlDatabase {
             WHERE user_id = ?
         "#;
 
+        let locked_until = if locked {
+            Some(Utc::now() + chrono::Duration::days(30)) // Lock for 30 days by default
+        } else {
+            None
+        };
+
         let result = sqlx::query(query)
-            .bind(!is_locked) // is_active is opposite of is_locked
+            .bind(!locked) // is_active is opposite of locked
             .bind(locked_until)
             .bind(Utc::now())
             .bind(user_id)
