@@ -1,3 +1,5 @@
+#![allow(dead_code, unused_variables, unused_imports, clippy::all)]
+
 use anyhow::Result;
 use std::time::{Duration, Instant};
 use tokio::time;

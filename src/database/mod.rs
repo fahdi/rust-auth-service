@@ -199,6 +199,8 @@ pub async fn create_database(config: &DatabaseConfig) -> Result<Box<dyn AuthData
 #[allow(unused_imports)]
 pub use mongodb::create_database as create_mongo_database;
 #[cfg(feature = "mysql")]
+#[allow(unused_imports)]
 pub use mysql::create_pool as create_mysql_pool;
 #[cfg(feature = "postgresql")]
+#[allow(unused_imports)]
 pub use postgresql::create_pool as create_pg_pool;

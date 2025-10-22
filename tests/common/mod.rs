@@ -1,4 +1,4 @@
-#![allow(unused_imports, dead_code)]
+#![allow(unused_imports, dead_code, unused_variables, clippy::all)]
 
 use anyhow::Result;
 use std::sync::Arc;

@@ -1,3 +1,5 @@
+#![allow(dead_code, unused_variables, unused_imports, clippy::all)]
+
 use anyhow::Result;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -26,7 +28,7 @@ impl TestDatabase {
         let instance = create_database(&config).await?;
 
         Ok(Self {
-            instance,
+            instance: instance.into(),
             database_type: database_type.to_string(),
             test_id: test_id.to_string(),
             cleanup_data: Vec::new(),
@@ -143,9 +145,7 @@ pub async fn create_test_database_config(
     config.pool = PoolConfig {
         max_connections: 5,
         min_connections: 1,
-        acquire_timeout_seconds: 10,
-        idle_timeout_seconds: 300,
-        max_lifetime_seconds: 1800,
+        idle_timeout: 300,
     };
 
     debug!(
