@@ -4,11 +4,8 @@ use std::time::Duration;
 use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
 
-use rust_auth_service::cache::{
-    CacheProvider, MemoryCache, MultiLevelCache,
-    RedisCache,
-};
-use rust_auth_service::config::{CacheConfig, RedisConfig};
+use rust_auth_service::cache::{CacheProvider, MemoryCache, MultiLevelCache, RedisCache};
+use rust_auth_service::config::cache::{CacheConfig, RedisConfig};
 
 /// Test cache wrapper with cleanup capabilities
 pub struct TestCache {

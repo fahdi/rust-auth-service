@@ -6,7 +6,8 @@ use tracing::{debug, error, info};
 use uuid::Uuid;
 
 use rust_auth_service::{
-    config::{Config, DatabaseConfig, PoolConfig},
+    config::{Config, DatabaseConfig},
+    config::database::PoolConfig,
     database::{create_database, AuthDatabase},
     models::user::{LoginAttempt, User},
 };
@@ -105,7 +106,10 @@ impl TestDatabaseManager {
 }
 
 /// Create test database configuration
-pub async fn create_test_database_config(database_type: &str, test_id: &str) -> Result<DatabaseConfig> {
+pub async fn create_test_database_config(
+    database_type: &str,
+    test_id: &str,
+) -> Result<DatabaseConfig> {
     let base_config = Config::from_env_and_file()?;
 
     let mut config = base_config.database.clone();

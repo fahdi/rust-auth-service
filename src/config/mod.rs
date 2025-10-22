@@ -11,8 +11,8 @@ pub mod server;
 pub mod validator;
 
 pub use auth::AuthConfig;
-pub use cache::{CacheConfig, RedisConfig};
-pub use database::{DatabaseConfig, PoolConfig};
+pub use cache::CacheConfig;
+pub use database::DatabaseConfig;
 pub use email::EmailConfig;
 pub use rate_limit::RateLimitConfig;
 pub use server::ServerConfig;
