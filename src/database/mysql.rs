@@ -685,6 +685,204 @@ impl AuthDatabase for MySqlDatabase {
         Ok(())
     }
 
+    async fn count_users(&self) -> Result<u64, UserError> {
+        let query = "SELECT COUNT(*) as count FROM users";
+        let row = sqlx::query(query)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| UserError::Database(format!("Failed to count users: {e}")))?;
+
+        let count: i64 = row
+            .try_get("count")
+            .map_err(|e| UserError::Database(format!("Failed to get count: {e}")))?;
+
+        Ok(count as u64)
+    }
+
+    async fn count_verified_users(&self) -> Result<u64, UserError> {
+        let query = "SELECT COUNT(*) as count FROM users WHERE email_verified = 1";
+        let row = sqlx::query(query)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| UserError::Database(format!("Failed to count verified users: {e}")))?;
+
+        let count: i64 = row
+            .try_get("count")
+            .map_err(|e| UserError::Database(format!("Failed to get count: {e}")))?;
+
+        Ok(count as u64)
+    }
+
+    async fn count_active_users(&self) -> Result<u64, UserError> {
+        let thirty_days_ago = Utc::now() - chrono::Duration::days(30);
+        let query = "SELECT COUNT(*) as count FROM users WHERE last_login >= ? AND is_active = 1";
+        let row = sqlx::query(query)
+            .bind(thirty_days_ago)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| UserError::Database(format!("Failed to count active users: {e}")))?;
+
+        let count: i64 = row
+            .try_get("count")
+            .map_err(|e| UserError::Database(format!("Failed to get count: {e}")))?;
+
+        Ok(count as u64)
+    }
+
+    async fn count_admin_users(&self) -> Result<u64, UserError> {
+        let query = "SELECT COUNT(*) as count FROM users WHERE role = 'admin'";
+        let row = sqlx::query(query)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| UserError::Database(format!("Failed to count admin users: {e}")))?;
+
+        let count: i64 = row
+            .try_get("count")
+            .map_err(|e| UserError::Database(format!("Failed to get count: {e}")))?;
+
+        Ok(count as u64)
+    }
+
+    async fn list_users(&self, page: u32, limit: u32) -> Result<Vec<User>, UserError> {
+        let offset = (page - 1) * limit;
+        let query = "SELECT * FROM users ORDER BY created_at DESC LIMIT ? OFFSET ?";
+
+        let rows = sqlx::query(query)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| UserError::Database(format!("Failed to list users: {e}")))?;
+
+        let mut users = Vec::new();
+        for row in rows {
+            users.push(Self::row_to_user(&row)?);
+        }
+
+        Ok(users)
+    }
+
+    async fn search_users(
+        &self,
+        query: &str,
+        page: u32,
+        limit: u32,
+    ) -> Result<Vec<User>, UserError> {
+        let offset = (page - 1) * limit;
+        let search_query = format!("%{query}%");
+        let sql = r#"
+            SELECT * FROM users 
+            WHERE email LIKE ? OR first_name LIKE ? OR last_name LIKE ?
+            ORDER BY created_at DESC
+            LIMIT ? OFFSET ?
+        "#;
+
+        let rows = sqlx::query(sql)
+            .bind(&search_query)
+            .bind(&search_query)
+            .bind(&search_query)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| UserError::Database(format!("Failed to search users: {e}")))?;
+
+        let mut users = Vec::new();
+        for row in rows {
+            users.push(Self::row_to_user(&row)?);
+        }
+
+        Ok(users)
+    }
+
+    async fn get_user_for_admin(&self, user_id: &str) -> Result<Option<User>, UserError> {
+        let query = "SELECT * FROM users WHERE user_id = ?";
+
+        match sqlx::query(query)
+            .bind(user_id)
+            .fetch_optional(&self.pool)
+            .await
+        {
+            Ok(Some(row)) => Ok(Some(Self::row_to_user(&row)?)),
+            Ok(None) => Ok(None),
+            Err(e) => Err(UserError::Database(format!(
+                "Failed to get user for admin: {e}"
+            ))),
+        }
+    }
+
+    async fn update_user_role(&self, user_id: &str, role: UserRole) -> Result<(), UserError> {
+        let query = "UPDATE users SET role = ?, updated_at = ? WHERE user_id = ?";
+
+        let result = sqlx::query(query)
+            .bind(role.to_string())
+            .bind(Utc::now())
+            .bind(user_id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| UserError::Database(format!("Failed to update user role: {e}")))?;
+
+        if result.rows_affected() == 0 {
+            Err(UserError::NotFound)
+        } else {
+            Ok(())
+        }
+    }
+
+    async fn set_user_lock_status(
+        &self,
+        user_id: &str,
+        is_locked: bool,
+        locked_until: Option<chrono::DateTime<chrono::Utc>>,
+    ) -> Result<(), UserError> {
+        let query = r#"
+            UPDATE users SET 
+                is_active = ?,
+                locked_until = ?,
+                updated_at = ?
+            WHERE user_id = ?
+        "#;
+
+        let result = sqlx::query(query)
+            .bind(!is_locked) // is_active is opposite of is_locked
+            .bind(locked_until)
+            .bind(Utc::now())
+            .bind(user_id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| UserError::Database(format!("Failed to set user lock status: {e}")))?;
+
+        if result.rows_affected() == 0 {
+            Err(UserError::NotFound)
+        } else {
+            Ok(())
+        }
+    }
+
+    async fn admin_verify_email(&self, user_id: &str) -> Result<(), UserError> {
+        let query = r#"
+            UPDATE users SET 
+                email_verified = 1,
+                email_verification_token = NULL,
+                email_verification_expires = NULL,
+                updated_at = ?
+            WHERE user_id = ?
+        "#;
+
+        let result = sqlx::query(query)
+            .bind(Utc::now())
+            .bind(user_id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| UserError::Database(format!("Failed to admin verify email: {e}")))?;
+
+        if result.rows_affected() == 0 {
+            Err(UserError::NotFound)
+        } else {
+            Ok(())
+        }
+    }
+
     async fn initialize(&self) -> Result<()> {
         Ok(())
     }
