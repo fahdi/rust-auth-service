@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  # Development overrides for auth service with hot reload
+  auth-service:
+    build:
+      context: ../
+      dockerfile: docker/auth-service/Dockerfile.dev
+    volumes:
+      - ../:/app
+      - /app/target  # Anonymous volume for target directory
+      - cargo_cache:/usr/local/cargo/registry
+    environment:
+      RUST_LOG: debug
+      RUST_BACKTRACE: 1
+      CARGO_INCREMENTAL: 1
+      DATABASE_URL: mongodb://admin:password123@mongodb:27017/auth_service_dev?authSource=admin
+      REDIS_URL: redis://redis:6379
+    command: ["cargo", "watch", "-x", "run"]
+    stdin_open: true
+    tty: true
+
+  # Next.js with hot reload
+  nextjs-app:
+    command: ["npm", "run", "dev"]
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost/api
+      - NODE_ENV=development
+      - WATCHPACK_POLLING=true
+    stdin_open: true
+    tty: true
+
+  # Vue.js with hot reload
+  vue-app:
+    command: ["npm", "run", "dev"]
+    environment:
+      - VITE_API_URL=http://localhost/api
+      - NODE_ENV=development
+    stdin_open: true
+    tty: true
+
+  # Development databases with dev-specific configurations
+  mongodb:
+    environment:
+      MONGO_INITDB_DATABASE: auth_service_dev
+    volumes:
+      - mongodb_dev_data:/data/db
+      - ./scripts/seed-database.js:/docker-entrypoint-initdb.d/seed-database.js:ro
+
+  redis:
+    command: redis-server --appendonly yes --requirepass dev_password
+    volumes:
+      - redis_dev_data:/data
+
+  # Development-specific services
+  mongo-express:
+    ports:
+      - "8081:8081"
+    profiles: []  # Always available in dev
+
+  redis-insight:
+    ports:
+      - "8082:8001" 
+    profiles: []  # Always available in dev
+
+  swagger-ui:
+    ports:
+      - "8083:8080"
+    profiles: []  # Always available in dev
+
+  # File watcher for live reload (optional)
+  file-watcher:
+    image: node:18-alpine
+    container_name: auth-file-watcher
+    volumes:
+      - ../:/app
+    working_dir: /app
+    command: ["npm", "run", "watch"]
+    profiles: ["dev-tools"]
+
+volumes:
+  mongodb_dev_data:
+    driver: local
+  redis_dev_data:  
+    driver: local
+  cargo_cache:
+    driver: local

@@ -1,150 +1,203 @@
-# Docker Configuration
+# Docker Development Environment
 
-This directory contains all Docker-related configuration files for the Rust Auth Service project.
+Full-stack Docker Compose setup for Rust Auth Service with frontend examples, databases, and supporting services.
+
+## Quick Start
+
+```bash
+# Navigate to docker directory
+cd rust-auth-service/docker
+
+# Set up development environment (one command setup)
+chmod +x scripts/*.sh
+./scripts/setup-dev.sh
+
+# Access your application
+open https://localhost
+```
+
+## Services Overview
+
+| Service | URL | Description |
+|---------|-----|-------------|
+| **Main Application** | https://localhost | Next.js frontend application |
+| **API** | https://localhost/api | Rust authentication service |
+| **Vue.js Example** | https://localhost/vue | Vue.js integration example |
+| **API Documentation** | https://localhost/docs | Swagger UI documentation |
+| **Email Testing** | https://localhost/mail | MailHog email interface |
+| **MongoDB Admin** | https://localhost/admin/mongo | MongoDB Express |
+| **Redis Admin** | https://localhost/admin/redis | Redis Insight |
+
+## Development Test Accounts
+
+Use these pre-created accounts for testing:
+
+- **admin@localhost** / Admin123!
+- **test@localhost** / Test123!  
+- **demo@localhost** / Demo123!
 
 ## Directory Structure
 
 ```
 docker/
-├── README.md                    # This file
-├── auth-service/               # Main auth service Docker config
-│   └── Dockerfile             # Production Dockerfile for auth service
-├── nextjs-integration/         # Next.js example Docker config  
-│   ├── Dockerfile             # Next.js application Dockerfile
-│   └── docker-compose.yml     # Next.js + Auth service compose
-└── compose/                   # Docker Compose configurations
-    ├── docker-compose.yml     # Main production compose
-    └── docker-compose.dev.yml # Development environment compose
+├── README.md                   # This documentation
+├── docker-compose.yml          # Main orchestration
+├── docker-compose.dev.yml      # Development overrides
+├── docker-compose.prod.yml     # Production configuration
+├── nginx/
+│   ├── nginx.conf              # Nginx reverse proxy config
+│   └── ssl/                    # SSL certificates directory
+├── scripts/
+│   ├── setup-dev.sh           # One-command development setup
+│   ├── generate-ssl.sh        # SSL certificate generation
+│   ├── seed-database.sh       # Development data seeding
+│   └── health-check.sh        # Service health verification
+├── env/
+│   ├── .env.example           # Environment template
+│   ├── .env.development       # Development settings
+│   └── .env.production        # Production settings
+└── auth-service/
+    ├── Dockerfile.dev         # Development Dockerfile
+    └── Dockerfile.prod        # Production Dockerfile
 ```
 
-## Quick Start
+## Commands
 
-### Development Environment
+### Development Commands
 ```bash
-# Run full development stack
-docker-compose -f docker/compose/docker-compose.dev.yml up
+# Start development environment with hot reload
+./scripts/setup-dev.sh
 
-# Run with monitoring
-docker-compose -f docker/compose/docker-compose.dev.yml -f monitoring/docker-compose.monitoring.yml up
+# View logs
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml logs -f
+
+# Restart a service
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml restart auth-service
+
+# Stop environment
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml down
+
+# Clean up everything
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml down -v
 ```
 
-### Production Environment
+### Production Commands
 ```bash
-# Run production stack
-docker-compose -f docker/compose/docker-compose.yml up
+# Start production environment
+docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+# Start with monitoring
+docker-compose -f docker-compose.yml -f docker-compose.prod.yml --profile monitoring up -d
 ```
 
-### Next.js Integration Example
+### Utility Commands
 ```bash
-# Run Next.js example with auth service
-cd docker/nextjs-integration
-docker-compose up
+# Generate SSL certificates
+./scripts/generate-ssl.sh
+
+# Check service health
+./scripts/health-check.sh
+
+# Seed development database
+./scripts/seed-database.sh
 ```
 
-## Configuration Files
+## Features
 
-### Auth Service Dockerfile
-- **Location**: `docker/auth-service/Dockerfile`
-- **Purpose**: Multi-stage build for the Rust auth service
-- **Features**: Optimized production image with minimal dependencies
+### Development Features
+- ✅ **Hot Reload**: Code changes reflect immediately
+- ✅ **SSL/HTTPS**: Local development with trusted certificates
+- ✅ **Database Seeding**: Pre-populated test data
+- ✅ **Email Testing**: MailHog for email debugging
+- ✅ **Admin Interfaces**: MongoDB Express, Redis Insight
+- ✅ **API Documentation**: Swagger UI integration
 
-### Docker Compose Files
+### Production Features
+- ✅ **Multi-stage Builds**: Optimized Docker images
+- ✅ **Security Hardening**: Non-root users, resource limits
+- ✅ **Load Balancing**: Nginx reverse proxy
+- ✅ **Monitoring**: Prometheus, Grafana, Loki
+- ✅ **Health Checks**: Service monitoring
+- ✅ **SSL Termination**: Production-ready HTTPS
 
-#### Development (`docker-compose.dev.yml`)
-- Auth service with debug logging
-- PostgreSQL database
-- Redis cache
-- Volume mounts for development
+## Environment Configuration
 
-#### Production (`docker-compose.yml`)
-- Optimized auth service build
-- Production database configuration
-- Health checks and restart policies
+Copy and customize environment files:
 
-#### Next.js Integration (`nextjs-integration/docker-compose.yml`)
-- Complete full-stack setup
-- Auth service + Next.js frontend
-- Shared database and cache services
-
-## Environment Variables
-
-Each compose file supports environment variable overrides:
-- `DATABASE_URL` - Database connection string
-- `JWT_SECRET` - JWT signing secret
-- `REDIS_URL` - Redis cache connection
-- `RUST_LOG` - Logging level for development
-
-## Build Commands
-
-### Build Auth Service Image
 ```bash
-docker build -f docker/auth-service/Dockerfile -t rust-auth-service .
+# Development
+cp env/.env.development env/.env
+
+# Production (requires real secrets)
+cp env/.env.production env/.env
 ```
 
-### Build Next.js Integration
-```bash
-docker build -f docker/nextjs-integration/Dockerfile -t nextjs-auth-example ./examples/nextjs-integration
-```
+### Key Variables
 
-## Networking
-
-All services use the `auth-network` bridge network for internal communication:
-- Auth service: `http://auth-service:8080`
-- Database: `postgresql://postgres:5432/auth_db`
-- Redis: `redis://redis:6379`
-- Next.js: `http://nextjs-app:3000`
-
-## Volumes
-
-### Development Volumes
-- Source code mounted for hot reload
-- Database data persistence
-- Redis data persistence
-
-### Production Volumes
-- Database data only
-- Log file persistence
-- SSL certificate storage (if configured)
-
-## Health Checks
-
-All services include health checks:
-- Auth service: `GET /health`
-- Database: PostgreSQL connection check
-- Redis: PING command
-- Next.js: Next.js health endpoint
-
-## Monitoring
-
-Monitoring stack is available separately in the `monitoring/` directory:
-```bash
-# Start monitoring with auth service
-docker-compose -f docker/compose/docker-compose.dev.yml -f monitoring/docker-compose.monitoring.yml up
-```
-
-Includes:
-- Prometheus metrics collection
-- Grafana dashboards  
-- Alertmanager notifications
-- Loki log aggregation
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `JWT_SECRET` | JWT signing secret | `dev-secret-key` |
+| `DATABASE_URL` | MongoDB connection | `mongodb://admin:password123@mongodb:27017/auth_service` |
+| `REDIS_URL` | Redis connection | `redis://redis:6379` |
+| `EMAIL_PROVIDER` | Email service | `smtp` |
+| `RUST_LOG` | Logging level | `info` |
 
 ## Troubleshooting
 
+### Service Health Check
+```bash
+./scripts/health-check.sh
+```
+
 ### Common Issues
 
-1. **Port Conflicts**: Ensure ports 3000, 5432, 6379, 8080 are available
-2. **Permission Issues**: Check Docker daemon permissions
-3. **Build Failures**: Verify Rust toolchain in development environment
-4. **Network Issues**: Ensure Docker networks are properly configured
-
-### Debug Commands
+**Services won't start:**
 ```bash
-# Check service logs
-docker-compose -f docker/compose/docker-compose.dev.yml logs auth-service
+# Check Docker status
+docker info
 
-# Inspect running containers
-docker-compose -f docker/compose/docker-compose.dev.yml ps
-
-# Execute commands in running container
-docker-compose -f docker/compose/docker-compose.dev.yml exec auth-service /bin/sh
+# Check port conflicts
+netstat -tulpn | grep :80
+netstat -tulpn | grep :443
 ```
+
+**SSL Certificate Issues:**
+```bash
+# Regenerate certificates
+rm -rf nginx/ssl/*
+./scripts/generate-ssl.sh
+```
+
+**Database Connection Issues:**
+```bash
+# Check MongoDB logs
+docker-compose logs mongodb
+
+# Reset database
+docker-compose down -v
+docker-compose up -d
+```
+
+## Security Notes
+
+### Development
+- Uses self-signed SSL certificates
+- Default passwords for database services
+- Relaxed CORS policies
+- Debug logging enabled
+
+### Production
+- Requires valid SSL certificates
+- Strong passwords and secrets required
+- Strict security headers
+- Rate limiting enabled
+
+## Contributing
+
+When modifying the Docker setup:
+
+1. Test both development and production configurations
+2. Update this README if adding new services  
+3. Ensure security best practices for production
+4. Test SSL certificate generation on different platforms
+5. Verify health checks work correctly

@@ -1,0 +1,163 @@
+version: '3.8'
+
+services:
+  # Production auth service - optimized build
+  auth-service:
+    build:
+      context: ../
+      dockerfile: docker/auth-service/Dockerfile.prod
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    environment:
+      RUST_LOG: warn
+      CARGO_INCREMENTAL: 0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8090/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+  # Production Next.js - static build
+  nextjs-app:
+    build:
+      context: ../examples/nextjs-integration
+      dockerfile: ../../docker/nextjs-integration/Dockerfile.prod
+    environment:
+      NODE_ENV: production
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  # Production Vue.js - static build  
+  vue-app:
+    build:
+      context: ../examples/vue-integration
+      dockerfile: ../../docker/vue-integration/Dockerfile.prod
+    environment:
+      NODE_ENV: production
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  # Production MongoDB with persistence and security
+  mongodb:
+    command: mongod --auth --bind_ip_all --replSet rs0
+    volumes:
+      - mongodb_prod_data:/data/db
+      - ./scripts/mongo-init-replica.js:/docker-entrypoint-initdb.d/mongo-init-replica.js:ro
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
+
+  # Production Redis with persistence and security
+  redis:
+    command: |
+      redis-server 
+      --appendonly yes 
+      --appendfsync everysec
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_prod_data:/data
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # Production Nginx with SSL and security headers
+  nginx:
+    volumes:
+      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl/prod:/etc/nginx/ssl:ro
+      - nginx_cache:/var/cache/nginx
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+
+  # Monitoring and logging (production only)
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: auth-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - auth-network
+    profiles: ["monitoring"]
+
+  grafana:
+    image: grafana/grafana:10.1.0
+    container_name: auth-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./monitoring/grafana-dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+    networks:
+      - auth-network
+    profiles: ["monitoring"]
+
+  # Log aggregation
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: auth-loki
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./monitoring/loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    networks:
+      - auth-network
+    profiles: ["monitoring"]
+
+volumes:
+  mongodb_prod_data:
+    driver: local
+  redis_prod_data:
+    driver: local
+  nginx_cache:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  loki_data:
+    driver: local

@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use chrono::Utc;
+use futures::stream::TryStreamExt;
 use mongodb::{
     bson::{doc, Bson, Document},
     options::{ClientOptions, IndexOptions},
@@ -571,6 +572,135 @@ impl AuthDatabase for MongoDatabase {
             .await
             .context("Failed to initialize database indexes")?;
         Ok(())
+    }
+
+    // Admin dashboard methods
+    async fn count_users(&self) -> Result<u64, UserError> {
+        match self.users.count_documents(doc! {}).await {
+            Ok(count) => Ok(count),
+            Err(e) => Err(UserError::Database(format!("Failed to count users: {e}"))),
+        }
+    }
+
+    async fn count_verified_users(&self) -> Result<u64, UserError> {
+        let filter = doc! { "email_verified": true };
+        match self.users.count_documents(filter).await {
+            Ok(count) => Ok(count),
+            Err(e) => Err(UserError::Database(format!("Failed to count verified users: {e}"))),
+        }
+    }
+
+    async fn count_active_users(&self) -> Result<u64, UserError> {
+        // Consider users active if they logged in within the last 30 days
+        let thirty_days_ago = Utc::now() - chrono::Duration::days(30);
+        let filter = doc! { 
+            "last_login": { "$gte": mongodb::bson::DateTime::from_system_time(thirty_days_ago.into()) },
+            "is_active": true 
+        };
+        match self.users.count_documents(filter).await {
+            Ok(count) => Ok(count),
+            Err(e) => Err(UserError::Database(format!("Failed to count active users: {e}"))),
+        }
+    }
+
+    async fn count_admin_users(&self) -> Result<u64, UserError> {
+        let filter = doc! { "role": "admin" };
+        match self.users.count_documents(filter).await {
+            Ok(count) => Ok(count),
+            Err(e) => Err(UserError::Database(format!("Failed to count admin users: {e}"))),
+        }
+    }
+
+    async fn list_users(&self, page: u32, limit: u32) -> Result<Vec<User>, UserError> {
+        let skip = ((page - 1) * limit) as u64;
+        let find_options = mongodb::options::FindOptions::builder()
+            .skip(skip)
+            .limit(limit as i64)
+            .sort(doc! { "created_at": -1 })
+            .build();
+
+        match self.users.find(doc! {}).with_options(find_options).await {
+            Ok(cursor) => {
+                match cursor.try_collect().await {
+                    Ok(users) => Ok(users),
+                    Err(e) => Err(UserError::Database(format!("Failed to collect users: {e}"))),
+                }
+            }
+            Err(e) => Err(UserError::Database(format!("Failed to list users: {e}"))),
+        }
+    }
+
+    async fn search_users(&self, query: &str, page: u32, limit: u32) -> Result<Vec<User>, UserError> {
+        let skip = ((page - 1) * limit) as u64;
+        let find_options = mongodb::options::FindOptions::builder()
+            .skip(skip)
+            .limit(limit as i64)
+            .sort(doc! { "created_at": -1 })
+            .build();
+
+        // Search in email, first_name, and last_name fields
+        let filter = doc! {
+            "$or": [
+                { "email": { "$regex": query, "$options": "i" } },
+                { "first_name": { "$regex": query, "$options": "i" } },
+                { "last_name": { "$regex": query, "$options": "i" } }
+            ]
+        };
+
+        match self.users.find(filter).with_options(find_options).await {
+            Ok(cursor) => {
+                match cursor.try_collect().await {
+                    Ok(users) => Ok(users),
+                    Err(e) => Err(UserError::Database(format!("Failed to collect search results: {e}"))),
+                }
+            }
+            Err(e) => Err(UserError::Database(format!("Failed to search users: {e}"))),
+        }
+    }
+
+    async fn get_user_for_admin(&self, user_id: &str) -> Result<Option<User>, UserError> {
+        self.find_user_by_id(user_id).await
+    }
+
+    async fn update_user_role(&self, user_id: &str, role: &str) -> Result<(), UserError> {
+        let filter = doc! { "user_id": user_id };
+        let update = Self::create_update_doc(doc! {
+            "role": role
+        });
+
+        self.update_user_by_filter(filter, update, "update user role")
+            .await
+    }
+
+    async fn set_user_lock_status(&self, user_id: &str, locked: bool) -> Result<(), UserError> {
+        let filter = doc! { "user_id": user_id };
+        let update = if locked {
+            let lock_until = Utc::now() + chrono::Duration::hours(24);
+            Self::create_update_doc(doc! {
+                "is_locked": true,
+                "locked_until": mongodb::bson::DateTime::from_system_time(lock_until.into())
+            })
+        } else {
+            Self::create_update_doc(doc! {
+                "is_locked": false,
+                "locked_until": Bson::Null
+            })
+        };
+
+        self.update_user_by_filter(filter, update, "update user lock status")
+            .await
+    }
+
+    async fn admin_verify_email(&self, user_id: &str) -> Result<(), UserError> {
+        let filter = doc! { "user_id": user_id };
+        let update = Self::create_update_doc(doc! {
+            "email_verified": true,
+            "email_verification_token": Bson::Null,
+            "email_verification_expires": Bson::Null
+        });
+
+        self.update_user_by_filter(filter, update, "admin verify email")
+            .await
     }
 }
 

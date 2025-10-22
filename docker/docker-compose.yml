@@ -1,0 +1,204 @@
+version: '3.8'
+
+x-common-environment: &common-env
+  RUST_LOG: info
+  JWT_SECRET: ${JWT_SECRET:-dev-secret-key-change-in-production}
+  EMAIL_PROVIDER: ${EMAIL_PROVIDER:-smtp}
+  
+services:
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: auth-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./nginx/templates:/etc/nginx/templates:ro
+    depends_on:
+      - auth-service
+      - nextjs-app
+      - vue-app
+    networks:
+      - auth-network
+    restart: unless-stopped
+
+  # Rust Authentication Service
+  auth-service:
+    build:
+      context: ../
+      dockerfile: docker/auth-service/Dockerfile
+    container_name: auth-service
+    environment:
+      <<: *common-env
+      DATABASE_URL: ${DATABASE_URL:-mongodb://admin:password123@mongodb:27017/auth_service?authSource=admin}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      SMTP_HOST: ${SMTP_HOST:-mailhog}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mailhog:
+        condition: service_started
+    volumes:
+      - auth_logs:/app/logs
+    networks:
+      - auth-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8090/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Next.js Frontend Example
+  nextjs-app:
+    build:
+      context: ../examples/nextjs-integration
+      dockerfile: ../../docker/nextjs-integration/Dockerfile
+    container_name: nextjs-app
+    environment:
+      - NEXT_PUBLIC_API_URL=https://localhost/api
+      - NODE_ENV=development
+    volumes:
+      - ../examples/nextjs-integration:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - auth-network
+    restart: unless-stopped
+
+  # Vue.js Frontend Example
+  vue-app:
+    build:
+      context: ../examples/vue-integration
+      dockerfile: ../../docker/vue-integration/Dockerfile
+    container_name: vue-app
+    environment:
+      - VITE_API_URL=https://localhost/api
+      - NODE_ENV=development
+    volumes:
+      - ../examples/vue-integration:/app
+      - /app/node_modules
+      - /app/dist
+    networks:
+      - auth-network
+    restart: unless-stopped
+
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    container_name: auth-mongodb
+    ports:
+      - "${MONGODB_PORT:-27017}:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-password123}
+      MONGO_INITDB_DATABASE: ${MONGO_DATABASE:-auth_service}
+    volumes:
+      - mongodb_data:/data/db
+      - ./scripts/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    networks:
+      - auth-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Redis Cache
+  redis:
+    image: redis:7.2-alpine
+    container_name: auth-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis_password}
+    volumes:
+      - redis_data:/data
+    networks:
+      - auth-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "auth", "${REDIS_PASSWORD:-redis_password}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # MailHog Email Testing
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: auth-mailhog
+    ports:
+      - "${MAILHOG_SMTP_PORT:-1025}:1025"
+      - "${MAILHOG_WEB_PORT:-8025}:8025"
+    networks:
+      - auth-network
+    restart: unless-stopped
+    environment:
+      MH_STORAGE: memory
+
+  # MongoDB Express Admin UI
+  mongo-express:
+    image: mongo-express:1.0.2-20
+    container_name: auth-mongo-express
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGO_USERNAME:-admin}
+      ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGO_PASSWORD:-password123}
+      ME_CONFIG_MONGODB_URL: mongodb://${MONGO_USERNAME:-admin}:${MONGO_PASSWORD:-password123}@mongodb:27017/
+      ME_CONFIG_BASICAUTH_USERNAME: ${MONGO_EXPRESS_USER:-admin}
+      ME_CONFIG_BASICAUTH_PASSWORD: ${MONGO_EXPRESS_PASS:-admin}
+    depends_on:
+      - mongodb
+    networks:
+      - auth-network
+    restart: unless-stopped
+    profiles: ["admin"]
+
+  # Redis Insight Admin UI
+  redis-insight:
+    image: redislabs/redisinsight:2.38
+    container_name: auth-redis-insight
+    volumes:
+      - redis_insight_data:/data
+    networks:
+      - auth-network
+    restart: unless-stopped
+    profiles: ["admin"]
+
+  # Swagger UI for API Documentation
+  swagger-ui:
+    image: swaggerapi/swagger-ui:v5.10.3
+    container_name: auth-swagger-ui
+    environment:
+      SWAGGER_JSON: /api-docs/openapi.yaml
+      BASE_URL: /docs
+    volumes:
+      - ../docs/api:/api-docs:ro
+    networks:
+      - auth-network
+    restart: unless-stopped
+    profiles: ["docs"]
+
+volumes:
+  mongodb_data:
+    driver: local
+  redis_data:
+    driver: local
+  redis_insight_data:
+    driver: local
+  auth_logs:
+    driver: local
+
+networks:
+  auth-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

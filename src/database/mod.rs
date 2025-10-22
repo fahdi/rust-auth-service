@@ -109,6 +109,37 @@ pub trait AuthDatabase: Send + Sync {
 
     /// Initialize database (create indexes, etc.)
     async fn initialize(&self) -> Result<()>;
+
+    // Admin dashboard methods
+    /// Count total number of users
+    async fn count_users(&self) -> Result<u64, UserError>;
+
+    /// Count verified users
+    async fn count_verified_users(&self) -> Result<u64, UserError>;
+
+    /// Count active users (recent activity)
+    async fn count_active_users(&self) -> Result<u64, UserError>;
+
+    /// Count admin users
+    async fn count_admin_users(&self) -> Result<u64, UserError>;
+
+    /// List users with pagination
+    async fn list_users(&self, page: u32, limit: u32) -> Result<Vec<User>, UserError>;
+
+    /// Search users by email or name
+    async fn search_users(&self, query: &str, page: u32, limit: u32) -> Result<Vec<User>, UserError>;
+
+    /// Get user by ID for admin purposes
+    async fn get_user_for_admin(&self, user_id: &str) -> Result<Option<User>, UserError>;
+
+    /// Update user role (admin operation)
+    async fn update_user_role(&self, user_id: &str, role: &str) -> Result<(), UserError>;
+
+    /// Lock/unlock user account
+    async fn set_user_lock_status(&self, user_id: &str, locked: bool) -> Result<(), UserError>;
+
+    /// Force verify user email (admin operation)
+    async fn admin_verify_email(&self, user_id: &str) -> Result<(), UserError>;
 }
 
 /// Create database instance based on configuration
