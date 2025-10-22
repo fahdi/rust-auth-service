@@ -1,11 +1,14 @@
 [package]
 name = "rust-auth-service"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
-authors = ["Your Name <your.email@example.com>"]
-description = "270x faster authentication service - production-ready out of the box"
+authors = ["Rust Auth Service Contributors"]
+description = "Production-ready authentication microservice built with Rust - 270x faster than Node.js equivalents"
 license = "MIT"
-repository = "https://github.com/your-org/rust-auth-service"
+repository = "https://github.com/fahdi/rust-auth-service"
+homepage = "https://github.com/fahdi/rust-auth-service"
+documentation = "https://github.com/fahdi/rust-auth-service/tree/main/docs"
+readme = "README.md"
 keywords = ["auth", "authentication", "jwt", "microservice", "rust"]
 categories = ["authentication", "web-programming::http-server"]
 
