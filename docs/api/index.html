@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rust Auth Service API Documentation</title>
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5.10.5/swagger-ui.css" />
+    <style>
+        html {
+            box-sizing: border-box;
+            overflow: -moz-scrollbars-vertical;
+            overflow-y: scroll;
+        }
+        
+        *, *:before, *:after {
+            box-sizing: inherit;
+        }
+        
+        body {
+            margin: 0;
+            background: #fafafa;
+        }
+        
+        .swagger-ui .topbar {
+            background-color: #1f2937;
+        }
+        
+        .swagger-ui .topbar .download-url-wrapper .download-url-button {
+            background-color: #3b82f6;
+        }
+        
+        .custom-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem 0;
+            text-align: center;
+            margin-bottom: 0;
+        }
+        
+        .custom-header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            font-weight: 300;
+        }
+        
+        .custom-header p {
+            margin: 0.5rem 0 0 0;
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .features {
+            background: white;
+            padding: 2rem;
+            margin: 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .features-grid {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+        
+        .feature {
+            text-align: center;
+        }
+        
+        .feature h3 {
+            color: #1f2937;
+            margin-bottom: 0.5rem;
+        }
+        
+        .feature p {
+            color: #6b7280;
+            line-height: 1.6;
+        }
+        
+        .highlight {
+            background: #f3f4f6;
+            padding: 1rem;
+            border-radius: 8px;
+            border-left: 4px solid #3b82f6;
+            margin: 1rem 0;
+        }
+        
+        .swagger-container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        @media (max-width: 768px) {
+            .custom-header h1 {
+                font-size: 2rem;
+            }
+            
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="custom-header">
+        <h1>🦀 Rust Auth Service API</h1>
+        <p>High-Performance Authentication Microservice - 270x Faster Than Node.js</p>
+    </div>
+    
+    <div class="features">
+        <div class="features-grid">
+            <div class="feature">
+                <h3>⚡ Ultra Fast</h3>
+                <p>Built in Rust for maximum performance. Sub-100ms authentication responses with 1000+ RPS capability.</p>
+            </div>
+            <div class="feature">
+                <h3>🔒 Enterprise Security</h3>
+                <p>JWT tokens, bcrypt hashing, rate limiting, brute force protection, and comprehensive security features.</p>
+            </div>
+            <div class="feature">
+                <h3>🗄️ Multi-Database</h3>
+                <p>Support for MongoDB, PostgreSQL, and MySQL with Redis caching and connection pooling.</p>
+            </div>
+            <div class="feature">
+                <h3>📧 Email Integration</h3>
+                <p>Email verification and password reset with multiple providers (Brevo, SendGrid, SMTP).</p>
+            </div>
+            <div class="feature">
+                <h3>👑 Admin Dashboard</h3>
+                <p>Web-based admin interface for user management, system monitoring, and analytics.</p>
+            </div>
+            <div class="feature">
+                <h3>🐳 Production Ready</h3>
+                <p>Docker containers, Kubernetes manifests, monitoring, and comprehensive deployment guides.</p>
+            </div>
+        </div>
+        
+        <div class="highlight">
+            <strong>Quick Start:</strong> Get started with our Docker environment in under 2 minutes! 
+            Check out the <a href="https://github.com/fahdi/rust-auth-service/tree/main/docker" target="_blank">Docker setup guide</a> 
+            for one-command deployment.
+        </div>
+    </div>
+    
+    <div class="swagger-container">
+        <div id="swagger-ui"></div>
+    </div>
+    
+    <script src="https://unpkg.com/swagger-ui-dist@5.10.5/swagger-ui-bundle.js"></script>
+    <script src="https://unpkg.com/swagger-ui-dist@5.10.5/swagger-ui-standalone-preset.js"></script>
+    <script>
+        window.onload = function() {
+            // Begin Swagger UI call region
+            const ui = SwaggerUIBundle({
+                url: './openapi.yaml',
+                dom_id: '#swagger-ui',
+                deepLinking: true,
+                presets: [
+                    SwaggerUIBundle.presets.apis,
+                    SwaggerUIStandalonePreset
+                ],
+                plugins: [
+                    SwaggerUIBundle.plugins.DownloadUrl
+                ],
+                layout: "StandaloneLayout",
+                tryItOutEnabled: true,
+                requestInterceptor: function(request) {
+                    // Add custom headers or modify requests here
+                    console.log('Request:', request);
+                    return request;
+                },
+                responseInterceptor: function(response) {
+                    // Handle responses here
+                    console.log('Response:', response);
+                    return response;
+                },
+                onComplete: function() {
+                    console.log('Swagger UI loaded successfully');
+                },
+                onFailure: function(error) {
+                    console.error('Failed to load Swagger UI:', error);
+                },
+                docExpansion: "list",
+                apisSorter: "alpha",
+                operationsSorter: "alpha",
+                tagsSorter: "alpha",
+                filter: true,
+                showExtensions: true,
+                showCommonExtensions: true,
+                defaultModelsExpandDepth: 1,
+                defaultModelExpandDepth: 1,
+                displayOperationId: false,
+                displayRequestDuration: true,
+                validatorUrl: null,
+                supportedSubmitMethods: ['get', 'post', 'put', 'delete', 'patch'],
+                oauth2RedirectUrl: window.location.origin + '/oauth2-redirect.html'
+            });
+            // End Swagger UI call region
+            
+            // Custom styling
+            setTimeout(function() {
+                // Hide the Swagger logo
+                const logo = document.querySelector('.swagger-ui .topbar-wrapper img');
+                if (logo) {
+                    logo.style.display = 'none';
+                }
+                
+                // Add custom title to topbar
+                const topbar = document.querySelector('.swagger-ui .topbar .download-url-wrapper');
+                if (topbar) {
+                    const title = document.createElement('span');
+                    title.innerHTML = 'Rust Auth Service API';
+                    title.style.color = 'white';
+                    title.style.fontSize = '1.2rem';
+                    title.style.fontWeight = 'bold';
+                    title.style.marginRight = '1rem';
+                    topbar.parentNode.insertBefore(title, topbar);
+                }
+            }, 1000);
+        };
+    </script>
+</body>
+</html>

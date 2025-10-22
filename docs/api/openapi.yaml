@@ -1,0 +1,1233 @@
+openapi: 3.0.3
+info:
+  title: Rust Auth Service API
+  description: |
+    A high-performance, production-ready authentication microservice built in Rust.
+    
+    ## Features
+    - **270x faster** than Node.js equivalents
+    - JWT-based authentication with refresh tokens
+    - Email verification and password reset flows
+    - Role-based access control (RBAC)
+    - Admin dashboard for user management
+    - Multiple database support (MongoDB, PostgreSQL, MySQL)
+    - Redis caching with multi-level fallback
+    - Comprehensive security features
+    - Docker-ready with production deployment guides
+    
+    ## Authentication
+    Most endpoints require a valid JWT token in the Authorization header:
+    ```
+    Authorization: Bearer <your-jwt-token>
+    ```
+    
+    ## Rate Limiting
+    All endpoints are rate limited to prevent abuse. Default limits:
+    - Authentication endpoints: 5 requests per minute
+    - General endpoints: 100 requests per minute
+    - Admin endpoints: 50 requests per minute
+    
+  version: 1.0.0
+  contact:
+    name: Rust Auth Service
+    url: https://github.com/fahdi/rust-auth-service
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8090
+    description: Local development server
+  - url: https://localhost
+    description: Docker development environment (with SSL)
+
+paths:
+  # Health and System Endpoints
+  /health:
+    get:
+      tags:
+        - System
+      summary: Health check endpoint
+      description: Returns the health status of the service and its dependencies
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /ready:
+    get:
+      tags:
+        - System
+      summary: Readiness check
+      description: Returns whether the service is ready to accept requests
+      responses:
+        '200':
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadyResponse'
+
+  /live:
+    get:
+      tags:
+        - System
+      summary: Liveness check
+      description: Returns whether the service is alive
+      responses:
+        '200':
+          description: Service is alive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LiveResponse'
+
+  /metrics:
+    get:
+      tags:
+        - System
+      summary: Prometheus metrics
+      description: Returns Prometheus-compatible metrics for monitoring
+      responses:
+        '200':
+          description: Metrics data
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: |
+                  # HELP http_requests_total Total number of HTTP requests
+                  # TYPE http_requests_total counter
+                  http_requests_total{method="GET",status="200"} 1234
+
+  /stats:
+    get:
+      tags:
+        - System
+      summary: Service statistics
+      description: Returns basic service statistics and performance metrics
+      responses:
+        '200':
+          description: Service statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatsResponse'
+
+  # Authentication Endpoints
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new user
+      description: |
+        Creates a new user account and sends an email verification link.
+        
+        **Password Requirements:**
+        - Minimum 8 characters
+        - Must contain at least one uppercase letter
+        - Must contain at least one lowercase letter
+        - Must contain at least one number
+        - Must contain at least one special character
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Invalid input or validation errors
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: User already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Authenticate user
+      description: |
+        Authenticates a user with email and password, returning JWT access and refresh tokens.
+        
+        **Features:**
+        - Brute force protection with account locking
+        - Login attempt tracking
+        - Automatic token refresh capability
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '423':
+          description: Account locked due to too many failed attempts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/verify:
+    post:
+      tags:
+        - Authentication
+      summary: Verify email address
+      description: |
+        Verifies a user's email address using the verification token sent during registration.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailVerificationRequest'
+      responses:
+        '200':
+          description: Email verified successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Invalid or expired verification token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/forgot-password:
+    post:
+      tags:
+        - Authentication
+      summary: Request password reset
+      description: |
+        Initiates a password reset flow by sending a reset link to the user's email.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+      responses:
+        '200':
+          description: Password reset email sent (always returns 200 for security)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/reset-password:
+    post:
+      tags:
+        - Authentication
+      summary: Reset password
+      description: |
+        Resets a user's password using the reset token from the email.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordChangeRequest'
+      responses:
+        '200':
+          description: Password reset successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Invalid or expired reset token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token
+      description: |
+        Generates a new access token using a valid refresh token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid or expired refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Protected User Endpoints
+  /auth/me:
+    get:
+      tags:
+        - User Profile
+      summary: Get current user profile
+      description: Returns the profile information of the authenticated user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/profile:
+    put:
+      tags:
+        - User Profile
+      summary: Update user profile
+      description: Updates the profile information of the authenticated user
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Invalid input or validation errors
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Logout user
+      description: |
+        Logs out the user by invalidating their access and refresh tokens.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Admin Dashboard Endpoints
+  /admin:
+    get:
+      tags:
+        - Admin Dashboard
+      summary: Admin dashboard HTML
+      description: Returns the admin dashboard web interface
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Admin dashboard HTML page
+          content:
+            text/html:
+              schema:
+                type: string
+        '403':
+          description: Access denied - admin role required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/api/stats:
+    get:
+      tags:
+        - Admin API
+      summary: Dashboard statistics
+      description: Returns comprehensive dashboard statistics for admin monitoring
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Dashboard statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardStats'
+        '403':
+          description: Access denied - admin role required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/api/users:
+    get:
+      tags:
+        - Admin API
+      summary: List users
+      description: Returns a paginated list of users with optional search and filtering
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Page number (1-based)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Number of items per page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: search
+          in: query
+          description: Search term to filter users by email or name
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Users retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedUsersResponse'
+        '403':
+          description: Access denied - admin role required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/api/users/search:
+    get:
+      tags:
+        - Admin API
+      summary: Search users
+      description: Search users by email, first name, or last name
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          description: Search term
+          required: true
+          schema:
+            type: string
+            minLength: 1
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedUsersResponse'
+
+  /admin/api/users/{user_id}:
+    get:
+      tags:
+        - Admin API
+      summary: Get user details
+      description: Returns detailed information about a specific user
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: User ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserManagement'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Access denied - admin role required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/api/users/{user_id}/action:
+    post:
+      tags:
+        - Admin API
+      summary: Perform admin action on user
+      description: |
+        Performs administrative actions on a user account.
+        
+        **Available Actions:**
+        - `activate`: Unlock and activate user account
+        - `deactivate`: Deactivate user account
+        - `verify_email`: Force verify user email
+        - `unlock_account`: Unlock locked account
+        - `lock_account`: Lock user account
+        - `change_role`: Change user role (requires role parameter)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: User ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminActionRequest'
+      responses:
+        '200':
+          description: Action performed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminActionResponse'
+        '400':
+          description: Invalid action or parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Access denied - admin role required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/api/users/export:
+    get:
+      tags:
+        - Admin API
+      summary: Export users data
+      description: Export users data in CSV format
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Users data exported successfully
+          content:
+            text/csv:
+              schema:
+                type: string
+        '403':
+          description: Access denied - admin role required
+
+  /admin/api/metrics:
+    get:
+      tags:
+        - Admin API
+      summary: System metrics
+      description: Returns system performance metrics for admin monitoring
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: System metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemMetrics'
+
+  /admin/api/metrics/realtime:
+    get:
+      tags:
+        - Admin API
+      summary: Real-time metrics
+      description: Returns real-time system metrics
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Real-time metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RealTimeMetrics'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT token obtained from login endpoint.
+        Include the token in the Authorization header as: `Bearer <token>`
+
+  schemas:
+    # Request/Response Models
+    CreateUserRequest:
+      type: object
+      required:
+        - email
+        - password
+        - first_name
+        - last_name
+      properties:
+        email:
+          type: string
+          format: email
+          description: User's email address (must be unique)
+          example: "user@example.com"
+        password:
+          type: string
+          minLength: 8
+          description: User's password (minimum 8 characters with complexity requirements)
+          example: "SecurePass123!"
+        first_name:
+          type: string
+          minLength: 2
+          maxLength: 50
+          description: User's first name
+          example: "John"
+        last_name:
+          type: string
+          minLength: 2
+          maxLength: 50
+          description: User's last name
+          example: "Doe"
+        role:
+          $ref: '#/components/schemas/UserRole'
+        metadata:
+          $ref: '#/components/schemas/UserMetadata'
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          description: User's email address
+          example: "user@example.com"
+        password:
+          type: string
+          description: User's password
+          example: "SecurePass123!"
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          description: New email address
+        first_name:
+          type: string
+          minLength: 2
+          maxLength: 50
+          description: New first name
+        last_name:
+          type: string
+          minLength: 2
+          maxLength: 50
+          description: New last name
+        role:
+          $ref: '#/components/schemas/UserRole'
+        is_active:
+          type: boolean
+          description: Account active status
+        metadata:
+          $ref: '#/components/schemas/UserMetadata'
+
+    PasswordResetRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email address for password reset
+          example: "user@example.com"
+
+    PasswordChangeRequest:
+      type: object
+      required:
+        - token
+        - new_password
+      properties:
+        token:
+          type: string
+          description: Password reset token from email
+          example: "eyJhbGciOiJIUzI1NiIs..."
+        new_password:
+          type: string
+          minLength: 8
+          description: New password
+          example: "NewSecurePass123!"
+
+    EmailVerificationRequest:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          description: Email verification token
+          example: "verification_token_abc123"
+
+    RefreshTokenRequest:
+      type: object
+      required:
+        - refresh_token
+      properties:
+        refresh_token:
+          type: string
+          description: Refresh token obtained from login
+          example: "eyJhbGciOiJIUzI1NiIs..."
+
+    AdminActionRequest:
+      type: object
+      required:
+        - action
+      properties:
+        action:
+          type: string
+          enum: [activate, deactivate, verify_email, unlock_account, lock_account, change_role]
+          description: Admin action to perform
+          example: "activate"
+        parameters:
+          type: object
+          description: Additional parameters for the action
+          properties:
+            role:
+              type: string
+              description: New role (required for change_role action)
+              example: "admin"
+          example:
+            role: "admin"
+
+    # Response Models
+    AuthResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: JWT access token
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        refresh_token:
+          type: string
+          description: JWT refresh token
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        token_type:
+          type: string
+          description: Token type
+          example: "Bearer"
+        expires_in:
+          type: integer
+          description: Token expiration time in seconds
+          example: 3600
+        user:
+          $ref: '#/components/schemas/UserResponse'
+
+    UserResponse:
+      type: object
+      properties:
+        user_id:
+          type: string
+          description: Unique user identifier
+          example: "usr_123456789"
+        email:
+          type: string
+          format: email
+          description: User's email address
+          example: "user@example.com"
+        first_name:
+          type: string
+          description: User's first name
+          example: "John"
+        last_name:
+          type: string
+          description: User's last name
+          example: "Doe"
+        role:
+          $ref: '#/components/schemas/UserRole'
+        is_active:
+          type: boolean
+          description: Account active status
+          example: true
+        email_verified:
+          type: boolean
+          description: Email verification status
+          example: true
+        last_login:
+          type: string
+          format: date-time
+          description: Last login timestamp
+          example: "2025-01-15T10:30:00Z"
+        created_at:
+          type: string
+          format: date-time
+          description: Account creation timestamp
+          example: "2025-01-01T08:00:00Z"
+        metadata:
+          $ref: '#/components/schemas/UserMetadata'
+
+    UserManagement:
+      type: object
+      properties:
+        user_id:
+          type: string
+          example: "usr_123456789"
+        email:
+          type: string
+          example: "user@example.com"
+        full_name:
+          type: string
+          example: "John Doe"
+        role:
+          type: string
+          example: "user"
+        is_active:
+          type: boolean
+          example: true
+        email_verified:
+          type: boolean
+          example: true
+        last_login:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-01-15T10:30:00Z"
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-01-01T08:00:00Z"
+        failed_attempts:
+          type: integer
+          example: 0
+        is_locked:
+          type: boolean
+          example: false
+
+    PaginatedUsersResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserManagement'
+        pagination:
+          $ref: '#/components/schemas/PaginationInfo'
+
+    PaginationInfo:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 150
+        total_pages:
+          type: integer
+          example: 8
+        has_next:
+          type: boolean
+          example: true
+        has_prev:
+          type: boolean
+          example: false
+
+    AdminActionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "User activated successfully"
+        user_data:
+          nullable: true
+          description: Updated user data if applicable
+
+    DashboardStats:
+      type: object
+      properties:
+        total_users:
+          type: integer
+          description: Total number of registered users
+          example: 1250
+        active_users:
+          type: integer
+          description: Number of active users (last 30 days)
+          example: 890
+        verified_users:
+          type: integer
+          description: Number of email-verified users
+          example: 1100
+        admin_users:
+          type: integer
+          description: Number of admin users
+          example: 5
+        auth_attempts_24h:
+          type: integer
+          description: Authentication attempts in last 24 hours
+          example: 3450
+        success_rate:
+          type: number
+          format: float
+          description: Authentication success rate percentage
+          example: 94.5
+        active_sessions:
+          type: integer
+          description: Number of active user sessions
+          example: 234
+        database_healthy:
+          type: boolean
+          description: Database health status
+          example: true
+        cache_healthy:
+          type: boolean
+          description: Cache system health status
+          example: true
+        uptime_seconds:
+          type: integer
+          description: Service uptime in seconds
+          example: 86400
+
+    SystemMetrics:
+      type: object
+      properties:
+        cpu_usage:
+          type: number
+          format: float
+          description: CPU usage percentage
+          example: 15.2
+        memory_usage:
+          type: number
+          format: float
+          description: Memory usage percentage
+          example: 34.7
+        disk_usage:
+          type: number
+          format: float
+          description: Disk usage percentage
+          example: 67.3
+        network_in:
+          type: integer
+          description: Network bytes in
+          example: 1024000
+        network_out:
+          type: integer
+          description: Network bytes out
+          example: 2048000
+
+    RealTimeMetrics:
+      type: object
+      properties:
+        requests_per_second:
+          type: number
+          format: float
+          example: 125.5
+        response_time_avg:
+          type: number
+          format: float
+          description: Average response time in milliseconds
+          example: 45.2
+        error_rate:
+          type: number
+          format: float
+          description: Error rate percentage
+          example: 0.1
+        active_connections:
+          type: integer
+          example: 89
+        timestamp:
+          type: string
+          format: date-time
+          example: "2025-01-15T10:30:00Z"
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+          example: "healthy"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2025-01-15T10:30:00Z"
+        version:
+          type: string
+          example: "1.0.0"
+        dependencies:
+          type: object
+          properties:
+            database:
+              $ref: '#/components/schemas/DependencyHealth'
+            cache:
+              $ref: '#/components/schemas/DependencyHealth'
+            email:
+              $ref: '#/components/schemas/DependencyHealth'
+
+    DependencyHealth:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+          example: "healthy"
+        response_time_ms:
+          type: integer
+          example: 12
+        details:
+          type: string
+          example: "Connected to MongoDB"
+
+    ReadyResponse:
+      type: object
+      properties:
+        ready:
+          type: boolean
+          example: true
+        timestamp:
+          type: string
+          format: date-time
+          example: "2025-01-15T10:30:00Z"
+
+    LiveResponse:
+      type: object
+      properties:
+        alive:
+          type: boolean
+          example: true
+        timestamp:
+          type: string
+          format: date-time
+          example: "2025-01-15T10:30:00Z"
+
+    StatsResponse:
+      type: object
+      properties:
+        uptime_seconds:
+          type: integer
+          example: 86400
+        requests_total:
+          type: integer
+          example: 50000
+        requests_per_second:
+          type: number
+          format: float
+          example: 125.5
+        memory_usage_bytes:
+          type: integer
+          example: 134217728
+        active_connections:
+          type: integer
+          example: 89
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Operation completed successfully"
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error type
+          example: "ValidationError"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "Invalid email format"
+        details:
+          type: object
+          description: Additional error details
+          nullable: true
+
+    # Enum and Common Types
+    UserRole:
+      type: string
+      enum: [user, admin, moderator, guest]
+      default: user
+      description: User role for access control
+      example: "user"
+
+    UserMetadata:
+      type: object
+      properties:
+        ip_address:
+          type: string
+          description: User's IP address
+          example: "192.168.1.1"
+        user_agent:
+          type: string
+          description: User's browser/client information
+          example: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        registration_source:
+          type: string
+          description: Source of user registration
+          example: "web"
+        timezone:
+          type: string
+          description: User's timezone
+          example: "America/New_York"
+        locale:
+          type: string
+          description: User's locale preference
+          example: "en-US"
+        preferences:
+          type: object
+          description: User preferences as JSON object
+          example:
+            theme: "dark"
+            notifications: true
+
+tags:
+  - name: System
+    description: Health checks, metrics, and system information
+  - name: Authentication
+    description: User registration, login, and token management
+  - name: User Profile
+    description: User profile management for authenticated users
+  - name: Admin Dashboard
+    description: Administrative interface (admin role required)
+  - name: Admin API
+    description: Administrative API endpoints (admin role required)
+
+externalDocs:
+  description: Find more information about the Rust Auth Service
+  url: https://github.com/fahdi/rust-auth-service
