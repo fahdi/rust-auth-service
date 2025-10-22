@@ -1,3 +1,5 @@
+#![allow(unused_imports)]
+
 pub mod auth_flow;
 pub mod cache_invalidation_tests;
 pub mod cache_memory_tests;

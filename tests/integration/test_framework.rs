@@ -4,6 +4,8 @@
 //! Provides service management, test containers, mocking capabilities, and
 //! standardized test utilities for reliable end-to-end testing.
 
+#![allow(unused_imports)]
+
 use anyhow::Result;
 use serde_json::{json, Value};
 use std::process::{Child, Command, Stdio};
