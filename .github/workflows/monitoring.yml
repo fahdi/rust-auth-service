@@ -1,11 +1,7 @@
 name: Monitoring & Alerting
 
 on:
-  push:
-    branches: [ main, develop ]
-  schedule:
-    # Run monitoring checks every 6 hours
-    - cron: '0 */6 * * *'
+  # Only run on manual trigger or when explicitly requested
   workflow_dispatch:
     inputs:
       environment:
@@ -17,6 +13,14 @@ on:
           - staging
           - production
           - both
+      staging_url:
+        description: 'Staging environment URL'
+        required: false
+        default: 'https://auth-staging.yourdomain.com'
+      production_url:
+        description: 'Production environment URL'
+        required: false
+        default: 'https://auth.yourdomain.com'
 
 env:
   CARGO_TERM_COLOR: always

@@ -1,18 +1,10 @@
 name: Performance Testing and Benchmarks
 
 on:
-  # Run on all PRs to detect performance regressions
+  # Only run on PRs with [perf] tag or manual trigger
   pull_request:
     branches: [ main ]
     paths:
-      - 'rust-auth-service/**'
-      - '.github/workflows/performance-testing.yml'
-  
-  # Run on main branch pushes to establish baselines
-  push:
-    branches: [ main ]
-    paths:
-      - 'rust-auth-service/**'
       - '.github/workflows/performance-testing.yml'
   
   # Allow manual triggering for performance analysis
@@ -28,6 +20,15 @@ on:
           - 'endpoints'
           - 'database'
           - 'cache'
+      environment:
+        description: 'Environment to test (local CI setup)'
+        required: false
+        default: 'ci'
+        type: choice
+        options:
+          - 'ci'
+          - 'staging'
+          - 'production'
           - 'load'
           - 'regression'
       
