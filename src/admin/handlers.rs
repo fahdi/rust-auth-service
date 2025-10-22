@@ -77,10 +77,10 @@ pub async fn get_dashboard_stats(
     let cache_healthy = true; // Could be implemented with a simple Redis ping
 
     // Calculate success rate (simplified implementation)
-    let success_rate = if total_users > 0 { 
-        (verified_users as f64 / total_users as f64) * 100.0 
-    } else { 
-        0.0 
+    let success_rate = if total_users > 0 {
+        (verified_users as f64 / total_users as f64) * 100.0
+    } else {
+        0.0
     };
 
     let stats = DashboardStats {
@@ -163,21 +163,24 @@ pub async fn list_users(
     };
 
     // Convert to UserManagement format
-    let users: Vec<UserManagement> = db_users.into_iter().map(|user| {
-        let is_locked = user.is_locked();
-        UserManagement {
-            user_id: user.user_id,
-            email: user.email,
-            full_name: format!("{} {}", user.first_name, user.last_name),
-            role: user.role.to_string(),
-            is_active: user.is_active,
-            email_verified: user.email_verified,
-            last_login: user.last_login.map(|dt| dt.to_rfc3339()),
-            created_at: user.created_at.to_rfc3339(),
-            failed_attempts: user.login_attempts,
-            is_locked,
-        }
-    }).collect();
+    let users: Vec<UserManagement> = db_users
+        .into_iter()
+        .map(|user| {
+            let is_locked = user.is_locked();
+            UserManagement {
+                user_id: user.user_id,
+                email: user.email,
+                full_name: format!("{} {}", user.first_name, user.last_name),
+                role: user.role.to_string(),
+                is_active: user.is_active,
+                email_verified: user.email_verified,
+                last_login: user.last_login.map(|dt| dt.to_rfc3339()),
+                created_at: user.created_at.to_rfc3339(),
+                failed_attempts: user.login_attempts,
+                is_locked,
+            }
+        })
+        .collect();
 
     let response = PaginatedResponse::new(users, page, limit, total_count);
     Ok(Json(response))
@@ -240,95 +243,88 @@ pub async fn admin_user_action(
     );
 
     let response = match action_request.action.as_str() {
-        "activate" => {
-            match state.database.set_user_lock_status(&user_id, false).await {
-                Ok(_) => AdminActionResponse {
-                    success: true,
-                    message: "User activated successfully".to_string(),
+        "activate" => match state.database.set_user_lock_status(&user_id, false).await {
+            Ok(_) => AdminActionResponse {
+                success: true,
+                message: "User activated successfully".to_string(),
+                user_data: None,
+            },
+            Err(e) => {
+                warn!("Failed to activate user {}: {}", user_id, e);
+                AdminActionResponse {
+                    success: false,
+                    message: "Failed to activate user".to_string(),
                     user_data: None,
-                },
-                Err(e) => {
-                    warn!("Failed to activate user {}: {}", user_id, e);
-                    AdminActionResponse {
-                        success: false,
-                        message: "Failed to activate user".to_string(),
-                        user_data: None,
-                    }
                 }
             }
         },
-        "deactivate" => {
-            match state.database.deactivate_user(&user_id).await {
-                Ok(_) => AdminActionResponse {
-                    success: true,
-                    message: "User deactivated successfully".to_string(),
+        "deactivate" => match state.database.deactivate_user(&user_id).await {
+            Ok(_) => AdminActionResponse {
+                success: true,
+                message: "User deactivated successfully".to_string(),
+                user_data: None,
+            },
+            Err(e) => {
+                warn!("Failed to deactivate user {}: {}", user_id, e);
+                AdminActionResponse {
+                    success: false,
+                    message: "Failed to deactivate user".to_string(),
                     user_data: None,
-                },
-                Err(e) => {
-                    warn!("Failed to deactivate user {}: {}", user_id, e);
-                    AdminActionResponse {
-                        success: false,
-                        message: "Failed to deactivate user".to_string(),
-                        user_data: None,
-                    }
                 }
             }
         },
-        "verify_email" => {
-            match state.database.admin_verify_email(&user_id).await {
-                Ok(_) => AdminActionResponse {
-                    success: true,
-                    message: "Email verified successfully".to_string(),
+        "verify_email" => match state.database.admin_verify_email(&user_id).await {
+            Ok(_) => AdminActionResponse {
+                success: true,
+                message: "Email verified successfully".to_string(),
+                user_data: None,
+            },
+            Err(e) => {
+                warn!("Failed to verify email for user {}: {}", user_id, e);
+                AdminActionResponse {
+                    success: false,
+                    message: "Failed to verify email".to_string(),
                     user_data: None,
-                },
-                Err(e) => {
-                    warn!("Failed to verify email for user {}: {}", user_id, e);
-                    AdminActionResponse {
-                        success: false,
-                        message: "Failed to verify email".to_string(),
-                        user_data: None,
-                    }
                 }
             }
         },
-        "unlock_account" => {
-            match state.database.set_user_lock_status(&user_id, false).await {
-                Ok(_) => AdminActionResponse {
-                    success: true,
-                    message: "Account unlocked successfully".to_string(),
+        "unlock_account" => match state.database.set_user_lock_status(&user_id, false).await {
+            Ok(_) => AdminActionResponse {
+                success: true,
+                message: "Account unlocked successfully".to_string(),
+                user_data: None,
+            },
+            Err(e) => {
+                warn!("Failed to unlock account for user {}: {}", user_id, e);
+                AdminActionResponse {
+                    success: false,
+                    message: "Failed to unlock account".to_string(),
                     user_data: None,
-                },
-                Err(e) => {
-                    warn!("Failed to unlock account for user {}: {}", user_id, e);
-                    AdminActionResponse {
-                        success: false,
-                        message: "Failed to unlock account".to_string(),
-                        user_data: None,
-                    }
                 }
             }
         },
-        "lock_account" => {
-            match state.database.set_user_lock_status(&user_id, true).await {
-                Ok(_) => AdminActionResponse {
-                    success: true,
-                    message: "Account locked successfully".to_string(),
+        "lock_account" => match state.database.set_user_lock_status(&user_id, true).await {
+            Ok(_) => AdminActionResponse {
+                success: true,
+                message: "Account locked successfully".to_string(),
+                user_data: None,
+            },
+            Err(e) => {
+                warn!("Failed to lock account for user {}: {}", user_id, e);
+                AdminActionResponse {
+                    success: false,
+                    message: "Failed to lock account".to_string(),
                     user_data: None,
-                },
-                Err(e) => {
-                    warn!("Failed to lock account for user {}: {}", user_id, e);
-                    AdminActionResponse {
-                        success: false,
-                        message: "Failed to lock account".to_string(),
-                        user_data: None,
-                    }
                 }
             }
         },
         "change_role" => {
-            if let Some(new_role) = action_request.parameters.as_ref()
+            if let Some(new_role) = action_request
+                .parameters
+                .as_ref()
                 .and_then(|p| p.get("role"))
-                .and_then(|r| r.as_str()) {
+                .and_then(|r| r.as_str())
+            {
                 match state.database.update_user_role(&user_id, new_role).await {
                     Ok(_) => AdminActionResponse {
                         success: true,
@@ -351,7 +347,7 @@ pub async fn admin_user_action(
                     user_data: None,
                 }
             }
-        },
+        }
         _ => AdminActionResponse {
             success: false,
             message: "Unknown action".to_string(),
@@ -489,7 +485,10 @@ pub async fn search_users(
     let page = params.page.unwrap_or(1);
     let limit = params.limit.unwrap_or(20);
 
-    debug!("Searching users with query: {} - page: {}, limit: {}", search_query, page, limit);
+    debug!(
+        "Searching users with query: {} - page: {}, limit: {}",
+        search_query, page, limit
+    );
 
     if search_query.is_empty() {
         // If no search query, return empty results
@@ -498,7 +497,11 @@ pub async fn search_users(
     }
 
     // Search users in database
-    let db_users = match state.database.search_users(&search_query, page, limit).await {
+    let db_users = match state
+        .database
+        .search_users(&search_query, page, limit)
+        .await
+    {
         Ok(users) => users,
         Err(e) => {
             warn!("Failed to search users: {}", e);
@@ -507,21 +510,24 @@ pub async fn search_users(
     };
 
     // Convert to UserManagement format
-    let users: Vec<UserManagement> = db_users.into_iter().map(|user| {
-        let is_locked = user.is_locked();
-        UserManagement {
-            user_id: user.user_id,
-            email: user.email,
-            full_name: format!("{} {}", user.first_name, user.last_name),
-            role: user.role.to_string(),
-            is_active: user.is_active,
-            email_verified: user.email_verified,
-            last_login: user.last_login.map(|dt| dt.to_rfc3339()),
-            created_at: user.created_at.to_rfc3339(),
-            failed_attempts: user.login_attempts,
-            is_locked,
-        }
-    }).collect();
+    let users: Vec<UserManagement> = db_users
+        .into_iter()
+        .map(|user| {
+            let is_locked = user.is_locked();
+            UserManagement {
+                user_id: user.user_id,
+                email: user.email,
+                full_name: format!("{} {}", user.first_name, user.last_name),
+                role: user.role.to_string(),
+                is_active: user.is_active,
+                email_verified: user.email_verified,
+                last_login: user.last_login.map(|dt| dt.to_rfc3339()),
+                created_at: user.created_at.to_rfc3339(),
+                failed_attempts: user.login_attempts,
+                is_locked,
+            }
+        })
+        .collect();
 
     // For simplicity, use the count of returned results as total
     // In a real implementation, you'd want a separate count query

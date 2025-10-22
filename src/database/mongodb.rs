@@ -586,20 +586,24 @@ impl AuthDatabase for MongoDatabase {
         let filter = doc! { "email_verified": true };
         match self.users.count_documents(filter).await {
             Ok(count) => Ok(count),
-            Err(e) => Err(UserError::Database(format!("Failed to count verified users: {e}"))),
+            Err(e) => Err(UserError::Database(format!(
+                "Failed to count verified users: {e}"
+            ))),
         }
     }
 
     async fn count_active_users(&self) -> Result<u64, UserError> {
         // Consider users active if they logged in within the last 30 days
         let thirty_days_ago = Utc::now() - chrono::Duration::days(30);
-        let filter = doc! { 
+        let filter = doc! {
             "last_login": { "$gte": mongodb::bson::DateTime::from_system_time(thirty_days_ago.into()) },
-            "is_active": true 
+            "is_active": true
         };
         match self.users.count_documents(filter).await {
             Ok(count) => Ok(count),
-            Err(e) => Err(UserError::Database(format!("Failed to count active users: {e}"))),
+            Err(e) => Err(UserError::Database(format!(
+                "Failed to count active users: {e}"
+            ))),
         }
     }
 
@@ -607,7 +611,9 @@ impl AuthDatabase for MongoDatabase {
         let filter = doc! { "role": "admin" };
         match self.users.count_documents(filter).await {
             Ok(count) => Ok(count),
-            Err(e) => Err(UserError::Database(format!("Failed to count admin users: {e}"))),
+            Err(e) => Err(UserError::Database(format!(
+                "Failed to count admin users: {e}"
+            ))),
         }
     }
 
@@ -620,17 +626,20 @@ impl AuthDatabase for MongoDatabase {
             .build();
 
         match self.users.find(doc! {}).with_options(find_options).await {
-            Ok(cursor) => {
-                match cursor.try_collect().await {
-                    Ok(users) => Ok(users),
-                    Err(e) => Err(UserError::Database(format!("Failed to collect users: {e}"))),
-                }
-            }
+            Ok(cursor) => match cursor.try_collect().await {
+                Ok(users) => Ok(users),
+                Err(e) => Err(UserError::Database(format!("Failed to collect users: {e}"))),
+            },
             Err(e) => Err(UserError::Database(format!("Failed to list users: {e}"))),
         }
     }
 
-    async fn search_users(&self, query: &str, page: u32, limit: u32) -> Result<Vec<User>, UserError> {
+    async fn search_users(
+        &self,
+        query: &str,
+        page: u32,
+        limit: u32,
+    ) -> Result<Vec<User>, UserError> {
         let skip = ((page - 1) * limit) as u64;
         let find_options = mongodb::options::FindOptions::builder()
             .skip(skip)
@@ -648,12 +657,12 @@ impl AuthDatabase for MongoDatabase {
         };
 
         match self.users.find(filter).with_options(find_options).await {
-            Ok(cursor) => {
-                match cursor.try_collect().await {
-                    Ok(users) => Ok(users),
-                    Err(e) => Err(UserError::Database(format!("Failed to collect search results: {e}"))),
-                }
-            }
+            Ok(cursor) => match cursor.try_collect().await {
+                Ok(users) => Ok(users),
+                Err(e) => Err(UserError::Database(format!(
+                    "Failed to collect search results: {e}"
+                ))),
+            },
             Err(e) => Err(UserError::Database(format!("Failed to search users: {e}"))),
         }
     }

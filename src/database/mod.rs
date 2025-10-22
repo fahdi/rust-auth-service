@@ -127,7 +127,12 @@ pub trait AuthDatabase: Send + Sync {
     async fn list_users(&self, page: u32, limit: u32) -> Result<Vec<User>, UserError>;
 
     /// Search users by email or name
-    async fn search_users(&self, query: &str, page: u32, limit: u32) -> Result<Vec<User>, UserError>;
+    async fn search_users(
+        &self,
+        query: &str,
+        page: u32,
+        limit: u32,
+    ) -> Result<Vec<User>, UserError>;
 
     /// Get user by ID for admin purposes
     async fn get_user_for_admin(&self, user_id: &str) -> Result<Option<User>, UserError>;
