@@ -10,12 +10,12 @@ pub mod rate_limit;
 pub mod server;
 pub mod validator;
 
-use auth::AuthConfig;
-use cache::CacheConfig;
-use database::DatabaseConfig;
-use email::EmailConfig;
-use rate_limit::RateLimitConfig;
-use server::ServerConfig;
+pub use auth::AuthConfig;
+pub use cache::{CacheConfig, RedisConfig};
+pub use database::{DatabaseConfig, PoolConfig};
+pub use email::EmailConfig;
+pub use rate_limit::RateLimitConfig;
+pub use server::ServerConfig;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {

@@ -11,7 +11,6 @@ use rust_auth_service::database::{create_database, AuthDatabase};
 
 /// Comprehensive authentication flow integration tests
 /// Tests end-to-end authentication scenarios across all security build configurations
-
 const TEST_SERVICE_URL: &str = "http://localhost:8090";
 
 #[derive(Clone)]

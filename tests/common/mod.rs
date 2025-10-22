@@ -1,3 +1,5 @@
+#![allow(unused_imports, dead_code)]
+
 use anyhow::Result;
 use std::sync::Arc;
 use tokio::sync::OnceCell;
@@ -51,7 +53,7 @@ pub async fn cleanup_test_databases() -> Result<()> {
 
 /// Test result assertion helpers
 pub mod assertions {
-    use crate::models::user::{User, UserError};
+    use rust_auth_service::models::user::{User, UserError};
 
     pub fn assert_user_equals(actual: &User, expected: &User) {
         assert_eq!(actual.email, expected.email);

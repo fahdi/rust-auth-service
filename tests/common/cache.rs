@@ -5,7 +5,7 @@ use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
 
 use rust_auth_service::cache::{
-    create_cache_provider, CacheProvider, CacheService, CacheStats, MemoryCache, MultiLevelCache,
+    CacheProvider, MemoryCache, MultiLevelCache,
     RedisCache,
 };
 use rust_auth_service::config::{CacheConfig, RedisConfig};
