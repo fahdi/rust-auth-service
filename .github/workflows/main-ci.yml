@@ -190,6 +190,12 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y postgresql-client redis-tools
         
+        # Install MongoDB shell (mongosh)
+        wget -qO - https://www.mongodb.org/static/pgp/server-7.0.asc | sudo apt-key add -
+        echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+        sudo apt-get update
+        sudo apt-get install -y mongodb-mongosh
+        
     - name: Wait for services
       run: |
         timeout 60s bash -c 'until redis-cli -h localhost -p 6379 ping; do sleep 1; done'
