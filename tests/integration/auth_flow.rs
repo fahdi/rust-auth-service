@@ -104,8 +104,7 @@ impl AuthTestContext {
             "Auth service not available at {} after {} attempts",
             self.base_url,
             max_attempts
-        )
-        .into())
+        ))
     }
 
     async fn cleanup_user(&self, email: &str) {

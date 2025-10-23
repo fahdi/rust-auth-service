@@ -75,6 +75,12 @@ impl Default for TestConfig {
     }
 }
 
+impl Default for IntegrationTestFramework {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl IntegrationTestFramework {
     /// Create new integration test framework
     pub fn new() -> Self {

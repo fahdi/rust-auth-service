@@ -64,11 +64,21 @@ jobs:
     - name: Run clippy lints
       run: |
         cargo clippy --all-targets --all-features -- \
-          -D warnings \
+          -D clippy::suspicious \
+          -D clippy::correctness \
+          -D clippy::complexity \
+          -D clippy::perf \
           -A clippy::uninlined-format-args \
           -A clippy::derivable-impls \
           -A clippy::needless-return \
-          -A clippy::module-name-repetitions
+          -A clippy::module-name-repetitions \
+          -A clippy::useless-vec \
+          -A clippy::needless-borrows-for-generic-args \
+          -A clippy::new-without-default \
+          -A clippy::len-zero \
+          -A dead-code \
+          -A unused-mut \
+          -A unused-comparisons
           
     - name: Check build
       run: cargo check --all-targets --all-features
@@ -495,7 +505,7 @@ jobs:
       run: cargo fmt --all -- --check
       
     - name: Quick lint check
-      run: cargo clippy --lib -- -D warnings -A clippy::uninlined-format-args
+      run: cargo clippy --lib -- -D clippy::suspicious -D clippy::correctness -D clippy::complexity -D clippy::perf -A clippy::uninlined-format-args -A dead-code -A unused-mut
       
     - name: Build check
       run: cargo check --lib

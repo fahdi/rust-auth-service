@@ -121,7 +121,7 @@ async fn test_email_verification_invalid_tokens() -> Result<()> {
 
     let uuid_string = Uuid::new_v4().to_string();
     let long_string = "a".repeat(100);
-    let invalid_tokens = vec![
+    let invalid_tokens = [
         "",                    // Empty token
         "invalid_token",       // Simple invalid token
         "expired_token_12345", // Fake expired token

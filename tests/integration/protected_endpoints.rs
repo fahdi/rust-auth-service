@@ -82,7 +82,7 @@ async fn test_invalid_token_access_to_protected_endpoints() -> Result<()> {
         return Ok(());
     }
 
-    let invalid_tokens = vec![
+    let invalid_tokens = [
         "invalid_token",
         "expired.jwt.token",
         "malformed-token",

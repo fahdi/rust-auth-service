@@ -446,7 +446,7 @@ mod invalidation_integration {
         // Initial cache warming with user data
         // let users = TestFixtures::bulk_users(10);  // Temporarily disabled due to model mismatches
         // let users = vec![];  // Simplified for now
-        let mut cache_keys: Vec<String> = Vec::new();
+        let cache_keys: Vec<String> = Vec::new();
 
         // Temporarily disabled user warming due to model mismatches
         // for (i, user) in users.iter().enumerate() {

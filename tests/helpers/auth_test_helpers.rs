@@ -631,7 +631,7 @@ pub struct DatabaseCleanup;
 impl DatabaseCleanup {
     /// Clean up test users by email patterns
     pub async fn cleanup_test_users(
-        _db: &Box<dyn rust_auth_service::database::AuthDatabase>,
+        _db: &dyn rust_auth_service::database::AuthDatabase,
         pattern: &str,
     ) {
         // This would require accessing the database directly
@@ -641,7 +641,7 @@ impl DatabaseCleanup {
 
     /// Clean up users created in a specific time range
     pub async fn cleanup_users_in_timerange(
-        _db: &Box<dyn rust_auth_service::database::AuthDatabase>,
+        _db: &dyn rust_auth_service::database::AuthDatabase,
         start: std::time::SystemTime,
         end: std::time::SystemTime,
     ) {

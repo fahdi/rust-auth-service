@@ -183,7 +183,7 @@ async fn test_password_reset_invalid_tokens() -> Result<()> {
     let new_password = "ValidNewPassword123!";
     let uuid_token = Uuid::new_v4().to_string();
     let long_token = "a".repeat(200);
-    let invalid_tokens = vec![
+    let invalid_tokens = [
         "",                    // Empty token
         "invalid_reset_token", // Simple invalid token
         "expired_token_12345", // Fake expired token
@@ -278,7 +278,7 @@ async fn test_password_reset_invalid_passwords() -> Result<()> {
 
     // Test valid passwords should work (if reset is implemented)
     let valid_passwords = ValidationTestUtils::valid_passwords();
-    for valid_password in valid_passwords {
+    if let Some(valid_password) = valid_passwords.into_iter().next() {
         let reset_result = framework
             .client
             .reset_password(&reset_token, valid_password)
@@ -286,11 +286,9 @@ async fn test_password_reset_invalid_passwords() -> Result<()> {
         match reset_result {
             Ok(_) => {
                 println!("✅ Valid password accepted");
-                break; // Only test one valid password to avoid token reuse issues
             }
             Err(_) => {
                 println!("ℹ️ Password reset failed (tokens may not be implemented)");
-                break;
             }
         }
     }

@@ -602,7 +602,7 @@ async fn test_with_email_mock_container() -> Result<()> {
         // Test mock server
         let client = reqwest::Client::new();
         let health_response = client
-            .get(&format!("{}/health", email_endpoint))
+            .get(format!("{}/health", email_endpoint))
             .send()
             .await?;
 
@@ -616,7 +616,7 @@ async fn test_with_email_mock_container() -> Result<()> {
         });
 
         let send_response = client
-            .post(&format!("{}/send", email_endpoint))
+            .post(format!("{}/send", email_endpoint))
             .json(&email_data)
             .send()
             .await?;
@@ -625,13 +625,13 @@ async fn test_with_email_mock_container() -> Result<()> {
 
         // Verify email was received
         let emails_response = client
-            .get(&format!("{}/emails", email_endpoint))
+            .get(format!("{}/emails", email_endpoint))
             .send()
             .await?;
 
         assert!(emails_response.status().is_success());
         let emails: serde_json::Value = emails_response.json().await?;
-        assert!(emails.as_array().unwrap().len() > 0);
+        assert!(!emails.as_array().unwrap().is_empty());
 
         println!("✅ Email mock container test completed");
         Ok(())

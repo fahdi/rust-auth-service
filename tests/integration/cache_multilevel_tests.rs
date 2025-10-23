@@ -321,7 +321,8 @@ mod multilevel_integration {
 
         // Stats should be available
         let stats = multi_cache.stats().await?;
-        assert!(stats.total_operations() >= 0);
+        #[allow(clippy::absurd_extreme_comparisons)]
+        let _ = stats.total_operations() >= 0; // Always true for unsigned types
 
         // Cleanup
         multi_cache.delete("resilience_key").await?;
